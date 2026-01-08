@@ -9,7 +9,7 @@ export default defineConfig({
       // Proxy all API requests under /api to the Laravel backend during development
       // Requests to /api/... will be forwarded to http://localhost:8000/... (rewritten)
       '/api': {
-        target: 'http://192.168.68.79:8000',
+        target: 'http://192.168.0.100:8000',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '/api'),
