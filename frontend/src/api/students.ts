@@ -21,7 +21,7 @@ export const getApplicantsReport = async (): Promise<TotalApplicantsPayload> => 
     return request.data;
 }
     
-export const getStudents = async (): Promise<Students[]> => {
+export const getStudents = async (): Promise< {queue: Students[], history: Students[] }> => {
     const request = await api.get('/students');
     return request.data;
 }
