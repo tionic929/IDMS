@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ApplicationSubmitted;
+
 use App\Models\Applicant as Student;
 
 use Illuminate\Http\Request;
@@ -15,14 +17,28 @@ class ApplicantsController extends Controller
 {
     public function index()
     {
-        $students = Student::all()->map(function ($student) {
+        $queue = Student::where('has_card', false)
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        $history = Student::where('has_card', true)
+            ->orderBy('updated_at', 'desc')
+            ->take(10)
+            ->get();
+        
+        return response()->json([
+            'queue' => $this->formatStudents($queue),
+            'history' => $this->formatStudents($history)
+        ], 200);
+    }   
+
+    private function formatStudents($collection){
+        return $collection->map(function ($student) {
             $student->formatted_date = $student->created_at->format('M d, Y'); 
             $student->formatted_time = $student->created_at->format('g:i A');  
             return $student;
         });
-
-        return response()->json($students, 200);
-    }   
+    }
 
     public function store(Request $request)
     {
@@ -48,7 +64,7 @@ class ApplicantsController extends Controller
                 ? $request->file('signature_picture')->store('students/signatures', 'public')
                 : null;
 
-            Student::create([
+            $student = Student::create([
                 'id_number' => strtoupper($validated['idNumber']),
                 'first_name' => strtoupper($validated['firstName']),
                 'middle_initial' => strtoupper($validated['middleInitial'] ?? ''),
@@ -60,6 +76,10 @@ class ApplicantsController extends Controller
                 'id_picture' => $idPath,
                 'signature_picture' => $sigPath,
             ]);
+
+            \Log::info('Attempting to broadcast ApplicationSubmitted for Student ID: ' . $student->id);
+        
+            broadcast(new ApplicationSubmitted($student))->toOthers();
 
             return response()->json(['message' => 'Student saved successfully'], 201);
 

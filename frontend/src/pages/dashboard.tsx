@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { echo } from '../echo';
 import axios from 'axios';
 import { 
   Users, Search, Edit3, Trash2, ChevronUp, ChevronDown, 
@@ -8,42 +9,37 @@ import {
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
-import { confirmApplicant } from '../api/students';
+import { confirmApplicant, getStudents } from '../api/students';
+import type { Students } from '../types/students';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
-
-interface Student {
-  id: number;
-  id_number: string;
-  first_name: string;
-  middle_initial: string;
-  last_name: string;
-  course: string;
-  address: string;
-  guardian_name: string;
-  guardian_contact: string;
-  id_picture?: string | null;
-  signature_picture?: string | null;
-  created_at: string;
-}
 
 type SortKey = 'created_at' | 'id_number' | 'name';
 
 const Dashboard: React.FC = () => {
-  const [allStudents, setAllStudents] = useState<Student[]>([]);
-  const [student, setStudent] = useState<Student | null>(null);
+  const [allStudents, setAllStudents] = useState<Students[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+
+  const queueCount = useMemo(() => 
+    allStudents.filter(s => !s.has_card).length, [allStudents]
+  );
   
   const handleExport = async (studentId: number) => {
     setLoading(true);
     try{
       await confirmApplicant(studentId);
+
+      setAllStudents(prev => prev.map(s =>
+        s.id === studentId ? { ...s, has_card: true} : s
+      ));
+
       toast.success("Successfully added to the Excel DB");
     } catch (error) {
-      toast.warn("Cannot confirm applicant: ");
+      toast.warn("Confirmation Failed");
     } finally {
       setLoading(false);
     }
@@ -52,8 +48,9 @@ const Dashboard: React.FC = () => {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/students');
-      setAllStudents(response.data);
+      const response = await getStudents();
+      const combined = [...(response.queue || []), ...(response.history || [])]; 
+      setAllStudents(combined);
     } catch (error) {
       toast.error("Failed to fetch records");
     } finally {
@@ -61,11 +58,32 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchStudents(); }, []);
+  useEffect(() => {
+    fetchStudents(); 
+
+    const channel = echo.channel('dashboard')
+      .listen('.new-submission', (data: { student: Students }) => {
+        console.log('New Applicant:', data.student);
+
+        setAllStudents((prev: Students[]): Students[] => {
+          if (prev.find(s => s.id === data.student.id)) {
+            return prev;
+          }
+          return [data.student, ...prev];
+        });
+        toast.success(`New Entry: ${data.student.id_number}`);
+      });
+
+      return () => {
+        channel.stopListening('.new-submission');
+      };
+  }, []);
 
   const latestStudent = useMemo(() => {
-    return [...allStudents].sort((a, b) => 
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    const pending = allStudents.filter(s => !s.has_card);
+
+    return [...pending].sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     )[0] || null;
   }, [allStudents]);
 
@@ -160,7 +178,7 @@ const Dashboard: React.FC = () => {
               Card Records <span className="text-teal-500">Dashboard</span>
             </h1>
           </div>
-          <StatBox label="System Status" value="Online" isStatus />
+          <StatBox label="Waiting in Line" value={queueCount.toString()} />
         </header>
 
         {/* LATEST ENTRY HERO */}

@@ -57,7 +57,7 @@ def remove_bg():
 
     file = request.files['image']
     THRESHOLD = 128
-    SOFTNESS_FACTOR = 1.5
+    SOFTNESS_FACTOR = .5
     FILL_HOLES = True
 
     try:
