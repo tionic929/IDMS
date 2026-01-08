@@ -217,10 +217,10 @@ const SubmitDetails: React.FC = () => {
                   label="ID Number" 
                   value={form.idNumber} 
                   onChange={(v: string) => setForm({...form, idNumber: v})} 
-                  placeholder="22002210" 
+                  placeholder="type your id number here" 
                   status={verificationStatus}
                 />
-                <ScalingSelect label="Course" value={form.course} onChange={(v: string) => setForm({...form, course: v})} options={["MAED", "CIT", "COLA", "COGE", "COC", "CABA", "CON", "COED", "BEC", "COHM"]} />
+                <ScalingInput label="Course" value={form.course} onChange={(v: string) => setForm({...form, firstName: v})}/>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mt-4">
@@ -327,6 +327,7 @@ const ScalingInput = ({ label, value, onChange, placeholder = "", isTextArea = f
                 status === 'invalid' ? 'border-rose-500 focus:ring-rose-50' : 
                 'border-slate-200 focus:ring-teal-50 focus:border-teal-500'
             }`} 
+            disabled
           />
           {status === 'valid' && <CheckCircle2 className="absolute right-6 top-1/2 -translate-y-1/2 text-emerald-500" size={20} />}
           {status === 'invalid' && <AlertCircle className="absolute right-6 top-1/2 -translate-y-1/2 text-rose-500" size={20} />}

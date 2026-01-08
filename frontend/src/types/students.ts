@@ -1,18 +1,20 @@
 export interface Students{
-    id: number,
-    has_card: boolean,
-    id_number: string,
-    first_name: string,
-    middle_initial: string,
-    last_name: string,
-    course: string,
-    address: string,
-    guardian_name: string,
-    guardian_contact: string,
-    id_picture: string,
-    signature_picture: string,
-    formatted_time: number,
-    formatted_date: number,
+    id: number;
+    has_card: boolean;
+    id_number: string;
+    first_name: string;
+    middle_initial: string;
+    last_name: string;
+    course: string;
+    address: string;
+    guardian_name: string;
+    guardian_contact: string;
+    id_picture: string;
+    signature_picture: string;
+    formatted_time: string;
+    formatted_date: string;
+    created_at: string;
+    updated_at?: string;
 }
 
 export interface StudentResponse{
