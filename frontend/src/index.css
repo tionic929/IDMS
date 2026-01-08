@@ -1,0 +1,33 @@
+
+.scroll-hidden {
+	scrollbar-width: none; /* Firefox */
+}
+.scroll-hidden::-webkit-scrollbar {
+	display: none; /* Chrome, Edge, Safari */
+}
+
+/* Custom Scrollbar Design */
+::-webkit-scrollbar {
+  width: 6px; /* Vertical scrollbar width */
+  height: 6px; /* Horizontal scrollbar height */
+}
+
+::-webkit-scrollbar-track {
+  background: transparent; 
+}
+
+::-webkit-scrollbar-thumb {
+  background: #e2e8f0; /* slate-200 */
+  border-radius: 20px;
+  border: 2px solid transparent; /* Creates a 'floating' effect */
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6366f1; /* indigo-500 */
+  background-clip: content-box;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
