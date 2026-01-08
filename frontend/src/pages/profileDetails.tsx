@@ -327,7 +327,7 @@ const ScalingInput = ({ label, value, onChange, placeholder = "", isTextArea = f
                 status === 'invalid' ? 'border-rose-500 focus:ring-rose-50' : 
                 'border-slate-200 focus:ring-teal-50 focus:border-teal-500'
             }`} 
-            disabled
+            // disabled
           />
           {status === 'valid' && <CheckCircle2 className="absolute right-6 top-1/2 -translate-y-1/2 text-emerald-500" size={20} />}
           {status === 'invalid' && <AlertCircle className="absolute right-6 top-1/2 -translate-y-1/2 text-rose-500" size={20} />}

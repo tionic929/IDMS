@@ -118,7 +118,7 @@ class ApplicantsController extends Controller
             mkdir($directory, 0755, true);
         }
 
-        $path = $directory . '/' . $courseName . '.xlsx';
+        $path = $directory . '/' . $courseName . '/' . $courseName . '.xlsx';
 
         if (file_exists($path)) {
             $spreadsheet = IOFactory::load($path);
