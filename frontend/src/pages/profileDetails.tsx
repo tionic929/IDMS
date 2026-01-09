@@ -68,6 +68,8 @@ const SubmitDetails: React.FC = () => {
   };
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>, field: 'id_picture' | 'signature_picture') => {
+    const targetUrl = field === 'id_picture' ? REMOVE_BG_API_URL : SCAN_SIGNATURE_API_URL;
+    console.log("Attempting upload to:", targetUrl); // If this says "undefined", move your .env file
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -101,10 +103,16 @@ const SubmitDetails: React.FC = () => {
             const processedSig = new File([response.data], "signature_cleaned.png", { type: "image/png" });
             setForm(prev => ({ ...prev, signature_picture: processedSig }));
         }
-    } catch (err) {
-        console.error(`${field} processing failed:`, err);
-        setForm(prev => ({ ...prev, [field]: file }));
-    } finally {
+        } catch (err: any) {
+            console.error(`${field} processing failed:`, err);
+            
+            // Add this to see the EXACT error on your phone/browser
+            const status = err.response?.status;
+            const errorData = err.response?.data?.error || err.message;
+            alert(`Upload Failed (${status}): ${errorData}`);
+
+            setForm(prev => ({ ...prev, [field]: file }));
+        } finally {
         setIsProcessingId(false);
         setIsProcessingSig(false);
     }

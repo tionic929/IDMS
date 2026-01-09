@@ -52,8 +52,8 @@ class ApplicantsController extends Controller
                 'address' => 'required|string',
                 'guardianName' => 'required|string|max:255',
                 'guardianContact' => 'required|string|max:20',
-                'id_picture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-                'signature_picture' => 'nullable|image|mimes:jpeg,png,jpg|max:8192',
+                'id_picture' => 'nullable|file|mimes:jpeg,png,jpg|max:10240',
+                'signature_picture' => 'nullable|image|mimes:jpeg,png,jpg|max:10240',
             ]);
 
             $idPath = $request->hasFile('id_picture')

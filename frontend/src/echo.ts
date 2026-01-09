@@ -7,7 +7,7 @@ import axios from 'axios';
 
 // 1. Setup Axios to handle Cookies & CSRF automatically
 const axiosInstance = axios.create({
-    baseURL: 'http://192.168.68.79:8000', // Ensure this matches your API URL
+    baseURL: 'http://192.168.68.73:8000', // Ensure this matches your API URL
     withCredentials: true, // CRITICAL: Sends cookies/session to backend
     headers: {
         'X-Requested-With': 'XMLHttpRequest',
@@ -17,7 +17,7 @@ const axiosInstance = axios.create({
 
 export const echo = new Echo({
     broadcaster: 'pusher',
-    key: '401ae79568ea4d18c74f',
+    key: '8ab3fd2507e36c73c8ad',
     cluster: 'ap1',
     forceTLS: true,
     encrypted: true,
