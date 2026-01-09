@@ -1,115 +1,116 @@
+import os
+import io
+import time
+import cv2
+import numpy as np
+import torch
+import threading
 from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
 from rembg import remove, new_session
-from PIL import Image, ImageFilter
-import io
-import numpy as np
-import cv2
-import threading
-import onnxruntime as ort
-import os
+from PIL import Image
+from waitress import serve
 
-# -----------------------------
-# Flask app setup
-# -----------------------------
+# Real-ESRGAN & Face Restoration imports
+from realesrgan import RealESRGANer
+from basicsr.archs.rrdbnet_arch import RRDBNet
+from gfpgan import GFPGANer
+ 
 app = Flask(__name__)
 CORS(app)
 
-# -----------------------------
-# Max image dimension for speed
-# -----------------------------
-MAX_DIM = 1024
+OUTPUT_DIR = "upscaled_outputs"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# -----------------------------
-# Model session (load asynchronously)
-# -----------------------------
-session = None
+# Global model variables
+upsampler = None
+face_restorer = None
+rembg_session = None
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-def load_model():
-    global session
-    print("Loading U2Net model...")
-    # Explicitly try to use GPU providers
-    providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-    session = new_session("u2net_human_seg", providers=providers)
-    print(f"✅ Model loaded using: {session.inner_session.get_providers()}")
+def init_models():
+    global upsampler, face_restorer, rembg_session
+    print(f"--- Booting High-End AI Engine on {device} ---")
 
-# Start model loading in background
-threading.Thread(target=load_model, daemon=True).start()
+    # Path to your local weights
+    # Using absolute paths to avoid any "file not found" issues
+    realesrgan_path = os.path.join(os.getcwd(), 'weights', 'RealESRGAN_x2plus.pth')
+    gfpgan_path = os.path.join(os.getcwd(), 'weights', 'GFPGANv1.3.pth')
 
-# -----------------------------
-# Check for GPU
-# -----------------------------
-gpu_available = any("CUDA" in p.upper() for p in ort.get_available_providers())
-print("ONNX Runtime GPU available:", gpu_available)
-print("Available providers:", ort.get_available_providers())
+    # 1. Setup Real-ESRGAN
+    model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
+    
+    upsampler = RealESRGANer(
+        scale=2,
+        model_path=realesrgan_path, # Point to local file
+        model=model,
+        tile=400,
+        tile_pad=10,
+        pre_pad=0,
+        half=True if device == 'cuda' else False,
+        device=device
+    )
 
-# -----------------------------
-# /remove-bg endpoint
-# -----------------------------
+    # 2. Setup GFPGAN
+    face_restorer = GFPGANer(
+        model_path=gfpgan_path, # Point to local file
+        upscale=2,
+        arch='clean',
+        channel_multiplier=2,
+        bg_upsampler=upsampler,
+        device=device
+    )
+
+    # 3. Setup RemBG
+    providers = [('CUDAExecutionProvider', {'device_id': 0}), 'CPUExecutionProvider']
+    rembg_session = new_session("isnet-general-use", providers=providers)
+    
+    print("--- All Models Loaded Locally (No Internet Needed) ---")
+
+threading.Thread(target=init_models, daemon=True).start()
+
 @app.route('/remove-bg', methods=['POST'])
-def remove_bg():
-    global session
-    if session is None:
-        return jsonify({"error": "Model is still loading, please try again shortly."}), 503
+def process_image():
 
-    if 'image' not in request.files:
-        return jsonify({"error": "No image uploaded"}), 400
-
-    file = request.files['image']
-    THRESHOLD = 128
-    SOFTNESS_FACTOR = .5
-    FILL_HOLES = True
+    print(f"--- Received request from {request.remote_addr} ---")
+    
+    if upsampler is None:
+        return jsonify({"error": "AI models are still downloading/loading..."}), 503
 
     try:
-        input_data = file.read()
-        original_img = Image.open(io.BytesIO(input_data)).convert("RGBA")
+        # 1. Read Image
+        file_bytes = np.frombuffer(request.files['image'].read(), np.uint8)
+        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-        # Resize large images to MAX_DIM for speed
-        original_img.thumbnail((MAX_DIM, MAX_DIM), Image.LANCZOS)
+        # 2. AI Restoration (Upscale + Face Fix)
+        # face_restorer uses upsampler for the background and GFPGAN for faces
+        _, _, restored_img = face_restorer.enhance(img, has_aligned=False, only_center_face=False, paste_back=True)
+
+        # 3. Save the restored version locally
+        timestamp = int(time.time())
+        restored_path = os.path.join(OUTPUT_DIR, f"restored_{timestamp}.png")
+        cv2.imwrite(restored_path, restored_img)
+
+        # 4. Background Removal
+        # Convert BGR to RGB for RemBG
+        restored_rgb = cv2.cvtColor(restored_img, cv2.COLOR_BGR2RGB)
+        no_bg_img = remove(restored_rgb, session=rembg_session, alpha_matting=True)
+
+        # 5. Final output
+        final_pil = Image.fromarray(no_bg_img)
+        final_path = os.path.join(OUTPUT_DIR, f"final_{timestamp}.png")
+        final_pil.save(final_path)
+
         buf = io.BytesIO()
-        original_img.save(buf, format="PNG")
-        input_data = buf.getvalue()
-
-        # Remove background
-        output_bytes = remove(
-            input_data,
-            session=session,
-            alpha_matting=True,
-            alpha_matting_foreground_threshold=240,
-            alpha_matting_background_threshold=10,
-            alpha_matting_erode_size=10
-        )
-
-        rembg_result = Image.open(io.BytesIO(output_bytes)).convert("RGBA")
-        alpha = rembg_result.split()[3]
-
-        # Threshold alpha
-        alpha = alpha.point(lambda p: 255 if p > THRESHOLD else 0)
-
-        if FILL_HOLES:
-            alpha_np = np.array(alpha)
-            contours, _ = cv2.findContours(alpha_np, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            mask = np.zeros_like(alpha_np)
-            cv2.drawContours(mask, contours, -1, 255, thickness=cv2.FILLED)
-            alpha = Image.fromarray(mask)
-
-        if SOFTNESS_FACTOR > 0:
-            alpha = alpha.filter(ImageFilter.GaussianBlur(radius=SOFTNESS_FACTOR))
-
-        original_img.putalpha(alpha)
-
-        buffer = io.BytesIO()
-        original_img.save(buffer, format="PNG")
-        buffer.seek(0)
-
-        return send_file(buffer, mimetype='image/png')
+        final_pil.save(buf, format="PNG")
+        buf.seek(0)
+        
+        return send_file(buf, mimetype='image/png')
 
     except Exception as e:
+        print(f"Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
-# -----------------------------
-# /scan-signature endpoint
-# -----------------------------
+    
 @app.route('/scan-signature', methods=['POST'])
 def scan_signature():
     file = request.files['image'].read()
@@ -137,6 +138,4 @@ def scan_signature():
     return send_file(io.BytesIO(buffer), mimetype='image/png')
 
 if __name__ == '__main__':
-    from waitress import serve
-    print("Starting server on http://0.0.0.0:5000 ...")
-    serve(app, host='0.0.0.0', port=5000, threads=2, connection_limit=10)
+    serve(app, host='0.0.0.0', port=5000, threads=4)

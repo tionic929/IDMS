@@ -7,7 +7,7 @@ import axios from 'axios';
 
 // 1. Setup Axios to handle Cookies & CSRF automatically
 const axiosInstance = axios.create({
-    baseURL: 'http://192.168.68.79:8000', // Ensure this matches your API URL
+    baseURL: 'http://192.168.68.78:8000', // Ensure this matches your API URL
     withCredentials: true, // CRITICAL: Sends cookies/session to backend
     headers: {
         'X-Requested-With': 'XMLHttpRequest',
