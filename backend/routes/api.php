@@ -7,6 +7,7 @@ use App\Http\Controllers\UsersController;
 use App\Http\Controllers\ApplicantsController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\DepartmentsController;
+use App\Http\Controllers\LayoutController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -33,6 +34,14 @@ Route::middleware('auth:sanctum')->group(function () {
     
     Route::put('/applicant/{student}/toggle', [ApplicantsController::class, 'toggleHasCard']);
     Route::post('/confirm-applicant/{studentId}', [ApplicantsController::class, 'updateApplicantsExcelFile']);
+
+    // FOR ID CARD DESIGNER
+
+    Route::get('/applicants/{id}/card-preview', [ApplicantsController::class, 'getPreview']);
+    // Designer saves the master config here
+    Route::post('/layouts/save', [LayoutController::class, 'saveLayout']);
+    Route::get('/applicants/{id}/card/{side}', [LayoutController::class, 'getPopulatedCard']);
+    Route::get('/layouts/active', [LayoutController::class, 'getActiveLayouts']);
 
     Route::post('/import', [ReportsController::class, 'import']);
 
