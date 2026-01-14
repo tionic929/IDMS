@@ -153,7 +153,7 @@ const SideBar: React.FC = () => {
   const { logout } = useAuth();
 
   return (
-    <aside className="w-72 min-h-screen bg-slate-950 text-slate-200 flex flex-col shadow-2xl border-r border-slate-900">
+    <aside className="w-[256px] min-h-screen bg-slate-950 text-slate-200 flex flex-col shadow-2xl border-r border-slate-900">
       {/* Brand Section */}
       <div className="p-8 mb-2">
         <div className="flex items-center gap-3 group cursor-default">

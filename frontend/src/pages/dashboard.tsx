@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { echo } from '../echo';
 import { 
   Users, Search, Edit3, Trash2, ChevronUp, ChevronDown, 
-  Download, Eye, AlertCircle, Layout, Printer, RefreshCw
+  Download, Eye, AlertCircle, Layout, Printer, RefreshCw,
+  MoreVertical, CheckCircle2, XCircle
 } from 'lucide-react';
 
 import { toast } from 'react-toastify';
@@ -14,14 +15,15 @@ import { confirmApplicant, getStudents } from '../api/students';
 import type { Students } from '../types/students';
 import { type ApplicantCard } from '../types/card';
 
-// New Component
+// Components
 import IDCardPreview from '../components/IDCardPreview';
+import CardDesigner from '../components/CardDesigner';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 type SortKey = 'created_at' | 'id_number' | 'name';
 
 const Dashboard: React.FC = () => {
-  const [viewMode, setViewMode] = useState<'queue' | 'history'>('queue');
+  const [viewMode, setViewMode] = useState<'queue' | 'designer'>('queue');
   const [previewSide, setPreviewSide] = useState<'FRONT' | 'BACK'>('FRONT');
   
   const [allStudents, setAllStudents] = useState<Students[]>([]);
@@ -29,6 +31,26 @@ const Dashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const Courses: Record<string, {name: string; color: string}> = {
+    'BSGE': { name: 'BSGE', color: 'text-red-800' },
+    'BSN': { name: 'BSN', color: 'text-pink-400' },
+    'BSBA': { name: 'BSBA', color: 'text-amber-400' },
+  }
+
+  const [activeLayout, setActiveLayout] = useState({
+    front: {
+      photo: { x: 75, y: 155, width: 200, height: 180 },
+      fullName: { x: 0, y: 395 },
+      idNumber: { x: 0, y: 430 },
+      course: { x: 0, y: 455 },
+    },
+    back: {
+      signature: { x: 80, y: 320, width: 200, height: 180 },
+      guardian_name: { x: 0, y: 445 },
+    },
+    previewImages: { front: '', back: '' } 
+  });
 
   const fetchStudents = async () => {
     setLoading(true);
@@ -68,18 +90,19 @@ const Dashboard: React.FC = () => {
     )[0] || null;
   }, [allStudents]);
 
-  // --- Mapper for IDCardPreview Component ---
   const previewData = useMemo((): ApplicantCard | null => {
     if (!latestStudent) return null;
     const getUrl = (path: string | null) => 
-      !path ? null : (path.startsWith('http') ? path : `${VITE_API_URL}/storage/${path}`);
+      !path ? '' : (path.startsWith('http') ? path : `${VITE_API_URL}/storage/${path}`);
 
     return {
       fullName: `${latestStudent.first_name} ${latestStudent.last_name}`,
       idNumber: latestStudent.id_number,
       course: latestStudent.course,
-      photo: getUrl(latestStudent.id_picture) || '',
-      signature: getUrl(latestStudent.signature_picture) || ''
+      photo: getUrl(latestStudent.id_picture),
+      signature: getUrl(latestStudent.signature_picture),
+      guardianName: latestStudent.guardian_name,
+      guardianContact: latestStudent.guardian_contact
     };
   }, [latestStudent]);
 
@@ -88,8 +111,8 @@ const Dashboard: React.FC = () => {
       const query = searchTerm.toLowerCase();
       const fullName = `${s.first_name} ${s.last_name} ${s.middle_initial || ''}`.toLowerCase();
       return s.id_number.toLowerCase().includes(query) || 
-             fullName.includes(query) || 
-             s.course.toLowerCase().includes(query);
+              fullName.includes(query) || 
+              s.course.toLowerCase().includes(query);
     });
 
     return filtered.sort((a, b) => {
@@ -117,20 +140,34 @@ const Dashboard: React.FC = () => {
   };
 
   const handleExport = async (studentId: number) => {
+    if (!activeLayout.previewImages.front) {
+      toast.warn("Please save layout in Designer first to generate PNGs.");
+      return;
+    }
+    
     setLoading(true);
     try {
-      await confirmApplicant(studentId);
+      // Pass the PNG strings to your backend
+      await api.post(`/students/${studentId}/confirm`, {
+        layout_config: activeLayout,
+        front_png: activeLayout.previewImages.front,
+        back_png: activeLayout.previewImages.back
+      });
+
       setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, has_card: true } : s));
-      toast.success("Successfully added to the Excel DB");
+      toast.success("ID Saved to Database");
+      
+      // Auto-trigger print
+      setTimeout(() => window.print(), 500);
     } catch (error) {
-      toast.warn("Confirmation Failed");
+      toast.error("Process Failed");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (studentId: number) => {
-    if (!window.confirm("Delete this record?")) return;
+    if (!window.confirm("Delete this record permanently?")) return;
     try {
       await api.delete(`/students/${studentId}`);
       setAllStudents(prev => prev.filter(s => s.id !== studentId));
@@ -142,202 +179,219 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 selection:bg-teal-500/30">
-      <div className="mx-auto p-4 md:p-8 space-y-8 max-w-[1600px]">
+      <div className="mx-auto p-4 md:p-8 space-y-3">
         
         {/* HEADER */}
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-wider uppercase">
-            Card Records <span className="text-teal-500">Dashboard</span>
-          </h1>
+          <div className="space-y-1">
+            <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase italic">
+              Card <span className="text-teal-500 underline decoration-teal-500/30">Management</span>
+            </h1>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-[0.3em]">Institutional ID Printing System</p>
+          </div>
           <div className="flex items-center gap-4">
-            <StatBox label="Queue" value={queueCount.toString()} />
-            <div className="flex bg-slate-200 dark:bg-slate-900 p-1 rounded-2xl border border-slate-300 dark:border-slate-800">
+            <div className="bg-white dark:bg-slate-900 px-6 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 hidden sm:block">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Queue</p>
+               <p className="text-xl font-black text-teal-500 leading-none mt-1">{queueCount}</p>
+            </div>
+            <div className="flex bg-slate-200 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-300 dark:border-slate-800 shadow-inner">
                <button 
                 onClick={() => setViewMode('queue')}
-                className={`flex items-center gap-2 px-6 py-2 rounded-xl text-xs font-black uppercase transition-all ${viewMode === 'queue' ? 'bg-teal-500 text-white shadow-lg' : 'text-slate-500'}`}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === 'queue' ? 'bg-teal-500 text-slate-950 shadow-lg' : 'text-slate-500'}`}
               >
-                <Printer size={16} /> Queue
+                <Printer size={14} /> Records
+              </button>
+              <button 
+                onClick={() => setViewMode('designer')}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === 'designer' ? 'bg-teal-500 text-slate-950 shadow-lg' : 'text-slate-500'}`}
+              >
+                <Layout size={14} /> Designer
               </button>
             </div>
           </div>
         </header>
 
         <AnimatePresence mode="wait">
-          <motion.div key="queue" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-              
-              {/* LEFT: STUDENT DATA HERO (Using your old layout style) */}
-              <div className="xl:col-span-8">
-                {latestStudent ? (
-                  <div className="flex flex-col lg:flex-row gap-6 items-stretch">
-                    <div className="w-full lg:w-fit bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-200 dark:border-slate-800 shadow-xl flex flex-col items-center gap-8">
-                      <BiometricCard label="Photo" src={previewData?.photo} downloadName={`${latestStudent.id_number}_ID.jpg`} />
-                      <div className="w-full h-px bg-slate-100 dark:bg-slate-800" />
-                      <BiometricCard label="Signature" src={previewData?.signature} downloadName={`${latestStudent.id_number}_Sig.jpg`} isSignature />
-                    </div>
-
-                    <div className="flex-1 bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-2xl border border-slate-800 grid grid-cols-1 md:grid-cols-2">
-                      <div className="p-10 border-r border-slate-800 bg-gradient-to-br from-slate-900 to-slate-950">
-                         <span className="bg-teal-500/10 text-teal-400 border border-teal-500/20 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Next in Line</span>
-                         <h2 className="text-[3.5rem] font-black text-white leading-none mt-6">{latestStudent.id_number}</h2>
-                         <h2 className="text-4xl font-black text-white mt-4">{latestStudent.last_name}, <span className="text-teal-400">{latestStudent.first_name}</span></h2>
-                         <p className="text-xl text-slate-400 font-bold mt-4 uppercase">{latestStudent.course} Dept</p>
-                      </div>
-                      <div className="p-10 flex flex-col justify-between">
-                         <div className="space-y-6 text-white">
-                            <div>
-                              <span className="text-[10px] font-bold text-slate-500 uppercase">Emergency Contact</span>
-                              <p className="text-xl font-black">{latestStudent.guardian_name}</p>
-                              <p className="text-lg font-bold text-teal-500 font-mono">{latestStudent.guardian_contact}</p>
+          {viewMode === 'designer' ? (
+            <motion.div key="designer" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+                <CardDesigner 
+                  currentLayout={activeLayout} 
+                  allStudents={allStudents}
+                  onSave={(newLayout, previewImages) => {
+                    setActiveLayout({
+                      ...newLayout,
+                      previewImages: previewImages
+                    });
+                    setViewMode('queue');
+                    toast.success("Layout PNGs Generated & Saved");
+                  }} 
+                />
+            </motion.div>
+          ) : (
+            <motion.div key="queue" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+                
+                  {/* HERO: LIVE PRODUCTION PREVIEWS */}
+                  <div className="xl:col-span-4">
+                    {latestStudent && previewData ? (
+                      <div className="flex flex-col lg:flex-row gap-6 items-stretch">
+                        
+                        <div className="w-full lg:w-fit bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border border-slate-200 dark:border-slate-800 shadow-xl flex flex-col items-left gap-6">
+                          <div className="text-left">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Preview</p>
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-4">
+                              <IDCardPreview data={previewData} layout={activeLayout} side="FRONT" scale={.7} />
+                              <IDCardPreview data={previewData} layout={activeLayout} side="BACK" scale={.7} />
+                          </div>
+                          <div className="flex-1 w-[45vh] bg-slate-900 overflow-hidden shadow-2xl border-slate-800 grid grid-cols-1">
+                            <div className="justify-between">
+                                  <span className="text-slate-700 font-mono text-xs font-bold italic">Timestamp: {new Date(latestStudent.created_at).toLocaleTimeString()}</span>
+                                  <h2 className="text-[3rem] font-black text-teal-500 leading-none tracking-tighter italic">{latestStudent.id_number}</h2>
+                                  <h2 className="text-4xl font-black text-white uppercase tracking-tight">{latestStudent.last_name}, <span className="text-white">{latestStudent.first_name}</span></h2>
+                                  <p className={`text-4xl font-bold uppercase tracking-tightt ${
+                                    Courses[latestStudent.course as keyof typeof Courses]?.color || 'text-white'
+                                  }`}>
+                                    {Courses[latestStudent.course as keyof typeof Courses]?.name || 'General Education'}
+                                  </p>
                             </div>
-                         </div>
-                         <button onClick={() => handleExport(latestStudent.id)} className="w-full py-4 bg-teal-500 text-slate-950 rounded-2xl font-black uppercase tracking-widest hover:bg-teal-400 transition-all shadow-lg shadow-teal-500/20">
-                            Confirm Entry
-                         </button>
+                            <div className="grid grid-cols-2 gap-8 border-t border-slate-800/50">
+                              <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Emergency Name</p>
+                                <p className="text-lg font-black text-white uppercase">{latestStudent.guardian_name}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contact No.</p>
+                                <p className="text-lg text-white font-sans">{latestStudent.guardian_contact}</p>
+                              </div>
+                            </div>
+                              <div className="grid grid-cols-1">
+                                <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Address</p>
+                                <p className="text-lg text-white font-sans ">{latestStudent.address}</p>
+                              </div>
+                            </div>
+                            <button 
+                              onClick={() => handleExport(latestStudent.id)} 
+                              disabled={loading}
+                              className="w-full mt-2 py-2 bg-teal-500 text-slate-950 rounded-2xl font-black uppercase tracking-widest hover:bg-teal-400 transition-all shadow-xl shadow-teal-500/20 active:scale-95 disabled:opacity-50"
+                            >
+                              {loading ? 'Processing...' : 'Confirm & Mark as Printed'}
+                            </button>
+
+                        </div>
+                        </div>
+
+                        {/* DIRECTORY TABLE SECTION */}
+                        <section className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col flex-1">
+                          <div className="p-10 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-8 bg-slate-50/30 dark:bg-transparent">
+                            <div className="space-y-1">
+                              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight italic">Records <span className="text-teal-500">Directory</span></h3>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total of {allStudents.length} entries stored</p>
+                            </div>
+                            <div className="relative w-full md:w-[450px]">
+                              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                              <input 
+                                type="text"
+                                placeholder="Search by name, ID, or course..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-14 pr-6 py-5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] outline-none text-sm font-bold shadow-sm focus:border-teal-500/50 transition-all"
+                              />
+                            </div>
+                          </div>
+
+                          {/* SCROLLABLE WRAPPER */}
+                          <div className="overflow-y-auto max-h-[700px] scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                            <table className="w-full text-left relative">
+                              <thead className="sticky top-0 z-10">
+                                <tr className="text-slate-400 text-[10px] font-black uppercase tracking-[0.25em] bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800">
+                                  <SortHeader label="Student ID" active={sortBy === 'id_number'} order={sortOrder} onClick={() => toggleSort('id_number')} />
+                                  <SortHeader label="Full Name" active={sortBy === 'name'} order={sortOrder} onClick={() => toggleSort('name')} />
+                                  <th className="px-10 py-6">Course / Dept</th>
+                                  <th className="px-10 py-6">Status</th>
+                                  <th className="px-10 py-6">Date Added</th>
+                                  <th className="px-10 py-6 text-right">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {filteredStudents.map(student => (
+                                  <tr key={student.id} className="hover:bg-teal-50/30 dark:hover:bg-teal-500/5 transition-all group">
+                                    <td className="px-10 py-7">
+                                      <span className="font-black text-teal-600 dark:text-teal-400 font-mono text-sm tracking-tighter">
+                                          {student.id_number}
+                                      </span>
+                                    </td>
+                                    <td className="px-10 py-7">
+                                      <p className="font-bold text-slate-900 dark:text-white text-sm uppercase">{student.last_name}, {student.first_name}</p>
+                                    </td>
+                                    <td className="px-10 py-7">
+                                      <span className={`px-4 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider dark:text-slate-300
+                                        ${Courses[latestStudent.course as keyof typeof Courses]?.color || 'text-white'}
+                                        `}>
+                                          {student.course}
+                                      </span>
+                                    </td>
+                                    <td className="px-10 py-7">
+                                      {student.has_card ? (
+                                          <div className="flex items-center gap-2 text-teal-500 font-black text-[10px] uppercase tracking-widest">
+                                              <CheckCircle2 size={14} /> Printed
+                                          </div>
+                                      ) : (
+                                          <div className="flex items-center gap-2 text-amber-500 font-black text-[10px] uppercase tracking-widest">
+                                              <RefreshCw size={14} className="animate-spin-slow" /> Pending
+                                          </div>
+                                      )}
+                                    </td>
+                                    <td className="px-10 py-7 text-slate-400 font-bold text-xs uppercase tracking-tighter">
+                                      {new Date(student.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </td>
+                                    <td className="px-10 py-7 text-right">
+                                      <div className="flex justify-end gap-2">
+                                          <TableAction icon={<Edit3 size={16} />} color="text-slate-400 hover:text-teal-500 hover:bg-teal-500/10" />
+                                          <TableAction onClick={() => handleDelete(student.id)} icon={<Trash2 size={16} />} color="text-slate-400 hover:text-red-500 hover:bg-red-500/10" />
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                            
+                            {filteredStudents.length === 0 && (
+                              <div className="p-20 text-center">
+                                  <Search size={40} className="mx-auto text-slate-200 dark:text-slate-800 mb-4" />
+                                  <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No records found matching your criteria</p>
+                              </div>
+                            )}
+                          </div>
+                        </section>
+
                       </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="h-96 flex items-center justify-center border-2 border-dashed border-slate-800 rounded-[2.5rem]">
-                    <p className="text-slate-500 font-bold uppercase tracking-widest">No pending applicants</p>
-                  </div>
-                )}
-              </div>
-
-              {/* RIGHT: LIVE CARD PREVIEW (Using your new IDCardPreview component) */}
-              <div className="xl:col-span-4 sticky top-8">
-                <div className="flex justify-between items-center mb-4 px-2">
-                  <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Live ID Preview</h3>
-                  <div className="flex items-center gap-2 text-xs font-bold text-teal-500">
-                    <RefreshCw size={12} className="animate-spin" /> Live Sync
+                    ) : (
+                      <div className="h-[450px] flex flex-col items-center justify-center border-4 border-dashed border-slate-200 dark:border-slate-800 rounded-[3rem] bg-slate-50/50 dark:bg-transparent">
+                        <div className="p-8 bg-white dark:bg-slate-900 rounded-full shadow-xl mb-6">
+                          <Users size={48} className="text-slate-300" />
+                        </div>
+                        <p className="text-slate-400 font-black uppercase tracking-[0.3em]">No Pending Applicants in Queue</p>
+                      </div>
+                    )}
                   </div>
                 </div>
-
-                {previewData ? (
-                  <div className="flex flex-col items-center gap-6">
-                    {/* The component you provided earlier */}
-                    <div className="transform scale-[0.85] origin-top">
-                        <IDCardPreview data={previewData} />
-                    </div>
-
-                    <button className="w-full py-5 bg-white text-slate-950 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl hover:bg-slate-200 transition-all">
-                      SEND TO PRINTER
-                    </button>
-                  </div>
-                ) : (
-                  <div className="h-[500px] border-2 border-dashed border-slate-800 rounded-[2.5rem] flex flex-col items-center justify-center p-12 text-center text-slate-500">
-                     <AlertCircle size={40} className="mb-4 opacity-50" />
-                     <p className="text-xs font-bold uppercase tracking-widest">Waiting for Data...</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* DIRECTORY TABLE */}
-            <section className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-              <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-6">
-                <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-wide">Quick History</h3>
-                <div className="relative w-full md:w-96">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input 
-                    type="text"
-                    placeholder="Filter records..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl outline-none text-sm font-bold"
-                  />
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] bg-slate-50/50 dark:bg-slate-950/50 border-b border-slate-100 dark:border-slate-800">
-                      <SortHeader label="Student ID" active={sortBy === 'id_number'} order={sortOrder} onClick={() => toggleSort('id_number')} />
-                      <SortHeader label="Full Name" active={sortBy === 'name'} order={sortOrder} onClick={() => toggleSort('name')} />
-                      <th className="px-8 py-5">Program</th>
-                      <th className="px-8 py-5">Date</th>
-                      <th className="px-8 py-5 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {filteredStudents.map(student => (
-                      <tr key={student.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors group">
-                        <td className="px-8 py-6 font-bold text-teal-600 dark:text-teal-400 font-mono text-sm">{student.id_number}</td>
-                        <td className="px-8 py-6 font-bold text-slate-900 dark:text-white text-sm">{student.last_name}, {student.first_name}</td>
-                        <td className="px-8 py-6">
-                          <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-black uppercase">{student.course}</span>
-                        </td>
-                        <td className="px-8 py-6 text-slate-400 font-bold text-xs uppercase">{new Date(student.created_at).toLocaleDateString()}</td>
-                        <td className="px-8 py-6 text-right flex justify-end gap-2">
-                           <TableAction icon={<Edit3 size={16} />} color="text-slate-400 hover:text-teal-500" />
-                           <TableAction onClick={() => handleDelete(student.id)} icon={<Trash2 size={16} />} color="text-slate-400 hover:text-red-500" />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </motion.div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
     </div>
   );
 };
 
-// --- Helper Components ---
-
-const StatBox = ({ label, value }: any) => (
-  <div className="bg-white dark:bg-slate-900 px-6 py-4 rounded-2xl border border-slate-200 dark:border-slate-800 flex flex-col">
-    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-    <p className="text-lg font-black text-slate-900 dark:text-white leading-none mt-1">{value}</p>
-  </div>
-);
-
-const BiometricCard = ({ label, src, downloadName, isSignature }: any) => {
-  const handleDownload = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!src) return;
-    try {
-      const response = await fetch(src);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = downloadName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      toast.error("Download failed.");
-      window.open(src, '_blank');
-    }
-  };
-
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</p>
-      <div className="relative group w-44 h-44 bg-white rounded-[2rem] overflow-hidden border border-slate-200 dark:border-slate-800 shadow-inner">
-        {src ? (
-          <img src={src} alt={label} className={`w-full h-full ${isSignature ? 'object-contain p-6' : 'object-cover'}`} />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-slate-300 bg-slate-50 dark:bg-slate-950"><Users size={32} /></div>
-        )}
-        <div className="absolute inset-0 bg-slate-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-3 transition-all backdrop-blur-sm">
-          <button onClick={handleDownload} className="p-3 bg-teal-500 text-slate-950 rounded-xl hover:scale-110 transition-transform"><Download size={18}/></button>
-          <button onClick={() => window.open(src, '_blank')} className="p-3 bg-white/10 text-white rounded-xl hover:scale-110 transition-transform border border-white/20"><Eye size={18}/></button>
-        </div>
-      </div>
-    </div>
-  );
-};
+// --- Helper UI Components ---
 
 const SortHeader = ({ label, active, order, onClick }: any) => (
-  <th className="px-8 py-5 cursor-pointer hover:text-teal-500 transition-colors" onClick={onClick}>
+  <th className="px-10 py-6 cursor-pointer hover:text-teal-500 transition-colors group" onClick={onClick}>
     <div className="flex items-center gap-2">
       {label}
-      <div className="flex flex-col text-[8px] leading-[0.5]">
+      <div className="flex flex-col text-[8px] leading-[0.5] opacity-50 group-hover:opacity-100">
         <ChevronUp size={10} className={active && order === 'asc' ? 'text-teal-500' : 'text-slate-600'} />
         <ChevronDown size={10} className={active && order === 'desc' ? 'text-teal-500' : 'text-slate-600'} />
       </div>
@@ -346,7 +400,7 @@ const SortHeader = ({ label, active, order, onClick }: any) => (
 );
 
 const TableAction = ({ icon, color, onClick }: any) => (
-  <button onClick={onClick} className={`${color} p-2.5 rounded-xl transition-all border border-transparent hover:bg-white/5 active:scale-90`}>
+  <button onClick={onClick} className={`${color} p-3 rounded-xl transition-all border border-transparent active:scale-90`}>
     {icon}
   </button>
 );

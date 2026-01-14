@@ -1,44 +1,148 @@
 import React from 'react';
-
 import { type ApplicantCard } from '../types/card';
+import FRONT_DEFAULT_BG from '../assets/ID/NEWFRONT.png';
+import BACK_DEFAULT_BG from '../assets/ID/BACK.png';
 
-import FRONT from '../assets/ID/FRONT.png';
-import BACK from '../assets/ID/BACK.png';
+interface Props {
+  data: ApplicantCard;
+  layout: any;
+  side: 'FRONT' | 'BACK';
+  scale?: number;
+}
 
-const IDCardPreview: React.FC<{ data: ApplicantCard }> = ({ data }) => {
+const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
+  const isFront = side === 'FRONT';
+  
+  // 1. Check for Pre-rendered PNG from Designer (Priority)
+  const preRenderedImage = isFront 
+    ? layout?.previewImages?.front 
+    : layout?.previewImages?.back;
+
+  if (preRenderedImage) {
+    return (
+      <div
+        className="relative overflow-hidden rounded-xl bg-white shadow-2xl print-card"
+        style={{
+          width: `${320 * scale}px`,
+          height: `${500 * scale}px`,
+        }}
+      >
+        <img
+          src={preRenderedImage}
+          className="w-full h-full object-contain"
+          alt={`${side} Card Final`}
+        />
+      </div>
+    );
+  }
+
+  // 2. Manual Fallback (If PNG hasn't been generated yet)
+  const currentLayout = isFront ? layout?.front : layout?.back;
+  if (!currentLayout) return null;
+
   return (
-    <div className="flex flex-col gap-8 items-center p-6 bg-slate-800 rounded-3xl">
+    <div
+      className="relative overflow-hidden rounded-xl bg-white shadow-2xl"
+      style={{
+        width: `${320 * scale}px`,
+        height: `${500 * scale}px`,
+      }}
+    >
+      <img 
+        src={isFront ? FRONT_DEFAULT_BG : BACK_DEFAULT_BG} 
+        className="absolute inset-0 w-full h-full z-0" 
+        alt="Card Base" 
+      />
       
-      {/* FRONT SIDE */}
-      <div className="relative w-[320px] h-[500px] shadow-2xl overflow-hidden rounded-xl border border-white/10">
-        {/* Background Template */}
-        <img src={FRONT} className="absolute inset-0 w-full h-full z-0" alt="Front Template" />
-        
-        <div className="absolute top-[170px] left-[125px] w-[170px] h-[180px] z-10 overflow-hidden bg-slate-200">
-           {data.photo && <img src={data.photo} className="w-full h-full object-cover" alt="Student" />}
-        </div>
+      {isFront ? (
+        <>
+          {/* Photo Container */}
+          <div 
+            className="absolute z-10 overflow-hidden" 
+            style={{ 
+              top: `${currentLayout.photo.y * scale}px`, 
+              left: `${currentLayout.photo.x * scale}px`, 
+              width: `${(currentLayout.photo.width || 200) * scale}px`, 
+              height: `${(currentLayout.photo.height || 180) * scale}px` 
+            }}
+          >
+            {data.photo && (
+              <img 
+                src={data.photo} 
+                className="w-full h-full object-cover" 
+                alt="Student" 
+              />
+            )}
+          </div>
 
-        {/* Text Details - Mapped to the bottom green section */}
-        <div className="absolute bottom-[40px] w-full text-center z-10 px-4">
-          <h2 className="text-white font-black text-xl leading-tight">{data.fullName}</h2>
-          <p className="text-teal-200 font-bold text-sm tracking-wider">{data.idNumber}</p>
-          <p className="text-white/80 font-medium text-[10px] uppercase mt-1">{data.course}</p>
-        </div>
-      </div>
+          {/* Text Fields */}
+          {['fullName', 'idNumber', 'course'].map((key) => {
+            const field = currentLayout[key];
+            if (!field) return null;
+            return (
+              <div 
+                key={key} 
+                className="absolute z-40" 
+                style={{ 
+                  top: `${field.y * scale}px`, 
+                  left: `${field.x * scale}px`, 
+                  width: `${field.width * scale}px` 
+                }}
+              >
+                <p 
+                  className="uppercase leading-none text-left font-bold" 
+                  style={{ 
+                    fontSize: `${(field.fontSize || 25) * scale}px`, 
+                    color: '#1e293b' 
+                  }}
+                >
+                  {(data as any)[key]}
+                </p>
+              </div>
+            );
+          })}
+        </>
+      ) : (
+        <>
+          {/* Signature Container */}
+          <div 
+            className="absolute z-40" 
+            style={{ 
+              top: `${currentLayout.signature.y * scale}px`, 
+              left: `${currentLayout.signature.x * scale}px`, 
+              width: `${(currentLayout.signature.width || 200) * scale}px`, 
+              height: `${(currentLayout.signature.height || 180) * scale}px` 
+            }}
+          >
+            {data.signature && (
+              <img 
+                src={data.signature} 
+                className="w-full h-full object-contain mix-blend-multiply" 
+                alt="Signature" 
+              />
+            )}
+          </div>
 
-      {/* BACK SIDE */}
-      <div className="relative w-[320px] h-[500px] shadow-2xl overflow-hidden rounded-xl border border-white/10">
-        <img src={BACK} className="absolute inset-0 w-full h-full z-0" alt="Back Template" />
-        
-        {/* Student Signature Area */}
-        <div className="absolute bottom-[120px] left-1/2 -translate-x-1/2 w-40 h-16 z-10 flex items-center justify-center">
-           {data.guardian_name && <img src={data.guardian_name} className="max-w-full max-h-full object-contain mix-blend-multiply" alt="Signature" />}
-        </div>
-        <div className="absolute bottom-[120px] left-1/2 -translate-x-1/2 w-40 h-16 z-10 flex items-center justify-center">
-           {data.signature && <img src={data.signature} className="max-w-full max-h-full object-contain mix-blend-multiply" alt="Signature" />}
-        </div>
-      </div>
-      
+          {/* Guardian Name Field */}
+          <div 
+            className="absolute z-40" 
+            style={{ 
+              top: `${currentLayout.guardian_name.y * scale}px`, 
+              left: `${currentLayout.guardian_name.x * scale}px`, 
+              width: `${currentLayout.guardian_name.width * scale}px` 
+            }}
+          >
+            <p 
+              className="text-[#1e293b] font-bold uppercase text-left leading-none" 
+              style={{ 
+                fontSize: `${(currentLayout.guardian_name.fontSize || 10) * scale}px` 
+              }}
+            >
+              {data.guardianName}
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 };

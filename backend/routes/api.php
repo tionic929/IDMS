@@ -8,10 +8,19 @@ use App\Http\Controllers\ApplicantsController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\DepartmentsController;
 use App\Http\Controllers\LayoutController;
+use Illuminate\Support\Facades\Storage;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
+
+
+Route::get('/proxy-image', function (Request $request) {
+    $path = $request->query('path');
+    if (!Storage::disk('public')->exists($path)) return response()->json(['error' => 'File not found'], 404);
+    
+    return Storage::disk('public')->response($path);
+});
 
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::post('/register', [AuthController::class, 'register'])->name('register');
