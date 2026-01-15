@@ -1,13 +1,13 @@
-export interface ApplicantCard{
-    idNumber: string,
-    fullName: string,
-    course: string,
-    guardianName: string,
-    guardianContact: string,
+export interface ApplicantCard {
+    idNumber: string;
+    fullName: string;
+    course: string;
+    guardian_name: string;
+    guardian_contact: string;
+    address: string;
     photo: string | null;
-    signature: string| null;
+    signature: string | null;
 }
-
 export interface ElementPos {
   x: number;
   y: number;
@@ -48,6 +48,8 @@ export interface FullLayout {
   };
   back: {
     signature: LayoutConfig;
+    address: LayoutConfig;
     guardian_name: LayoutConfig;
+    guardian_contact: LayoutConfig;
   };
 }

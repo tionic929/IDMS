@@ -41,13 +41,15 @@ const Dashboard: React.FC = () => {
   const [activeLayout, setActiveLayout] = useState({
     front: {
       photo: { x: 75, y: 155, width: 200, height: 180 },
-      fullName: { x: 0, y: 395 },
-      idNumber: { x: 0, y: 430 },
-      course: { x: 0, y: 455 },
+      fullName: { x: 75, y: 395 },
+      idNumber: { x: 25, y: 430 },
+      course: { x: 230, y: 430 },
     },
     back: {
-      signature: { x: 80, y: 320, width: 200, height: 180 },
-      guardian_name: { x: 0, y: 445 },
+      signature: { x: 80, y: 0, width: 200, height: 180 },
+      guardian_name: { x: 100, y: 35 },
+      guardian_contact: { x: 40, y: 430, fontSize: 14, width: 200, height: 180 },
+      address: { x: 40, y: 460, fontSize: 12, width: 200, height: 180 },
     },
     previewImages: { front: '', back: '' } 
   });
@@ -101,8 +103,9 @@ const Dashboard: React.FC = () => {
       course: latestStudent.course,
       photo: getUrl(latestStudent.id_picture),
       signature: getUrl(latestStudent.signature_picture),
-      guardianName: latestStudent.guardian_name,
-      guardianContact: latestStudent.guardian_contact
+      guardian_name: latestStudent.guardian_name,
+      guardian_contact: latestStudent.guardian_contact,
+      address: latestStudent.address
     };
   }, [latestStudent]);
 

@@ -1,14 +1,18 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Stage, Layer, Text, Rect, Image as KonvaImage, Group, Transformer } from 'react-konva';
+import { Stage, Layer, Text, Rect, Image as KonvaImage, Group, Transformer, Circle } from 'react-konva';
 import useImage from 'use-image';
-import { RefreshCw, Save, Square, Type, ZoomIn, ZoomOut, Layers, MousePointer2, Download } from 'lucide-react';
+import { 
+  RefreshCw, Save, Square, Type, ZoomIn, ZoomOut, 
+  Layers, MousePointer2, Download, RotateCw, Palette, 
+  Type as FontIcon, Circle as CircleIcon, Box, 
+  ArrowUp, ArrowDown, Trash2 
+} from 'lucide-react';
 
 import FRONT_BG from '../assets/ID/NEWFRONT.png';
 import BACK_BG from '../assets/ID/BACK.png';
 import { type Students } from '../types/students';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
-
 const DESIGN_WIDTH = 320;
 const DESIGN_HEIGHT = 500;
 
@@ -18,11 +22,7 @@ interface CardDesignerProps {
   allStudents: Students[];
 }
 
-const CardDesigner: React.FC<CardDesignerProps> = ({
-  onSave,
-  currentLayout,
-  allStudents,
-}) => {
+const CardDesigner: React.FC<CardDesignerProps> = ({ onSave, currentLayout, allStudents }) => {
   const [editSide, setEditSide] = useState<'FRONT' | 'BACK'>('FRONT');
   const [tempLayout, setTempLayout] = useState(currentLayout);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -40,25 +40,21 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const latestStudent = useMemo(() => {
     if (!allStudents || !Array.isArray(allStudents)) return null;
     const pending = allStudents.filter(s => !s.has_card);
-    return [...pending].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    )[0] || null;
+    return [...pending].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0] || null;
   }, [allStudents]);
 
   const previewData = useMemo(() => {
     if (!latestStudent) return null;
-    const getUrl = (path: string | null) => {
-      if (!path) return '';
-      return `${VITE_API_URL}/api/proxy-image?path=${path}`;
-    };
-
+    const getUrl = (path: string | null) => path ? `${VITE_API_URL}/api/proxy-image?path=${path}` : '';
     return {
       fullName: `${latestStudent.first_name} ${latestStudent.last_name}`,
       idNumber: latestStudent.id_number,
       course: latestStudent.course,
       photo: getUrl(latestStudent.id_picture),
       signature: getUrl(latestStudent.signature_picture),
-      guardianName: latestStudent.guardian_name,
+      guardian_name: latestStudent.guardian_name,
+      guardian_contact: latestStudent.guardian_contact,
+      address: latestStudent.address,
     };
   }, [latestStudent]);
 
@@ -66,11 +62,10 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
   const [photoImage] = useImage(previewData?.photo || '', 'anonymous');
   const [sigImage] = useImage(previewData?.signature || '', 'anonymous');
 
-  // Helper to get DataURL
   const getStagePNG = () => {
     if (!stageRef.current) return null;
     return stageRef.current.toDataURL({
-      pixelRatio: 1 / zoom, 
+      pixelRatio: 1 / zoom,
       mimeType: 'image/png',
       quality: 1,
     });
@@ -91,34 +86,100 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     }, 50);
   };
 
-  // Restored and updated Save function
   const handleSaveLayout = async () => {
     setIsSaving(true);
     setSelectedId(null);
-
-    const finalLayout = { 
-      ...tempLayout, 
-      previewImages: { front: '', back: '' } 
-    };
-
+    const finalLayout = { ...tempLayout, previewImages: { front: '', back: '' } };
     try {
-      // Capture Front
       setEditSide('FRONT');
       await new Promise(res => setTimeout(res, 400));
       finalLayout.previewImages.front = getStagePNG();
-
-      // Capture Back
       setEditSide('BACK');
       await new Promise(res => setTimeout(res, 400));
       finalLayout.previewImages.back = getStagePNG();
-
       onSave(finalLayout);
       setEditSide('FRONT');
     } catch (error) {
-      console.error("Rendering failed", error);
+      console.error("Save failed", error);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const updateItem = (id: string, attrs: any) => {
+    const side = editSide.toLowerCase();
+    setTempLayout((prev: any) => ({
+      ...prev,
+      [side]: {
+        ...prev[side],
+        [id]: { ...prev[side][id], ...attrs }
+      }
+    }));
+  };
+
+  const addShape = (type: 'rect' | 'circle') => {
+    const side = editSide.toLowerCase();
+    const id = `${type}_${Date.now()}`;
+    setTempLayout((prev: any) => ({
+      ...prev,
+      [side]: {
+        ...prev[side],
+        [id]: { type, x: 50, y: 50, width: 200, height: 180, fill: '#00ffe1ff', rotation: 0, opacity: 1 }
+      }
+    }));
+    setSelectedId(id);
+  };
+
+const handleTransformEnd = (e: any, key: string) => {
+  const node = e.target;
+  const isText = node.className === 'Text';
+  
+  // Calculate new dimensions based on current scale
+  const scaleX = node.scaleX();
+  const scaleY = node.scaleY();
+
+  // Standard attributes for all elements
+  const attrs: any = {
+    x: Math.round(node.x()),
+    y: Math.round(node.y()),
+    rotation: Math.round(node.rotation()),
+  };
+
+  if (isText) {
+    // For Text: Width changes reflow, ScaleY changes Font Size
+    attrs.width = Math.max(20, Math.round(node.width() * scaleX));
+    attrs.fontSize = Math.round(node.fontSize() * scaleY);
+  } else {
+    // For Shapes/Images: Calculate new width and height
+    attrs.width = Math.max(5, Math.round(node.width() * scaleX));
+    attrs.height = Math.max(5, Math.round(node.height() * scaleY));
+  }
+
+  // Update the state
+  updateItem(key, attrs);
+  
+  // IMPORTANT: Reset the scale to 1 so the next transform starts clean
+  node.setAttrs({
+    width: attrs.width || node.width(),
+    height: attrs.height || node.height(),
+    fontSize: attrs.fontSize || node.fontSize(),
+    scaleX: 1,
+    scaleY: 1
+  });
+};
+
+  const moveLayer = (direction: 'up' | 'down') => {
+    if (!selectedId) return;
+    const side = editSide.toLowerCase();
+    const keys = Object.keys(tempLayout[side]);
+    const index = keys.indexOf(selectedId);
+    if ((direction === 'up' && index === keys.length - 1) || (direction === 'down' && index === 0)) return;
+    const newKeys = [...keys];
+    const newIndex = direction === 'up' ? index + 1 : index - 1;
+    [newKeys[index], newKeys[newIndex]] = [newKeys[newIndex], newKeys[index]];
+    const reordered: any = {};
+    newKeys.forEach(k => reordered[k] = tempLayout[side][k]);
+    setTempLayout((prev: any) => ({ ...prev, [side]: reordered }));
   };
 
   useEffect(() => {
@@ -133,289 +194,219 @@ const CardDesigner: React.FC<CardDesignerProps> = ({
     }
   }, [selectedId, editSide]);
 
-  const handleDragEnd = (side: string, key: string, e: any) => {
-    setTempLayout((prev: any) => ({
-      ...prev,
-      [side]: {
-        ...prev[side],
-        [key]: {
-          ...prev[side][key],
-          x: Math.round(e.target.x()),
-          y: Math.round(e.target.y()),
-        },
-      },
-    }));
+  const isTextLayer = (key: string | null) => {
+    if (!key) return false;
+    return !['photo', 'signature'].includes(key) && !key.startsWith('rect') && !key.startsWith('circle');
   };
 
-  const handleTransformEnd = (e: any, key: string) => {
-    const node = e.target;
-    const side = editSide.toLowerCase();
-    const newWidth = Math.max(5, Math.round(node.width() * node.scaleX()));
-    const newHeight = Math.max(5, Math.round(node.height() * node.scaleY()));
+  const renderElement = (key: string, config: any) => {
+    const isPhoto = key === 'photo';
+    const isSig = key === 'signature';
+    const isShape = key.startsWith('rect') || key.startsWith('circle');
+    
+    const common = {
+      name: key, x: config.x, y: config.y, 
+      rotation: config.rotation || 0, opacity: config.opacity ?? 1,
+      draggable: true, onClick: () => setSelectedId(key),
+      onDragEnd: (e: any) => updateItem(key, { x: Math.round(e.target.x()), y: Math.round(e.target.y()) }),
+      onTransformEnd: (e: any) => handleTransformEnd(e, key)
+    };
 
-    setTempLayout((prev: any) => {
-      const updatedSide = {
-        ...prev[side],
-        [key]: {
-          ...prev[side][key],
-          x: Math.round(node.x()),
-          y: Math.round(node.y()),
-          width: newWidth,
-          height: newHeight,
-        },
-      };
-      if (node.className === 'Text') {
-        updatedSide[key].fontSize = Math.round(node.fontSize() * node.scaleX());
-      }
-      return { ...prev, [side]: updatedSide };
-    });
-    node.scaleX(1);
-    node.scaleY(1);
+    if (isPhoto || isSig) {
+      const img = isPhoto ? photoImage : sigImage;
+      const w = config.width || 200;
+      const h = config.height || 180;
+      return (
+        <Group key={key} {...common} width={w} height={h}>
+          <Rect width={w} height={h} stroke={isPhoto ? "#14b8a6" : "#6366f1"} strokeWidth={2/zoom} dash={[5,5]} opacity={selectedId === key ? 1 : 0} />
+          {img && (
+            <KonvaImage image={img} width={w} height={h} 
+              sceneFunc={(context) => {
+                const ratio = Math.min(w / img.width, h / img.height);
+                context.drawImage(img, (w - img.width * ratio) / 2, (h - img.height * ratio) / 2, img.width * ratio, img.height * ratio);
+              }}
+            />
+          )}
+        </Group>
+      );
+    }
+
+    if (isShape) {
+      const w = config.width || 200;
+      const h = config.height || 180;
+      if (config.type === 'circle') return <Circle key={key} {...common} width={w} height={h} radius={w / 2} fill={config.fill} />;
+      return <Rect key={key} {...common} width={w} height={h} fill={config.fill} />;
+    }
+
+    return (
+      <Text key={key} {...common} 
+        text={previewData ? (previewData[key as keyof typeof previewData] || config.text || `MISSING: ${key}`) : config.text}
+        fontSize={config.fontSize || 18}
+        fontFamily={config.fontFamily || 'Arial'}
+        fontStyle={config.fontStyle || 'bold'}
+        fill={config.fill || '#1e293b'}
+        width={config.width || 200}
+        wrap="word"
+        lineHeight={1.2}
+      />
+    );
   };
 
   return (
     <div className="flex flex-col h-[85vh] bg-slate-50 dark:bg-slate-950 rounded-[2rem] overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl">
       <div className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h2 className="text-xl font-black uppercase italic tracking-tighter">
-            Studio<span className="text-teal-500">Editor</span>
-          </h2>
-          <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2" />
+          <h2 className="text-xl font-black uppercase italic tracking-tighter">Studio<span className="text-teal-500">Editor</span></h2>
           <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
             {(['FRONT', 'BACK'] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => { setEditSide(s); setSelectedId(null); }}
-                className={`px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                  editSide === s ? 'bg-white dark:bg-slate-700 shadow-sm text-teal-500' : 'text-slate-400'
-                }`}
-              >
-                {s}
-              </button>
+              <button key={s} onClick={() => { setEditSide(s); setSelectedId(null); }} className={`px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all ${editSide === s ? 'bg-white dark:bg-slate-700 shadow-sm text-teal-500' : 'text-slate-400'}`}>{s}</button>
             ))}
           </div>
         </div>
-
         <div className="flex items-center gap-3">
           <button onClick={() => setZoom(prev => Math.max(0.5, prev - 0.1))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500"><ZoomOut size={18}/></button>
           <span className="text-xs font-mono text-slate-400 w-12 text-center">{Math.round(zoom * 100)}%</span>
           <button onClick={() => setZoom(prev => Math.min(2, prev + 0.1))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500"><ZoomIn size={18}/></button>
-          
           <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2" />
-          
-          <button 
-            onClick={handleExportPNG}
-            className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase text-teal-600 hover:bg-teal-50 rounded-xl transition-all"
-          >
-            <Download size={14} /> Export PNG
-          </button>
-
-          <button onClick={() => setTempLayout(currentLayout)} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase text-slate-500 hover:text-orange-500 transition-colors">
-            <RefreshCw size={14} /> Reset
-          </button>
-
-          <button 
-            onClick={handleSaveLayout} 
-            disabled={isSaving}
-            className={`flex items-center gap-2 px-6 py-2 bg-teal-500 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-teal-500/20 transition-all ${isSaving ? 'opacity-70' : 'hover:scale-105 active:scale-95'}`}
-          >
-            {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />} 
-            {isSaving ? 'Rendering...' : 'Save Layout'}
+          <button onClick={handleExportPNG} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase text-teal-600 hover:bg-teal-50 rounded-xl transition-all"><Download size={14} /> Export PNG</button>
+          <button onClick={() => setTempLayout(currentLayout)} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase text-slate-500 hover:text-orange-500 transition-colors"><RefreshCw size={14} /> Reset</button>
+          <button onClick={handleSaveLayout} disabled={isSaving} className={`flex items-center gap-2 px-6 py-2 bg-teal-500 text-white rounded-xl text-[10px] font-black uppercase shadow-lg transition-all ${isSaving ? 'opacity-70' : 'hover:scale-105 active:scale-95'}`}>
+            {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />} {isSaving ? 'Rendering...' : 'Save Layout'}
           </button>
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-72 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 flex flex-col gap-4">
-          <div className="flex items-center gap-2 text-slate-400 mb-2">
-            <Layers size={16} />
-            <span className="text-[10px] font-black uppercase tracking-widest">Layers</span>
+        <div className="w-72 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 flex flex-col gap-6">
+          <div>
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-3"><Box size={14}/> Library</span>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => addShape('rect')} className="flex flex-col items-center justify-center p-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 hover:border-teal-50 transition-colors text-slate-500"><Square size={20} /><span className="text-[8px] font-bold mt-1 uppercase">Rect</span></button>
+              <button onClick={() => addShape('circle')} className="flex flex-col items-center justify-center p-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 hover:border-teal-50 transition-colors text-slate-500"><CircleIcon size={20} /><span className="text-[8px] font-bold mt-1 uppercase">Circle</span></button>
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
-            {Object.entries(tempLayout[editSide.toLowerCase()]).map(([key, pos]: any) => (
-              <button
-                key={key}
-                onClick={() => setSelectedId(key)}
-                className={`w-full p-3 rounded-xl border text-left transition-all ${
-                  selectedId === key ? 'bg-teal-500/10 border-teal-500' : 'bg-slate-50 dark:bg-slate-950 border-transparent hover:border-slate-200 dark:hover:border-slate-700'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  {key.includes('photo') || key.includes('signature') ? <Square size={12} className="text-teal-500" /> : <Type size={12} className="text-teal-500" />}
-                  <span className="text-[10px] font-bold uppercase truncate">{key.replace('_', ' ')}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1 text-[8px] font-mono text-slate-400">
-                  <span>X: {pos.x}</span>
-                  <span>Y: {pos.y}</span>
-                </div>
-              </button>
-            ))}
+          <div className="flex-1 flex flex-col min-h-0">
+            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-3"><Layers size={14}/> Layers</span>
+            <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
+              {Object.entries(tempLayout[editSide.toLowerCase()]).map(([key, pos]: any) => (
+                <button key={key} onClick={() => setSelectedId(key)} className={`w-full p-3 rounded-xl border text-left transition-all ${selectedId === key ? 'bg-teal-500/10 border-teal-500' : 'bg-slate-50 dark:bg-slate-950 border-transparent hover:border-slate-200'}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    {key.includes('photo') || key.includes('signature') ? <Square size={12} className="text-teal-500" /> : <Type size={12} className="text-teal-500" />}
+                    <span className="text-[10px] font-bold uppercase truncate">{key.replace('_', ' ')}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 text-[8px] font-mono text-slate-400"><span>X: {pos.x}</span><span>Y: {pos.y}</span></div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="flex-1 bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-10 overflow-auto relative">
-          <div 
-            className="shadow-[0_20px_50px_rgba(0,0,0,0.2)] rounded-lg overflow-hidden bg-white" 
-            style={{ 
-                width: DESIGN_WIDTH * zoom, 
-                height: DESIGN_HEIGHT * zoom,
-                transition: 'width 0.2s, height 0.2s'
-            }}
-          >
-            <Stage
-              ref={stageRef}
-              width={DESIGN_WIDTH * zoom}
-              height={DESIGN_HEIGHT * zoom}
-              scaleX={zoom}
-              scaleY={zoom}
-              onMouseDown={(e) => e.target === e.target.getStage() && setSelectedId(null)}
-            >
+        <div className="flex-1 bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-10 overflow-auto">
+          <div className="shadow-2xl rounded-lg overflow-hidden bg-white" style={{ width: DESIGN_WIDTH * zoom, height: DESIGN_HEIGHT * zoom }}>
+            <Stage ref={stageRef} width={DESIGN_WIDTH * zoom} height={DESIGN_HEIGHT * zoom} scaleX={zoom} scaleY={zoom} onMouseDown={(e) => e.target === e.target.getStage() && setSelectedId(null)}>
               <Layer ref={layerRef}>
-                {editSide === 'FRONT' ? (
-                  <>
-                    <Group
-                      name="photo"
-                      x={tempLayout.front.photo.x}
-                      y={tempLayout.front.photo.y}
-                      width={tempLayout.front.photo.width || 200}
-                      height={tempLayout.front.photo.height || 180}
-                      draggable
-                      onDragStart={() => setSelectedId('photo')}
-                      onDragEnd={(e) => handleDragEnd('front', 'photo', e)}
-                      onTransformEnd={(e) => handleTransformEnd(e, 'photo')}
-                      onClick={() => setSelectedId('photo')}
-                    >
-                      <Rect
-                        width={tempLayout.front.photo.width || 200}
-                        height={tempLayout.front.photo.height || 180}
-                        stroke="#14b8a6"
-                        strokeWidth={2 / zoom}
-                        dash={[5, 5]}
-                        opacity={selectedId === 'photo' ? 1 : 0}
-                      />
-                      {photoImage && (
-                        <KonvaImage
-                          image={photoImage}
-                          width={tempLayout.front.photo.width || 200}
-                          height={tempLayout.front.photo.height || 180}
-                        />
-                      )}
-                    </Group>
-                    
-                    <KonvaImage 
-                      image={bgImage}
-                      width={DESIGN_WIDTH}
-                      height={DESIGN_HEIGHT}
-                      listening={false} 
-                      opacity={selectedId === 'photo' ? 0.4 : 1}
-                    />
+                {editSide === 'FRONT' && Object.entries(tempLayout[editSide.toLowerCase()]).map(([key, config]) => {
+                  if (key === 'photo' || key === 'signature') return renderElement(key, config);
+                  return null;
+                })}
+                
+                <KonvaImage image={bgImage} width={DESIGN_WIDTH} height={DESIGN_HEIGHT} listening={false} opacity={(selectedId === 'photo' || selectedId === 'signature') ? 0.4 : 1} />
 
-                    {['fullName', 'idNumber', 'course'].map((key) => (
-                      <Text
-                        key={key}
-                        name={key}
-                        text={previewData ? (previewData as any)[key] : key.toUpperCase()}
-                        x={tempLayout.front[key].x}
-                        y={tempLayout.front[key].y}
-                        width={tempLayout.front[key].width}
-                        fontSize={tempLayout.front[key].fontSize || 25}
-                        fontStyle="700"
-                        fill="#1e293b"
-                        draggable
-                        onDragEnd={(e) => handleDragEnd('front', key, e)}
-                        onTransformEnd={(e) => handleTransformEnd(e, key)}
-                        onClick={() => setSelectedId(key)}
-                      />
-                    ))}
-                  </>
-                ) : (
-                  <>
-                    <KonvaImage 
-                      image={bgImage}
-                      width={DESIGN_WIDTH}
-                      height={DESIGN_HEIGHT}
-                      listening={false}
-                      opacity={selectedId === 'signature' ? 0.4 : 1}
-                    />
-                    <Group
-                      name="signature"
-                      x={tempLayout.back.signature.x}
-                      y={tempLayout.back.signature.y}
-                      width={tempLayout.back.signature.width || 200}
-                      height={tempLayout.back.signature.height || 180}
-                      draggable
-                      onDragEnd={(e) => handleDragEnd('back', 'signature', e)}
-                      onTransformEnd={(e) => handleTransformEnd(e, 'signature')}
-                      onClick={() => setSelectedId('signature')}
-                    >
-                      <Rect
-                        width={tempLayout.back.signature.width || 200}
-                        height={tempLayout.back.signature.height || 180}
-                        stroke="#6366f1"
-                        strokeWidth={2 / zoom}
-                        dash={[5, 5]}
-                        opacity={selectedId === 'signature' ? 1 : 0}
-                      />
-                      {sigImage && (
-                        <KonvaImage
-                          image={sigImage}
-                          width={tempLayout.back.signature.width || 200}
-                          height={tempLayout.back.signature.height || 180}
-                        />
-                      )}
-                    </Group>
+                {Object.entries(tempLayout[editSide.toLowerCase()]).map(([key, config]) => {
+                  const isShape = key.startsWith('rect') || key.startsWith('circle');
+                  const isText = isTextLayer(key);
+                  if (editSide === 'BACK') return renderElement(key,config);
+                  if (editSide === 'FRONT' && (isShape || isText)) return renderElement(key,config);
+                  return null;
+                })}
 
-                    <Text
-                      name="guardian_name"
-                      text={previewData?.guardianName || 'GUARDIAN NAME'}
-                      x={tempLayout.back.guardian_name.x}
-                      y={tempLayout.back.guardian_name.y}
-                      width={tempLayout.back.guardian_name.width}
-                      fontSize={tempLayout.back.guardian_name.fontSize || 11}
-                      fontStyle="bold"
-                      fill="#1e293b"
-                      draggable
-                      onDragEnd={(e) => handleDragEnd('back', 'guardian_name', e)}
-                      onTransformEnd={(e) => handleTransformEnd(e, 'guardian_name')}
-                      onClick={() => setSelectedId('guardian_name')}
-                    />
-                  </>
-                )}
-
-                <Transformer
-                  ref={trRef}
-                  keepRatio={selectedId === 'photo' || selectedId === 'signature'}
-                  rotateEnabled={false}
-                  boundBoxFunc={(oldBox, newBox) => (newBox.width < 20 || newBox.height < 20 ? oldBox : newBox)}
+                <Transformer 
+                  ref={trRef} 
+                  // Dynamic Ratio: Only text can be squashed/stretched to reflow
+                  keepRatio={!isTextLayer(selectedId)} 
+                  
+                  // Dynamic Anchors: 
+                  // Text gets middle-side handles to adjust wrapping
+                  // Media gets corner handles to maintain proportion
+                  enabledAnchors={isTextLayer(selectedId) 
+                    ? ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right'] 
+                    : ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+                  }
+                  
+                  rotateEnabled={true} 
+                  anchorSize={8}
+                  anchorCornerRadius={2}
+                  borderStroke="#14b8a6"
+                  anchorStroke="#14b8a6"
+                  
+                  boundBoxFunc={(oldBox, newBox) => {
+                    // Prevent flipping or making elements too small to select
+                    if (Math.abs(newBox.width) < 10 || Math.abs(newBox.height) < 10) {
+                      return oldBox;
+                    }
+                    return newBox;
+                  }}
                 />
               </Layer>
             </Stage>
           </div>
         </div>
 
-        <div className="w-72 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 flex flex-col gap-6">
-          <div className="flex items-center gap-2 text-slate-400 mb-2">
-            <Square size={16} />
-            <span className="text-[10px] font-black uppercase tracking-widest">Properties</span>
-          </div>
+        <div className="w-72 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 flex flex-col gap-6 overflow-y-auto">
+          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Properties</span>
           {selectedId ? (
-            <div className="space-y-4">
-               <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-6">
+              <div className="flex gap-2">
+                <button onClick={() => moveLayer('up')} className="flex-1 flex items-center justify-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-[9px] font-bold hover:bg-slate-100"><ArrowUp size={12}/> UP</button>
+                <button onClick={() => moveLayer('down')} className="flex-1 flex items-center justify-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-[9px] font-bold hover:bg-slate-100"><ArrowDown size={12}/> DOWN</button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[9px] font-bold text-slate-400 uppercase">Width</label>
-                  <input readOnly value={tempLayout[editSide.toLowerCase()][selectedId].width || (selectedId === 'photo' ? 200 : 180)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-2 text-xs font-mono" />
+                  <input type="number" value={Math.round(tempLayout[editSide.toLowerCase()][selectedId].width || 200)} onChange={(e) => updateItem(selectedId, { width: parseInt(e.target.value) })} className="w-full bg-slate-50 dark:bg-slate-800 rounded p-2 text-xs font-mono" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-bold text-slate-400 uppercase">Height</label>
-                  <input readOnly value={tempLayout[editSide.toLowerCase()][selectedId].height || (selectedId === 'photo' ? 180 : 200)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-lg p-2 text-xs font-mono" />
+                  <input type="number" value={Math.round(tempLayout[editSide.toLowerCase()][selectedId].height || 180)} onChange={(e) => updateItem(selectedId, { height: parseInt(e.target.value) })} className="w-full bg-slate-50 dark:bg-slate-800 rounded p-2 text-xs font-mono" />
                 </div>
               </div>
+
+              {isTextLayer(selectedId) && (
+                <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase">Font Size</label>
+                    <span className="text-[10px] font-mono text-teal-500 font-bold">{tempLayout[editSide.toLowerCase()][selectedId].fontSize || 18}px</span>
+                  </div>
+                  <input type="range" min="8" max="100" value={tempLayout[editSide.toLowerCase()][selectedId].fontSize || 18} onChange={(e) => updateItem(selectedId, { fontSize: parseInt(e.target.value) })} className="w-full accent-teal-500 cursor-pointer" />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-400 uppercase">Opacity</label>
+                <input type="range" min="0" max="1" step="0.1" value={tempLayout[editSide.toLowerCase()][selectedId].opacity ?? 1} onChange={(e) => updateItem(selectedId, { opacity: parseFloat(e.target.value) })} className="w-full accent-teal-500" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase">Rotation</label>
+                  <input type="number" value={tempLayout[editSide.toLowerCase()][selectedId].rotation || 0} onChange={(e) => updateItem(selectedId, { rotation: parseInt(e.target.value) })} className="w-full bg-slate-50 dark:bg-slate-800 rounded p-2 text-xs font-mono" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase">Color</label>
+                  <input type="color" value={tempLayout[editSide.toLowerCase()][selectedId].fill || '#1e293b'} onChange={(e) => updateItem(selectedId, { fill: e.target.value })} className="w-full h-8 bg-transparent cursor-pointer border-none" />
+                </div>
+              </div>
+              <button onClick={() => {
+                const side = editSide.toLowerCase();
+                const newLayout = { ...tempLayout };
+                delete newLayout[side][selectedId];
+                setTempLayout(newLayout);
+                setSelectedId(null);
+              }} className="w-full py-2.5 text-[9px] font-black uppercase text-red-500 hover:bg-red-50 rounded-xl border border-red-500/20 flex items-center justify-center gap-2"><Trash2 size={12}/> Delete</button>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50">
-              <MousePointer2 size={32} className="text-slate-300" />
-              <p className="text-[10px] font-medium text-slate-400">Select an element</p>
-            </div>
+            <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50"><MousePointer2 size={32}/><p className="text-[10px] mt-2 font-bold uppercase tracking-widest">Select Layer</p></div>
           )}
         </div>
       </div>
