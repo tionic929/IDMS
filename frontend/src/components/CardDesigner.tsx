@@ -8,21 +8,26 @@ import {
   ArrowUp, ArrowDown, Trash2 
 } from 'lucide-react';
 
+import { toast } from 'react-toastify';
+
 import FRONT_BG from '../assets/ID/NEWFRONT.png';
 import BACK_BG from '../assets/ID/BACK.png';
 import { type Students } from '../types/students';
+import { saveLayout } from '../api/templates';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 const DESIGN_WIDTH = 320;
 const DESIGN_HEIGHT = 500;
 
 interface CardDesignerProps {
+  templateId: number | null;
+  templateName: string;
   onSave: (newLayout: any) => void;
   currentLayout: any;
   allStudents: Students[];
 }
 
-const CardDesigner: React.FC<CardDesignerProps> = ({ onSave, currentLayout, allStudents }) => {
+const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, onSave, currentLayout, allStudents }) => {
   const [editSide, setEditSide] = useState<'FRONT' | 'BACK'>('FRONT');
   const [tempLayout, setTempLayout] = useState(currentLayout);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -33,20 +38,48 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ onSave, currentLayout, allS
   const trRef = useRef<any>(null);
   const layerRef = useRef<any>(null);
 
+  // DEBUG: Monitor layout changes from parent
   useEffect(() => {
-    setTempLayout(currentLayout);
+    if (currentLayout) {
+      console.log("DEBUG: Received currentLayout from parent:", currentLayout);
+      setTempLayout(currentLayout);
+    }
   }, [currentLayout]);
+  
+  const getStagePNGForSide = async (side: 'FRONT' | 'BACK') => {
+    // 1. Temporarily switch to the side we want to capture
+    setEditSide(side);
+    
+    // 2. Small delay to allow Konva to re-render the new side
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    if (stageRef.current) {
+      // 3. Export at high quality for printing
+      return stageRef.current.toDataURL({
+        pixelRatio: 3, // Higher resolution for printing
+        mimeType: 'image/png'
+      });
+    }
+    return '';
+  };
 
   const latestStudent = useMemo(() => {
     if (!allStudents || !Array.isArray(allStudents)) return null;
     const pending = allStudents.filter(s => !s.has_card);
-    return [...pending].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0] || null;
+    const selected = [...pending].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0] || null;
+    console.log("DEBUG: Selected student for preview:", selected);
+    return selected;
   }, [allStudents]);
 
   const previewData = useMemo(() => {
-    if (!latestStudent) return null;
-    const getUrl = (path: string | null) => path ? `${VITE_API_URL}/api/proxy-image?path=${path}` : '';
-    return {
+    if (!latestStudent) {
+        console.warn("DEBUG: No student found for previewData.");
+        return null;
+    }
+    const getUrl = (path: string | null) => 
+      path ? `${VITE_API_URL}/api/proxy-image?path=${path}` : '';
+    
+    const data = {
       fullName: `${latestStudent.first_name} ${latestStudent.last_name}`,
       idNumber: latestStudent.id_number,
       course: latestStudent.course,
@@ -56,6 +89,9 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ onSave, currentLayout, allS
       guardian_contact: latestStudent.guardian_contact,
       address: latestStudent.address,
     };
+
+    console.log("DEBUG: Generated previewData object:", data);
+    return data;
   }, [latestStudent]);
 
   const [bgImage] = useImage(editSide === 'FRONT' ? FRONT_BG : BACK_BG, 'anonymous');
@@ -87,20 +123,33 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ onSave, currentLayout, allS
   };
 
   const handleSaveLayout = async () => {
+    if (!templateId) {
+      toast.error("Please select a template first");
+      return;
+    }
     setIsSaving(true);
-    setSelectedId(null);
-    const finalLayout = { ...tempLayout, previewImages: { front: '', back: '' } };
+
+    // console.log("DEBUG: Starting Save Process. Current local state:", tempLayout);
+    // const finalLayout = { ...tempLayout, previewImages: { front: '', back: '' } };
     try {
+      const frontPng = await getStagePNGForSide('FRONT');
+      const backPng = await getStagePNGForSide('BACK');
+
+      const updatedLayout = {
+        ...tempLayout, 
+        previewImages: {
+          front: frontPng,
+          back: backPng
+        }
+      }
+      
+      await saveLayout(templateId, templateName, updatedLayout);
+      setTempLayout(updatedLayout);
+      onSave(updatedLayout);
       setEditSide('FRONT');
-      await new Promise(res => setTimeout(res, 400));
-      finalLayout.previewImages.front = getStagePNG();
-      setEditSide('BACK');
-      await new Promise(res => setTimeout(res, 400));
-      finalLayout.previewImages.back = getStagePNG();
-      onSave(finalLayout);
-      setEditSide('FRONT');
+      toast.success("Changes saved and applied!");
     } catch (error) {
-      console.error("Save failed", error);
+      console.error("DEBUG: Save failed", error);
     } finally {
       setIsSaving(false);
     }
@@ -124,62 +173,63 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ onSave, currentLayout, allS
       ...prev,
       [side]: {
         ...prev[side],
-        [id]: { type, x: 50, y: 50, width: 200, height: 180, fill: '#00ffe1ff', rotation: 0, opacity: 1 }
+        [id]: { 
+          type, 
+          x: 50, 
+          y: 50, 
+          width: 200, 
+          height: 180, 
+          fill: '#00ffe1ff', 
+          rotation: 0, 
+          opacity: 1 
+        }
       }
     }));
     setSelectedId(id);
   };
 
-const handleTransformEnd = (e: any, key: string) => {
-  const node = e.target;
-  const isText = node.className === 'Text';
-  
-  // Calculate new dimensions based on current scale
-  const scaleX = node.scaleX();
-  const scaleY = node.scaleY();
+  const handleTransformEnd = (e: any, key: string) => {
+    const node = e.target;
+    const isText = node.className === 'Text';
+    
+    const attrs: any = {
+      x: Math.round(node.x()),
+      y: Math.round(node.y()),
+      rotation: Math.round(node.rotation()),
+    };
 
-  // Standard attributes for all elements
-  const attrs: any = {
-    x: Math.round(node.x()),
-    y: Math.round(node.y()),
-    rotation: Math.round(node.rotation()),
+    attrs.width = Math.max(5, Math.round(node.width() * node.scaleX()));
+    attrs.height = Math.max(5, Math.round(node.height() * node.scaleY()));
+
+    if (isText) {
+      attrs.fontSize = Math.round(node.fontSize() * node.scaleX());
+    }
+
+    updateItem(key, attrs);
+    node.scaleX(1);
+    node.scaleY(1);
   };
-
-  if (isText) {
-    // For Text: Width changes reflow, ScaleY changes Font Size
-    attrs.width = Math.max(20, Math.round(node.width() * scaleX));
-    attrs.fontSize = Math.round(node.fontSize() * scaleY);
-  } else {
-    // For Shapes/Images: Calculate new width and height
-    attrs.width = Math.max(5, Math.round(node.width() * scaleX));
-    attrs.height = Math.max(5, Math.round(node.height() * scaleY));
-  }
-
-  // Update the state
-  updateItem(key, attrs);
-  
-  // IMPORTANT: Reset the scale to 1 so the next transform starts clean
-  node.setAttrs({
-    width: attrs.width || node.width(),
-    height: attrs.height || node.height(),
-    fontSize: attrs.fontSize || node.fontSize(),
-    scaleX: 1,
-    scaleY: 1
-  });
-};
 
   const moveLayer = (direction: 'up' | 'down') => {
     if (!selectedId) return;
     const side = editSide.toLowerCase();
-    const keys = Object.keys(tempLayout[side]);
+    const sideData = tempLayout[side];
+    const keys = Object.keys(sideData);
     const index = keys.indexOf(selectedId);
+    
     if ((direction === 'up' && index === keys.length - 1) || (direction === 'down' && index === 0)) return;
+    
     const newKeys = [...keys];
     const newIndex = direction === 'up' ? index + 1 : index - 1;
     [newKeys[index], newKeys[newIndex]] = [newKeys[newIndex], newKeys[index]];
+    
     const reordered: any = {};
-    newKeys.forEach(k => reordered[k] = tempLayout[side][k]);
-    setTempLayout((prev: any) => ({ ...prev, [side]: reordered }));
+    newKeys.forEach(k => reordered[k] = sideData[k]);
+    
+    setTempLayout((prev: any) => ({ 
+      ...prev, 
+      [side]: reordered 
+    }));
   };
 
   useEffect(() => {
@@ -204,6 +254,9 @@ const handleTransformEnd = (e: any, key: string) => {
     const isSig = key === 'signature';
     const isShape = key.startsWith('rect') || key.startsWith('circle');
     
+    // DEBUG: Log every element being rendered
+    // console.log(`DEBUG: Rendering element [${key}]`, { side: editSide, config });
+
     const common = {
       name: key, x: config.x, y: config.y, 
       rotation: config.rotation || 0, opacity: config.opacity ?? 1,
@@ -238,16 +291,29 @@ const handleTransformEnd = (e: any, key: string) => {
       return <Rect key={key} {...common} width={w} height={h} fill={config.fill} />;
     }
 
+    // TEXT RENDERING
+    const displayText = previewData && (previewData as any)[key] ? (previewData as any)[key] : (config.text || `LABEL: ${key}`);
+    
     return (
       <Text key={key} {...common} 
-        text={previewData ? (previewData[key as keyof typeof previewData] || config.text || `MISSING: ${key}`) : config.text}
+        text={displayText}
         fontSize={config.fontSize || 18}
+        width={config.width}
+        height={config.height}
         fontFamily={config.fontFamily || 'Arial'}
         fontStyle={config.fontStyle || 'bold'}
         fill={config.fill || '#1e293b'}
-        width={config.width || 200}
-        wrap="word"
-        lineHeight={1.2}
+        onTransform={(e) => {
+          const node = e.target;
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
+          node.setAttrs({
+            width: Math.max(5, node.width() * scaleX),
+            height: Math.max(5, node.height() * scaleY),
+            scaleX: 1,
+            scaleY: 1
+          });
+        }}
       />
     );
   };
@@ -269,7 +335,7 @@ const handleTransformEnd = (e: any, key: string) => {
           <button onClick={() => setZoom(prev => Math.min(2, prev + 0.1))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500"><ZoomIn size={18}/></button>
           <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2" />
           <button onClick={handleExportPNG} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase text-teal-600 hover:bg-teal-50 rounded-xl transition-all"><Download size={14} /> Export PNG</button>
-          <button onClick={() => setTempLayout(currentLayout)} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase text-slate-500 hover:text-orange-500 transition-colors"><RefreshCw size={14} /> Reset</button>
+          <button onClick={() => { console.log("DEBUG: Resetting layout to original"); setTempLayout(currentLayout); }} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase text-slate-500 hover:text-orange-500 transition-colors"><RefreshCw size={14} /> Reset</button>
           <button onClick={handleSaveLayout} disabled={isSaving} className={`flex items-center gap-2 px-6 py-2 bg-teal-500 text-white rounded-xl text-[10px] font-black uppercase shadow-lg transition-all ${isSaving ? 'opacity-70' : 'hover:scale-105 active:scale-95'}`}>
             {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />} {isSaving ? 'Rendering...' : 'Save Layout'}
           </button>
@@ -288,7 +354,7 @@ const handleTransformEnd = (e: any, key: string) => {
           <div className="flex-1 flex flex-col min-h-0">
             <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest flex items-center gap-2 mb-3"><Layers size={14}/> Layers</span>
             <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
-              {Object.entries(tempLayout[editSide.toLowerCase()]).map(([key, pos]: any) => (
+              {tempLayout && tempLayout[editSide.toLowerCase()] && Object.entries(tempLayout[editSide.toLowerCase()]).map(([key, pos]: any) => (
                 <button key={key} onClick={() => setSelectedId(key)} className={`w-full p-3 rounded-xl border text-left transition-all ${selectedId === key ? 'bg-teal-500/10 border-teal-500' : 'bg-slate-50 dark:bg-slate-950 border-transparent hover:border-slate-200'}`}>
                   <div className="flex items-center gap-2 mb-1">
                     {key.includes('photo') || key.includes('signature') ? <Square size={12} className="text-teal-500" /> : <Type size={12} className="text-teal-500" />}
@@ -305,47 +371,29 @@ const handleTransformEnd = (e: any, key: string) => {
           <div className="shadow-2xl rounded-lg overflow-hidden bg-white" style={{ width: DESIGN_WIDTH * zoom, height: DESIGN_HEIGHT * zoom }}>
             <Stage ref={stageRef} width={DESIGN_WIDTH * zoom} height={DESIGN_HEIGHT * zoom} scaleX={zoom} scaleY={zoom} onMouseDown={(e) => e.target === e.target.getStage() && setSelectedId(null)}>
               <Layer ref={layerRef}>
-                {editSide === 'FRONT' && Object.entries(tempLayout[editSide.toLowerCase()]).map(([key, config]) => {
+                {editSide === 'FRONT' && tempLayout.front && Object.entries(tempLayout.front).map(([key, config]) => {
                   if (key === 'photo' || key === 'signature') return renderElement(key, config);
                   return null;
                 })}
-                
-                <KonvaImage image={bgImage} width={DESIGN_WIDTH} height={DESIGN_HEIGHT} listening={false} opacity={(selectedId === 'photo' || selectedId === 'signature') ? 0.4 : 1} />
-
-                {Object.entries(tempLayout[editSide.toLowerCase()]).map(([key, config]) => {
+                <KonvaImage 
+                  image={bgImage} 
+                  width={DESIGN_WIDTH} 
+                  height={DESIGN_HEIGHT} 
+                  listening={false} 
+                  opacity={(selectedId === 'photo' || selectedId === 'signature') ? 0.4 : 1} 
+                />
+                {tempLayout && tempLayout[editSide.toLowerCase()] && Object.entries(tempLayout[editSide.toLowerCase()]).map(([key, config]) => {
                   const isShape = key.startsWith('rect') || key.startsWith('circle');
                   const isText = isTextLayer(key);
                   if (editSide === 'BACK') return renderElement(key,config);
                   if (editSide === 'FRONT' && (isShape || isText)) return renderElement(key,config);
                   return null;
                 })}
-
                 <Transformer 
                   ref={trRef} 
-                  // Dynamic Ratio: Only text can be squashed/stretched to reflow
-                  keepRatio={!isTextLayer(selectedId)} 
-                  
-                  // Dynamic Anchors: 
-                  // Text gets middle-side handles to adjust wrapping
-                  // Media gets corner handles to maintain proportion
-                  enabledAnchors={isTextLayer(selectedId) 
-                    ? ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right'] 
-                    : ['top-left', 'top-right', 'bottom-left', 'bottom-right']
-                  }
-                  
+                  keepRatio={false} 
+                  enabledAnchors={['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right']}
                   rotateEnabled={true} 
-                  anchorSize={8}
-                  anchorCornerRadius={2}
-                  borderStroke="#14b8a6"
-                  anchorStroke="#14b8a6"
-                  
-                  boundBoxFunc={(oldBox, newBox) => {
-                    // Prevent flipping or making elements too small to select
-                    if (Math.abs(newBox.width) < 10 || Math.abs(newBox.height) < 10) {
-                      return oldBox;
-                    }
-                    return newBox;
-                  }}
                 />
               </Layer>
             </Stage>
@@ -354,22 +402,11 @@ const handleTransformEnd = (e: any, key: string) => {
 
         <div className="w-72 border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 flex flex-col gap-6 overflow-y-auto">
           <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Properties</span>
-          {selectedId ? (
+          {selectedId && tempLayout[editSide.toLowerCase()] && tempLayout[editSide.toLowerCase()][selectedId] ? (
             <div className="space-y-6">
               <div className="flex gap-2">
                 <button onClick={() => moveLayer('up')} className="flex-1 flex items-center justify-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-[9px] font-bold hover:bg-slate-100"><ArrowUp size={12}/> UP</button>
                 <button onClick={() => moveLayer('down')} className="flex-1 flex items-center justify-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-[9px] font-bold hover:bg-slate-100"><ArrowDown size={12}/> DOWN</button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-400 uppercase">Width</label>
-                  <input type="number" value={Math.round(tempLayout[editSide.toLowerCase()][selectedId].width || 200)} onChange={(e) => updateItem(selectedId, { width: parseInt(e.target.value) })} className="w-full bg-slate-50 dark:bg-slate-800 rounded p-2 text-xs font-mono" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-400 uppercase">Height</label>
-                  <input type="number" value={Math.round(tempLayout[editSide.toLowerCase()][selectedId].height || 180)} onChange={(e) => updateItem(selectedId, { height: parseInt(e.target.value) })} className="w-full bg-slate-50 dark:bg-slate-800 rounded p-2 text-xs font-mono" />
-                </div>
               </div>
 
               {isTextLayer(selectedId) && (
@@ -379,8 +416,20 @@ const handleTransformEnd = (e: any, key: string) => {
                     <span className="text-[10px] font-mono text-teal-500 font-bold">{tempLayout[editSide.toLowerCase()][selectedId].fontSize || 18}px</span>
                   </div>
                   <input type="range" min="8" max="100" value={tempLayout[editSide.toLowerCase()][selectedId].fontSize || 18} onChange={(e) => updateItem(selectedId, { fontSize: parseInt(e.target.value) })} className="w-full accent-teal-500 cursor-pointer" />
+                  <input type="number" value={tempLayout[editSide.toLowerCase()][selectedId].fontSize || 18} onChange={(e) => updateItem(selectedId, { fontSize: parseInt(e.target.value) })} className="w-full bg-white dark:bg-slate-900 rounded p-2 text-xs font-mono border border-slate-200 dark:border-slate-700" />
                 </div>
               )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase">Width</label>
+                  <input type="number" value={tempLayout[editSide.toLowerCase()][selectedId].width || 200} onChange={(e) => updateItem(selectedId, { width: parseInt(e.target.value) })} className="w-full bg-slate-50 dark:bg-slate-800 rounded p-2 text-xs font-mono" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase">Height</label>
+                  <input type="number" value={tempLayout[editSide.toLowerCase()][selectedId].height || 180} onChange={(e) => updateItem(selectedId, { height: parseInt(e.target.value) })} className="w-full bg-slate-50 dark:bg-slate-800 rounded p-2 text-xs font-mono" />
+                </div>
+              </div>
 
               <div className="space-y-1">
                 <label className="text-[9px] font-bold text-slate-400 uppercase">Opacity</label>
