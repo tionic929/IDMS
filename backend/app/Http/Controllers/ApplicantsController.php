@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\File;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
+use App\Http\Resources\ApplicantCardResource;
+
 class ApplicantsController extends Controller
 {
     public function index()
@@ -31,6 +33,14 @@ class ApplicantsController extends Controller
             'history' => $this->formatStudents($history)
         ], 200);
     }   
+
+    public function getPreview($id)
+    {
+        $student = Student::findOrFail($id);
+        return response()->json([
+            'data' => new ApplicantCardResource($student)
+        ]);
+    }
 
     private function formatStudents($collection){
         return $collection->map(function ($student) {
