@@ -9,7 +9,7 @@ import {
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
-import { confirmApplicant, getStudents } from '../api/students';
+import { getStudents } from '../api/students';
 
 // Types
 import type { Students } from '../types/students';
@@ -18,13 +18,17 @@ import { type ApplicantCard } from '../types/card';
 // Components
 import IDCardPreview from '../components/IDCardPreview';
 import CardDesigner from '../components/CardDesigner';
+import Templates from '../components/Templates';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 type SortKey = 'created_at' | 'id_number' | 'name';
 
 const Dashboard: React.FC = () => {
+  const [saveCount, setSaveCount] = useState(0);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [allTemplates, setAllTemplates] = useState<any[]>([]);
+
   const [viewMode, setViewMode] = useState<'queue' | 'designer'>('queue');
-  const [previewSide, setPreviewSide] = useState<'FRONT' | 'BACK'>('FRONT');
   
   const [allStudents, setAllStudents] = useState<Students[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,30 +40,31 @@ const Dashboard: React.FC = () => {
     'BSGE': { name: 'BSGE', color: 'text-red-800' },
     'BSN': { name: 'BSN', color: 'text-pink-400' },
     'BSBA': { name: 'BSBA', color: 'text-amber-400' },
+    'BSHM': { name: 'BSHM', color: 'text-amber-400' },
+    'BSCRIM': { name: 'BSCRIM', color: 'text-amber-400' },
+    'BSIT': { name: 'BSIT', color: 'text-amber-400' },
+    'BSED': { name: 'BSED', color: 'text-amber-400' },
+    'MIDWIFERY': { name: 'MIDWIFERY', color: 'text-amber-400' },
+    'AB': { name: 'AB', color: 'text-amber-400' },
+    'JD': { name: 'JD', color: 'text-amber-400' },
+    'ABM': { name: 'ABM', color: 'text-amber-400' },
+    'ICT': { name: 'ICT', color: 'text-amber-400' },
+    'BEC': { name: 'BEC', color: 'text-amber-400' },
+    'HUMSS': { name: 'HUMSS', color: 'text-amber-400' },
+    'STEM': { name: 'STEM', color: 'text-amber-400' },
+    'HE': { name: 'HE', color: 'text-amber-400' },
   }
 
-  const [activeLayout, setActiveLayout] = useState({
-    front: {
-      photo: { x: 75, y: 155, width: 200, height: 180 },
-      fullName: { x: 75, y: 395 },
-      idNumber: { x: 25, y: 430 },
-      course: { x: 230, y: 430 },
-    },
-    back: {
-      signature: { x: 80, y: 0, width: 200, height: 180 },
-      guardian_name: { x: 100, y: 35 },
-      guardian_contact: { x: 40, y: 430, fontSize: 14, width: 200, height: 180 },
-      address: { x: 40, y: 460, fontSize: 12, width: 200, height: 180 },
-    },
-    previewImages: { front: '', back: '' } 
-  });
-
-  const fetchStudents = async () => {
+  const fetchInitialData = async () => {
     setLoading(true);
     try {
-      const response = await getStudents();
-      const combined = [...(response.queue || []), ...(response.history || [])]; 
+      const [studentRes, templateRes] = await Promise.all([
+        getStudents(),
+        api.get('/card-layouts')
+      ]);
+      const combined = [...(studentRes.queue || []), ...(studentRes.history || [])]; 
       setAllStudents(combined);
+      setAllTemplates(templateRes.data);
     } catch (error) {
       toast.error("Failed to fetch records");
     } finally {
@@ -68,7 +73,7 @@ const Dashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchStudents(); 
+    fetchInitialData(); 
     const channel = echo.channel('dashboard')
       .listen('.new-submission', (data: { student: Students }) => {
         setAllStudents((prev) => {
@@ -79,7 +84,7 @@ const Dashboard: React.FC = () => {
       });
 
     return () => { channel.stopListening('.new-submission'); };
-  }, []);
+  }, [saveCount]);
 
   const queueCount = useMemo(() => 
     allStudents.filter(s => !s.has_card).length, [allStudents]
@@ -91,6 +96,26 @@ const Dashboard: React.FC = () => {
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     )[0] || null;
   }, [allStudents]);
+
+  // Logic to automatically find the template matching the student's course
+  const currentAutoLayout = useMemo(() => {
+    if (!latestStudent || allTemplates.length === 0) {
+      console.log("DEBUG: Mapping failed - No student or no templates available");
+      return null;
+    };
+
+    const matched = allTemplates.find(
+      (t) => t.name.trim().toUpperCase() === latestStudent.course.trim().toUpperCase()
+    );
+
+    const templateToUse = matched || allTemplates.find(t => t.is_active) || allTemplates[0];
+
+    return {
+      front: templateToUse.front_config,
+      back: templateToUse.back_config,
+      previewImages: templateToUse.previewImages || { front: '', back: '' }
+    };
+  }, [latestStudent, allTemplates]);
 
   const previewData = useMemo((): ApplicantCard | null => {
     if (!latestStudent) return null;
@@ -143,25 +168,19 @@ const Dashboard: React.FC = () => {
   };
 
   const handleExport = async (studentId: number) => {
-    if (!activeLayout.previewImages.front) {
-      toast.warn("Please save layout in Designer first to generate PNGs.");
-      return;
-    }
+//     // console.log(currentAutoLayout);
+//     console.log("DEBUG: Current Template being used:", currentAutoLayout?.name);
+// console.log("DEBUG: Has Front Image:", !!currentAutoLayout?.previewImages?.front);
+//     if (!currentAutoLayout?.previewImages?.front) {
+//       toast.warn("Please ensure this layout is saved in Designer first.");
+//       return;
+//     }
     
     setLoading(true);
     try {
-      // Pass the PNG strings to your backend
-      await api.post(`/students/${studentId}/confirm`, {
-        layout_config: activeLayout,
-        front_png: activeLayout.previewImages.front,
-        back_png: activeLayout.previewImages.back
-      });
-
       setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, has_card: true } : s));
       toast.success("ID Saved to Database");
-      
-      // Auto-trigger print
-      setTimeout(() => window.print(), 500);
+      // setTimeout(() => window.print(), 500);
     } catch (error) {
       toast.error("Process Failed");
     } finally {
@@ -184,7 +203,6 @@ const Dashboard: React.FC = () => {
     <div className="min-h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 selection:bg-teal-500/30">
       <div className="mx-auto p-4 md:p-8 space-y-3">
         
-        {/* HEADER */}
         <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div className="space-y-1">
             <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase italic">
@@ -217,48 +235,71 @@ const Dashboard: React.FC = () => {
         <AnimatePresence mode="wait">
           {viewMode === 'designer' ? (
             <motion.div key="designer" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-                <CardDesigner 
-                  currentLayout={activeLayout} 
-                  allStudents={allStudents}
-                  onSave={(newLayout, previewImages) => {
-                    setActiveLayout({
-                      ...newLayout,
-                      previewImages: previewImages
-                    });
-                    setViewMode('queue');
-                    toast.success("Layout PNGs Generated & Saved");
-                  }} 
-                />
+                <div className="flex gap-6 h-[85vh] p-6">
+                  <div className="w-80">
+                    <Templates 
+                      activeId={selectedTemplate?.id} 
+                      onSelect={(t) => setSelectedTemplate(t)} 
+                      refreshTrigger={saveCount}
+                    />
+                  </div>
+
+                  <div className="flex-1">
+                    {selectedTemplate ? (
+                      <CardDesigner 
+                        templateId={selectedTemplate.id}
+                        templateName={selectedTemplate.name}
+                        currentLayout={{
+                          front: { ...selectedTemplate.front_config},
+                          back: { ...selectedTemplate.back_config}
+                        }}
+                        allStudents={allStudents}
+                        onSave={(updatedConfig) => {
+                          setSelectedTemplate((prev: any) => ({
+                            ...prev,
+                            front_config: updatedConfig.front,
+                            back_config: updatedConfig.back
+                          }));
+                          setSaveCount(prev => prev + 1);
+                        }}
+                      />
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center bg-white dark:bg-slate-900 rounded-[2rem] border-2 border-dashed border-slate-200">
+                        <Layout size={48} className="text-slate-200 mb-4" />
+                        <p className="text-slate-400 font-bold uppercase tracking-widest">Select a template to edit</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
             </motion.div>
           ) : (
             <motion.div key="queue" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
                 
-                  {/* HERO: LIVE PRODUCTION PREVIEWS */}
                   <div className="xl:col-span-4">
-                    {latestStudent && previewData ? (
+                    {latestStudent && previewData && currentAutoLayout ? (
                       <div className="flex flex-col lg:flex-row gap-6 items-stretch">
                         
                         <div className="w-full lg:w-fit bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border border-slate-200 dark:border-slate-800 shadow-xl flex flex-col items-left gap-6">
                           <div className="text-left">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Preview</p>
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Auto-Preview ({latestStudent.course} Layout)</p>
                           </div>
                           <div className="flex flex-col sm:flex-row gap-4">
-                              <IDCardPreview data={previewData} layout={activeLayout} side="FRONT" scale={.7} />
-                              <IDCardPreview data={previewData} layout={activeLayout} side="BACK" scale={.7} />
+                              <IDCardPreview data={previewData} layout={currentAutoLayout} side="FRONT" scale={.7} />
+                              <IDCardPreview data={previewData} layout={currentAutoLayout} side="BACK" scale={.7} />
                           </div>
-                          <div className="flex-1 w-[45vh] bg-slate-900 overflow-hidden shadow-2xl border-slate-800 grid grid-cols-1">
+                          <div className="flex-1 w-[45vh] bg-slate-900 overflow-hidden shadow-2xl border-slate-800 grid grid-cols-1 p-6 rounded-3xl">
                             <div className="justify-between">
                                   <span className="text-slate-700 font-mono text-xs font-bold italic">Timestamp: {new Date(latestStudent.created_at).toLocaleTimeString()}</span>
                                   <h2 className="text-[3rem] font-black text-teal-500 leading-none tracking-tighter italic">{latestStudent.id_number}</h2>
                                   <h2 className="text-4xl font-black text-white uppercase tracking-tight">{latestStudent.last_name}, <span className="text-white">{latestStudent.first_name}</span></h2>
-                                  <p className={`text-4xl font-bold uppercase tracking-tightt ${
+                                  <p className={`text-4xl font-bold uppercase tracking-tight ${
                                     Courses[latestStudent.course as keyof typeof Courses]?.color || 'text-white'
                                   }`}>
-                                    {Courses[latestStudent.course as keyof typeof Courses]?.name || 'General Education'}
+                                    {Courses[latestStudent.course as keyof typeof Courses]?.name || latestStudent.course}
                                   </p>
                             </div>
-                            <div className="grid grid-cols-2 gap-8 border-t border-slate-800/50">
+                            <div className="grid grid-cols-2 gap-8 border-t border-slate-800/50 mt-4 pt-4">
                               <div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Emergency Name</p>
                                 <p className="text-lg font-black text-white uppercase">{latestStudent.guardian_name}</p>
@@ -268,7 +309,7 @@ const Dashboard: React.FC = () => {
                                 <p className="text-lg text-white font-sans">{latestStudent.guardian_contact}</p>
                               </div>
                             </div>
-                              <div className="grid grid-cols-1">
+                              <div className="grid grid-cols-1 mt-4">
                                 <div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase">Address</p>
                                 <p className="text-lg text-white font-sans ">{latestStudent.address}</p>
@@ -277,7 +318,7 @@ const Dashboard: React.FC = () => {
                             <button 
                               onClick={() => handleExport(latestStudent.id)} 
                               disabled={loading}
-                              className="w-full mt-2 py-2 bg-teal-500 text-slate-950 rounded-2xl font-black uppercase tracking-widest hover:bg-teal-400 transition-all shadow-xl shadow-teal-500/20 active:scale-95 disabled:opacity-50"
+                              className="w-full mt-6 py-4 bg-teal-500 text-slate-950 rounded-2xl font-black uppercase tracking-widest hover:bg-teal-400 transition-all shadow-xl shadow-teal-500/20 active:scale-95 disabled:opacity-50"
                             >
                               {loading ? 'Processing...' : 'Confirm & Mark as Printed'}
                             </button>
@@ -285,7 +326,6 @@ const Dashboard: React.FC = () => {
                         </div>
                         </div>
 
-                        {/* DIRECTORY TABLE SECTION */}
                         <section className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col flex-1">
                           <div className="p-10 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-8 bg-slate-50/30 dark:bg-transparent">
                             <div className="space-y-1">
@@ -304,7 +344,6 @@ const Dashboard: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* SCROLLABLE WRAPPER */}
                           <div className="overflow-y-auto max-h-[700px] scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent">
                             <table className="w-full text-left relative">
                               <thead className="sticky top-0 z-10">
@@ -330,7 +369,7 @@ const Dashboard: React.FC = () => {
                                     </td>
                                     <td className="px-10 py-7">
                                       <span className={`px-4 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider dark:text-slate-300
-                                        ${Courses[latestStudent.course as keyof typeof Courses]?.color || 'text-white'}
+                                        ${Courses[student.course as keyof typeof Courses]?.color || 'text-white'}
                                         `}>
                                           {student.course}
                                       </span>
@@ -375,7 +414,7 @@ const Dashboard: React.FC = () => {
                         <div className="p-8 bg-white dark:bg-slate-900 rounded-full shadow-xl mb-6">
                           <Users size={48} className="text-slate-300" />
                         </div>
-                        <p className="text-slate-400 font-black uppercase tracking-[0.3em]">No Pending Applicants in Queue</p>
+                        <p className="text-slate-400 font-black uppercase tracking-[0.3em]">No Pending Applicants or Missing Templates</p>
                       </div>
                     )}
                   </div>
@@ -387,8 +426,6 @@ const Dashboard: React.FC = () => {
     </div>
   );
 };
-
-// --- Helper UI Components ---
 
 const SortHeader = ({ label, active, order, onClick }: any) => (
   <th className="px-10 py-6 cursor-pointer hover:text-teal-500 transition-colors group" onClick={onClick}>

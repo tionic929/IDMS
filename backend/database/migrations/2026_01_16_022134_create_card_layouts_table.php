@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::create('card_layouts', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->default('Main ID Layout'); // Label for the layout
-            $table->enum('side', ['FRONT', 'BACK']);           // Identifies which side this JSON belongs to
-            $table->json('config');                            // Stores the Fabric.js JSON string
-            $table->boolean('is_active')->default(true);       // Set as the "Main" layout
+            $table->string('name'); 
+            $table->json('front_config'); // Stores the 'front' object from your JSON
+            $table->json('back_config');  // Stores the 'back' object from your JSON
+            $table->boolean('is_active')->default(false);
             $table->timestamps();
         });
     }

@@ -9,6 +9,7 @@ use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\DepartmentsController;
 use App\Http\Controllers\LayoutController;
 use Illuminate\Support\Facades\Storage;
+use App\Http\Controllers\CardLayoutController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -45,6 +46,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/confirm-applicant/{studentId}', [ApplicantsController::class, 'updateApplicantsExcelFile']);
 
     // FOR ID CARD DESIGNER
+
+    Route::prefix('card-layouts')->group(function () {
+        Route::get('/', [CardLayoutController::class, 'index']);
+        Route::post('/', [CardLayoutController::class, 'store']);
+        Route::put('/{id}', [CardLayoutController::class, 'update']);
+        Route::delete('/{id}', [CardLayoutController::class, 'destroy']);
+        Route::patch('/{id}/activate', [CardLayoutController::class, 'activate']);
+    });
 
     Route::get('/applicants/{id}/card-preview', [ApplicantsController::class, 'getPreview']);
     // Designer saves the master config here

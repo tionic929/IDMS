@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class CardLayout extends Model
 {
-    protected $fillable = ['name', 'side', 'config', 'is_active'];
+    protected $fillable = ['name', 'front_config', 'back_config', 'is_active'];
 
     protected $casts = [
-        'config' => 'array', 
-        'is_active' => 'boolean', 
+        'front_config' => 'array',
+        'back_config' => 'array',
+        'is_active' => 'boolean',
     ];
 }
