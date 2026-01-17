@@ -168,19 +168,19 @@ const Dashboard: React.FC = () => {
   };
 
   const handleExport = async (studentId: number) => {
-    // console.log(currentAutoLayout);
-    console.log("DEBUG: Current Template being used:", currentAutoLayout?.name);
-console.log("DEBUG: Has Front Image:", !!currentAutoLayout?.previewImages?.front);
-    if (!currentAutoLayout?.previewImages?.front) {
-      toast.warn("Please ensure this layout is saved in Designer first.");
-      return;
-    }
+//     // console.log(currentAutoLayout);
+//     console.log("DEBUG: Current Template being used:", currentAutoLayout?.name);
+// console.log("DEBUG: Has Front Image:", !!currentAutoLayout?.previewImages?.front);
+//     if (!currentAutoLayout?.previewImages?.front) {
+//       toast.warn("Please ensure this layout is saved in Designer first.");
+//       return;
+//     }
     
     setLoading(true);
     try {
       setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, has_card: true } : s));
       toast.success("ID Saved to Database");
-      setTimeout(() => window.print(), 500);
+      // setTimeout(() => window.print(), 500);
     } catch (error) {
       toast.error("Process Failed");
     } finally {

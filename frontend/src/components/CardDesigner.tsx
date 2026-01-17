@@ -3,9 +3,9 @@ import { Stage, Layer, Text, Rect, Image as KonvaImage, Group, Transformer, Circ
 import useImage from 'use-image';
 import { 
   RefreshCw, Save, Square, Type, ZoomIn, ZoomOut, 
-  Layers, MousePointer2, Download, RotateCw, Palette, 
+  Layers, MousePointer2, Download, 
   Type as FontIcon, Circle as CircleIcon, Box, 
-  ArrowUp, ArrowDown, Trash2 
+  ArrowUp, ArrowDown, Trash2, AlignLeft
 } from 'lucide-react';
 
 import { toast } from 'react-toastify';
@@ -18,6 +18,29 @@ import { saveLayout } from '../api/templates';
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 const DESIGN_WIDTH = 320;
 const DESIGN_HEIGHT = 500;
+
+// --- TYPES ---
+type FitMode = 'none' | 'wrap' | 'shrink' | 'stretch';
+type OverflowMode = 'clip' | 'ellipsis';
+
+interface LayoutItemSchema {
+  x: number;
+  y: number;
+  width: number;
+  height: number | null;
+  fontSize: number;
+  fontFamily: string;
+  fontStyle: string;
+  align: 'left' | 'center' | 'right';
+  fit: FitMode;
+  maxLines: number | null;
+  overflow: OverflowMode;
+  opacity?: number;
+  rotation?: number;
+  fill?: string;
+  text?: string;
+  type?: string;
+}
 
 interface CardDesignerProps {
   templateId: number | null;
@@ -38,25 +61,79 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
   const trRef = useRef<any>(null);
   const layerRef = useRef<any>(null);
 
-  // DEBUG: Monitor layout changes from parent
   useEffect(() => {
     if (currentLayout) {
-      console.log("DEBUG: Received currentLayout from parent:", currentLayout);
       setTempLayout(currentLayout);
     }
   }, [currentLayout]);
   
-  const getStagePNGForSide = async (side: 'FRONT' | 'BACK') => {
-    // 1. Temporarily switch to the side we want to capture
-    setEditSide(side);
-    
-    // 2. Small delay to allow Konva to re-render the new side
-    await new Promise(resolve => setTimeout(resolve, 100));
+  // --- ENGINE HELPERS ---
 
+  /**
+   * Calculates the font size required to fit text within a specific number of lines.
+   */
+  const calculateShrinkFontSize = (
+    text: string, 
+    width: number, 
+    maxFontSize: number, 
+    maxLines: number = 1,
+    fontFamily: string = 'Arial', 
+    fontStyle: string = 'normal'
+  ): number => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return maxFontSize;
+
+    let low = 1;
+    let high = maxFontSize;
+    let bestFit = low;
+
+    // Use binary search to find the largest font size that fits within the maxLines constraint
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      ctx.font = `${fontStyle} ${mid}px ${fontFamily}`;
+      const metrics = ctx.measureText(text);
+      
+      // Calculate how many lines this text would take at this font size
+      // We subtract a small padding (4px) to ensure Konva doesn't force a wrap prematurely
+      const estimatedLines = Math.ceil(metrics.width / (width - 4));
+      
+      if (estimatedLines <= maxLines) {
+        bestFit = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return bestFit;
+  };
+
+  const resolveTextLayout = (key: string, config: any, text: string) => {
+    const mode: FitMode = config.fit || 'none';
+    const baseSize = config.fontSize || 18;
+    const width = config.width || 200;
+    const maxLines = config.maxLines || 1;
+
+    let resolvedFontSize = baseSize;
+    let wrapString: "none" | "word" = "none";
+
+    if (mode === 'shrink') {
+        resolvedFontSize = calculateShrinkFontSize(text, width, baseSize, maxLines, config.fontFamily, config.fontStyle);
+        // If maxLines > 1, we must enable wrapping so it actually uses the lines
+        wrapString = maxLines > 1 ? "word" : "none";
+    } else if (mode === 'wrap') {
+        wrapString = "word";
+    }
+
+    return { fontSize: resolvedFontSize, wrap: wrapString };
+  };
+
+  const getStagePNGForSide = async (side: 'FRONT' | 'BACK') => {
+    setEditSide(side);
+    await new Promise(resolve => setTimeout(resolve, 150));
     if (stageRef.current) {
-      // 3. Export at high quality for printing
       return stageRef.current.toDataURL({
-        pixelRatio: 3, // Higher resolution for printing
+        pixelRatio: 3.4375, 
         mimeType: 'image/png'
       });
     }
@@ -66,21 +143,15 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
   const latestStudent = useMemo(() => {
     if (!allStudents || !Array.isArray(allStudents)) return null;
     const pending = allStudents.filter(s => !s.has_card);
-    const selected = [...pending].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0] || null;
-    console.log("DEBUG: Selected student for preview:", selected);
-    return selected;
+    return [...pending].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0] || null;
   }, [allStudents]);
 
   const previewData = useMemo(() => {
-    const student = allStudents[0];
-    if (!latestStudent) {
-        console.warn("DEBUG: No student found for previewData.");
-        return null;
-    }
+    if (!latestStudent) return null;
     const getUrl = (path: string | null) => 
       path ? `${VITE_API_URL}/api/proxy-image?path=${path}` : '';
     
-    const data = {
+    return {
       fullName: `${latestStudent.first_name} ${latestStudent.last_name}`,
       idNumber: latestStudent.id_number,
       course: templateName || latestStudent.course || "COURSE",
@@ -90,29 +161,17 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
       guardian_contact: latestStudent.guardian_contact,
       address: latestStudent.address,
     };
-
-    console.log("DEBUG: Generated previewData object:", data);
-    return data;
-  }, [latestStudent]);
+  }, [latestStudent, templateName]);
 
   const [bgImage] = useImage(editSide === 'FRONT' ? FRONT_BG : BACK_BG, 'anonymous');
   const [photoImage] = useImage(previewData?.photo || '', 'anonymous');
   const [sigImage] = useImage(previewData?.signature || '', 'anonymous');
 
-  const getStagePNG = () => {
-    if (!stageRef.current) return null;
-    return stageRef.current.toDataURL({
-      pixelRatio: 3.4375,
-      mimeType: 'image/png',
-      quality: 1,
-    });
-  };
-  
   const handleExportPNG = () => {
     if (!stageRef.current) return;
     setSelectedId(null);
     setTimeout(() => {
-      const dataURL = getStagePNG();
+      const dataURL = stageRef.current.toDataURL({ pixelRatio: 3.4375, mimeType: 'image/png' });
       if (!dataURL) return;
       const link = document.createElement('a');
       link.download = `${previewData?.idNumber || 'ID'}_${editSide}.png`;
@@ -129,20 +188,14 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
       return;
     }
     setIsSaving(true);
-
-    // console.log("DEBUG: Starting Save Process. Current local state:", tempLayout);
-    // const finalLayout = { ...tempLayout, previewImages: { front: '', back: '' } };
     try {
       const frontPng = await getStagePNGForSide('FRONT');
       const backPng = await getStagePNGForSide('BACK');
 
       const updatedLayout = {
         ...tempLayout, 
-        previewImages: {
-          front: frontPng,
-          back: backPng
-        }
-      }
+        previewImages: { front: frontPng, back: backPng }
+      };
       
       await saveLayout(templateId, templateName, updatedLayout);
       setTempLayout(updatedLayout);
@@ -150,7 +203,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
       setEditSide('FRONT');
       toast.success("Changes saved and applied!");
     } catch (error) {
-      console.error("DEBUG: Save failed", error);
+      console.error("Save failed", error);
     } finally {
       setIsSaving(false);
     }
@@ -170,45 +223,83 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
   const addShape = (type: 'rect' | 'circle') => {
     const side = editSide.toLowerCase();
     const id = `${type}_${Date.now()}`;
+    const newShape: Partial<LayoutItemSchema> = { 
+        x: 50, y: 50, width: 200, height: 180, 
+        fill: '#00ffe1ff', rotation: 0, opacity: 1,
+        type: type,
+        fit: 'none',
+    };
+
     setTempLayout((prev: any) => ({
       ...prev,
       [side]: {
         ...prev[side],
-        [id]: { 
-          type, 
-          x: 50, 
-          y: 50, 
-          width: 200, 
-          height: 180, 
-          fill: '#00ffe1ff', 
-          rotation: 0, 
-          opacity: 1 
-        }
+        [id]: newShape
       }
     }));
     setSelectedId(id);
   };
 
-  const handleTransformEnd = (e: any, key: string) => {
+  const isTextLayer = (key: string | null) => {
+    if (!key) return false;
+    return !['photo', 'signature'].includes(key) && !key.startsWith('rect') && !key.startsWith('circle');
+  };
+
+  const handleTransform = (e: any, key: string, config: LayoutItemSchema) => {
     const node = e.target;
-    const isText = node.className === 'Text';
+    const scaleX = node.scaleX();
+    const scaleY = node.scaleY();
     
-    const attrs: any = {
+    const newWidth = Math.max(10, Math.round(node.width() * scaleX));
+    const newHeight = Math.max(10, Math.round(node.height() * scaleY));
+
+    node.scaleX(1);
+    node.scaleY(1);
+    node.width(newWidth);
+    node.height(newHeight);
+
+    const textNode = node.findOne('Text');
+    const boundsNode = node.findOne('.Bounds');
+    const imageNode = node.findOne('.Image');
+
+    if (textNode) {
+      textNode.width(newWidth);
+      if (config.fit !== 'none') textNode.height(newHeight);
+      if (config.fit === 'stretch') {
+        textNode.fontSize(Math.round(textNode.fontSize() * scaleY));
+      }
+    }
+    if (boundsNode) {
+      boundsNode.width(newWidth);
+      boundsNode.height(newHeight);
+    }
+    if (imageNode) {
+      imageNode.width(newWidth);
+      imageNode.height(newHeight);
+    }
+    
+    if (node.getClassName() === 'Circle') {
+      node.radius(newWidth / 2);
+    }
+  };
+
+  const handleTransformEnd = (e: any, key: string, config: LayoutItemSchema) => {
+    const node = e.target;
+    const textNode = node.findOne('Text');
+    
+    const finalUpdates: any = {
       x: Math.round(node.x()),
       y: Math.round(node.y()),
+      width: Math.round(node.width()),
+      height: Math.round(node.height()),
       rotation: Math.round(node.rotation()),
     };
 
-    attrs.width = Math.max(5, Math.round(node.width() * node.scaleX()));
-    attrs.height = Math.max(5, Math.round(node.height() * node.scaleY()));
-
-    if (isText) {
-      attrs.fontSize = Math.round(node.fontSize() * node.scaleX());
+    if (textNode && config.fit === 'stretch') {
+      finalUpdates.fontSize = Math.round(textNode.fontSize());
     }
 
-    updateItem(key, attrs);
-    node.scaleX(1);
-    node.scaleY(1);
+    updateItem(key, finalUpdates);
   };
 
   const moveLayer = (direction: 'up' | 'down') => {
@@ -217,20 +308,13 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
     const sideData = tempLayout[side];
     const keys = Object.keys(sideData);
     const index = keys.indexOf(selectedId);
-    
     if ((direction === 'up' && index === keys.length - 1) || (direction === 'down' && index === 0)) return;
-    
     const newKeys = [...keys];
     const newIndex = direction === 'up' ? index + 1 : index - 1;
     [newKeys[index], newKeys[newIndex]] = [newKeys[newIndex], newKeys[index]];
-    
     const reordered: any = {};
     newKeys.forEach(k => reordered[k] = sideData[k]);
-    
-    setTempLayout((prev: any) => ({ 
-      ...prev, 
-      [side]: reordered 
-    }));
+    setTempLayout((prev: any) => ({ ...prev, [side]: reordered }));
   };
 
   useEffect(() => {
@@ -245,25 +329,18 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
     }
   }, [selectedId, editSide]);
 
-  const isTextLayer = (key: string | null) => {
-    if (!key) return false;
-    return !['photo', 'signature'].includes(key) && !key.startsWith('rect') && !key.startsWith('circle');
-  };
-
-  const renderElement = (key: string, config: any) => {
+  const renderElement = (key: string, config: LayoutItemSchema) => {
     const isPhoto = key === 'photo';
     const isSig = key === 'signature';
     const isShape = key.startsWith('rect') || key.startsWith('circle');
     
-    // DEBUG: Log every element being rendered
-    // console.log(`DEBUG: Rendering element [${key}]`, { side: editSide, config });
-
     const common = {
       name: key, x: config.x, y: config.y, 
       rotation: config.rotation || 0, opacity: config.opacity ?? 1,
       draggable: true, onClick: () => setSelectedId(key),
       onDragEnd: (e: any) => updateItem(key, { x: Math.round(e.target.x()), y: Math.round(e.target.y()) }),
-      onTransformEnd: (e: any) => handleTransformEnd(e, key)
+      onTransform: (e: any) => handleTransform(e, key, config),
+      onTransformEnd: (e: any) => handleTransformEnd(e, key, config)
     };
 
     if (isPhoto || isSig) {
@@ -272,12 +349,17 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
       const h = config.height || 180;
       return (
         <Group key={key} {...common} width={w} height={h}>
-          <Rect width={w} height={h} stroke={isPhoto ? "#14b8a6" : "#6366f1"} strokeWidth={2/zoom} dash={[5,5]} opacity={selectedId === key ? 1 : 0} />
+          <Rect name="Bounds" width={w} height={h} stroke={isPhoto ? "#14b8a6" : "#6366f1"} strokeWidth={2/zoom} dash={[5,5]} opacity={selectedId === key ? 1 : 0} />
           {img && (
-            <KonvaImage image={img} width={w} height={h} 
-              sceneFunc={(context) => {
-                const ratio = Math.min(w / img.width, h / img.height);
-                context.drawImage(img, (w - img.width * ratio) / 2, (h - img.height * ratio) / 2, img.width * ratio, img.height * ratio);
+            <KonvaImage 
+              name="Image"
+              image={img} 
+              width={w} height={h} 
+              sceneFunc={(context, shape) => {
+                const nodeW = shape.width();
+                const nodeH = shape.height();
+                const ratio = Math.min(nodeW / img.width, nodeH / img.height);
+                context.drawImage(img, (nodeW - img.width * ratio) / 2, (nodeH - img.height * ratio) / 2, img.width * ratio, img.height * ratio);
               }}
             />
           )}
@@ -292,37 +374,36 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
       return <Rect key={key} {...common} width={w} height={h} fill={config.fill} />;
     }
 
-    // TEXT RENDERING
-    // const displayText = previewData && (previewData as any)[key] ? (previewData as any)[key] : (config.text || `LABEL: ${key}`);
-    let displayText = "";
-    if(key === 'course') {
-      displayText = templateName || config.text || (previewData as any)?.[key] || "COURSE";
-    } else {
-      displayText = (previewData as any)?.[key] || config.text || `LABEL: ${key}`;
-    }
+    let displayText = (previewData as any)?.[key] || config.text || `LABEL: ${key}`;
+    if(key === 'course') displayText = templateName || displayText;
+
+    const { fontSize, wrap } = resolveTextLayout(key, config, displayText);
+    const boxWidth = config.width || 200;
+    const boxHeight = config.height || 180;
 
     return (
-      <Text key={key} {...common} 
-        text={displayText}
-        fontSize={config.fontSize || 18}
-        width={config.width}
-        height={config.height}
-        fontFamily={config.fontFamily || 'Arial'}
-        fontStyle={config.fontStyle || 'bold'}
-        fill={config.fill || '#ffffffff'}
-        onTransform={(e) => {
-          const node = e.target;
-          const scaleX = node.scaleX();
-          const scaleY = node.scaleY();
-          node.setAttrs({
-            width: Math.max(5, node.width() * scaleX),
-            height: Math.max(5, node.height() * scaleY),
-            scaleX: 1,
-            scaleY: 1
-          });
-        }}
-      />
+      <Group key={key} x={config.x} y={config.y} width={boxWidth} height={boxHeight} rotation={config.rotation || 0} {...common}>
+        <Rect name="Bounds" width={boxWidth} height={boxHeight} stroke="#14b8a6" strokeWidth={1/zoom} dash={[4,4]} opacity={selectedId === key ? 0.6 : 0} />
+        <Text 
+          name="Text" x={0} y={0} text={displayText} fontSize={fontSize} width={boxWidth}
+          height={config.fit === 'none' ? undefined : boxHeight}
+          fontFamily={config.fontFamily || 'Arial'} fontStyle={config.fontStyle || 'bold'}
+          fill={config.fill || '#1e293b'} align={config.align || 'center'}
+          verticalAlign="middle" wrap={wrap} ellipsis={config.overflow === 'ellipsis'} 
+        />
+      </Group>
     );
+  };
+
+  const getEnabledAnchors = (): string[] => {
+      if (!selectedId) return [];
+      const side = editSide.toLowerCase();
+      const config = tempLayout[side]?.[selectedId] as LayoutItemSchema;
+      if (config?.fit === 'none') return [];
+      if (config?.fit === 'wrap') return ['middle-left', 'middle-right'];
+      if (config?.fit === 'shrink') return ['middle-left', 'middle-right', 'top-center', 'bottom-center'];
+      if (config?.fit === 'stretch') return ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
+      return ['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right'];
   };
 
   return (
@@ -342,7 +423,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
           <button onClick={() => setZoom(prev => Math.min(2, prev + 0.1))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500"><ZoomIn size={18}/></button>
           <div className="h-6 w-[1px] bg-slate-200 dark:bg-slate-700 mx-2" />
           <button onClick={handleExportPNG} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase text-teal-600 hover:bg-teal-50 rounded-xl transition-all"><Download size={14} /> Export PNG</button>
-          <button onClick={() => { console.log("DEBUG: Resetting layout to original"); setTempLayout(currentLayout); }} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase text-slate-500 hover:text-orange-500 transition-colors"><RefreshCw size={14} /> Reset</button>
+          <button onClick={() => setTempLayout(currentLayout)} className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase text-slate-500 hover:text-orange-500 transition-colors"><RefreshCw size={14} /> Reset</button>
           <button onClick={handleSaveLayout} disabled={isSaving} className={`flex items-center gap-2 px-6 py-2 bg-teal-500 text-white rounded-xl text-[10px] font-black uppercase shadow-lg transition-all ${isSaving ? 'opacity-70' : 'hover:scale-105 active:scale-95'}`}>
             {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />} {isSaving ? 'Rendering...' : 'Save Layout'}
           </button>
@@ -379,28 +460,22 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
             <Stage ref={stageRef} width={DESIGN_WIDTH * zoom} height={DESIGN_HEIGHT * zoom} scaleX={zoom} scaleY={zoom} onMouseDown={(e) => e.target === e.target.getStage() && setSelectedId(null)}>
               <Layer ref={layerRef}>
                 {editSide === 'FRONT' && tempLayout.front && Object.entries(tempLayout.front).map(([key, config]) => {
-                  if (key === 'photo' || key === 'signature') return renderElement(key, config);
+                  if (key === 'photo' || key === 'signature') return renderElement(key, config as LayoutItemSchema);
                   return null;
                 })}
-                <KonvaImage 
-                  image={bgImage} 
-                  width={DESIGN_WIDTH} 
-                  height={DESIGN_HEIGHT} 
-                  listening={false} 
-                  opacity={(selectedId === 'photo' || selectedId === 'signature') ? 0.4 : 1} 
-                />
+                <KonvaImage image={bgImage} width={DESIGN_WIDTH} height={DESIGN_HEIGHT} listening={false} opacity={(selectedId === 'photo' || selectedId === 'signature') ? 0.4 : 1} />
                 {tempLayout && tempLayout[editSide.toLowerCase()] && Object.entries(tempLayout[editSide.toLowerCase()]).map(([key, config]) => {
                   const isShape = key.startsWith('rect') || key.startsWith('circle');
                   const isText = isTextLayer(key);
-                  if (editSide === 'BACK') return renderElement(key,config);
-                  if (editSide === 'FRONT' && (isShape || isText)) return renderElement(key,config);
+                  if (editSide === 'BACK') return renderElement(key,config as LayoutItemSchema);
+                  if (editSide === 'FRONT' && (isShape || isText)) return renderElement(key,config as LayoutItemSchema);
                   return null;
                 })}
                 <Transformer 
                   ref={trRef} 
-                  keepRatio={false} 
-                  enabledAnchors={['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right']}
-                  rotateEnabled={true} 
+                  keepRatio={selectedId ? (tempLayout[editSide.toLowerCase()]?.[selectedId]?.fit === 'stretch' || ['photo', 'signature'].includes(selectedId)) : false} 
+                  rotateEnabled={true} enabledAnchors={getEnabledAnchors()}
+                  boundBoxFunc={(oldBox, newBox) => (newBox.width < 10 || newBox.height < 10) ? oldBox : newBox}
                 />
               </Layer>
             </Stage>
@@ -417,24 +492,43 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
               </div>
 
               {isTextLayer(selectedId) && (
+                <>
+                <div className="space-y-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase">Fit Mode</label>
+                  <div className="grid grid-cols-2 gap-1">
+                      {['none', 'wrap', 'shrink', 'stretch'].map((m) => (
+                          <button key={m} onClick={() => updateItem(selectedId, { fit: m })} className={`px-2 py-1 text-[8px] uppercase font-bold rounded border ${tempLayout[editSide.toLowerCase()][selectedId].fit === m ? 'bg-teal-500 text-white border-teal-500' : 'bg-white text-slate-500 border-slate-200'}`}>{m}</button>
+                      ))}
+                  </div>
+                </div>
+
                 <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
                   <div className="flex justify-between items-center">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase">Font Size</label>
+                    <label className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1"><AlignLeft size={10}/> Max Lines</label>
+                    <span className="text-[10px] font-mono text-teal-500 font-bold">{tempLayout[editSide.toLowerCase()][selectedId].maxLines || 1}</span>
+                  </div>
+                  <input type="range" min="1" max="5" value={tempLayout[editSide.toLowerCase()][selectedId].maxLines || 1} onChange={(e) => updateItem(selectedId, { maxLines: parseInt(e.target.value) })} className="w-full accent-teal-500" />
+                  <p className="text-[7px] text-slate-400 italic">When in 'shrink' mode, font will reduce to fit this many lines.</p>
+                </div>
+
+                <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[9px] font-bold text-slate-400 uppercase">Base Font Size</label>
                     <span className="text-[10px] font-mono text-teal-500 font-bold">{tempLayout[editSide.toLowerCase()][selectedId].fontSize || 18}px</span>
                   </div>
-                  <input type="range" min="8" max="100" value={tempLayout[editSide.toLowerCase()][selectedId].fontSize || 18} onChange={(e) => updateItem(selectedId, { fontSize: parseInt(e.target.value) })} className="w-full accent-teal-500 cursor-pointer" />
-                  <input type="number" value={tempLayout[editSide.toLowerCase()][selectedId].fontSize || 18} onChange={(e) => updateItem(selectedId, { fontSize: parseInt(e.target.value) })} className="w-full bg-white dark:bg-slate-900 rounded p-2 text-xs font-mono border border-slate-200 dark:border-slate-700" />
+                  <input type="range" min="8" max="100" value={tempLayout[editSide.toLowerCase()][selectedId].fontSize || 18} onChange={(e) => updateItem(selectedId, { fontSize: parseInt(e.target.value) })} className="w-full accent-teal-500" />
                 </div>
+                </>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[9px] font-bold text-slate-400 uppercase">Width</label>
-                  <input type="number" value={tempLayout[editSide.toLowerCase()][selectedId].width || 200} onChange={(e) => updateItem(selectedId, { width: parseInt(e.target.value) })} className="w-full bg-slate-50 dark:bg-slate-800 rounded p-2 text-xs font-mono" />
+                  <input type="number" value={Math.round(tempLayout[editSide.toLowerCase()][selectedId].width || 200)} onChange={(e) => updateItem(selectedId, { width: parseInt(e.target.value) })} className="w-full bg-slate-50 dark:bg-slate-800 rounded p-2 text-xs font-mono" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-bold text-slate-400 uppercase">Height</label>
-                  <input type="number" value={tempLayout[editSide.toLowerCase()][selectedId].height || 180} onChange={(e) => updateItem(selectedId, { height: parseInt(e.target.value) })} className="w-full bg-slate-50 dark:bg-slate-800 rounded p-2 text-xs font-mono" />
+                  <input type="number" value={Math.round(tempLayout[editSide.toLowerCase()][selectedId].height || 180)} onChange={(e) => updateItem(selectedId, { height: parseInt(e.target.value) })} className="w-full bg-slate-50 dark:bg-slate-800 rounded p-2 text-xs font-mono" />
                 </div>
               </div>
 
