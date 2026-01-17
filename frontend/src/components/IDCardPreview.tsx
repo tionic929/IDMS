@@ -76,7 +76,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
       const textMap: Record<string, any> = {
         fullName: data.fullName,
         idNumber: data.idNumber,
-        course: data.course,
+        course: config.text || data.course,
         guardian_name: data.guardian_name || (data as any).guardian_name,
         guardian_contact: data.guardian_contact,
         address: data.address || (data as any).address // Force check both

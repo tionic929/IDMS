@@ -72,6 +72,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
   }, [allStudents]);
 
   const previewData = useMemo(() => {
+    const student = allStudents[0];
     if (!latestStudent) {
         console.warn("DEBUG: No student found for previewData.");
         return null;
@@ -82,7 +83,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
     const data = {
       fullName: `${latestStudent.first_name} ${latestStudent.last_name}`,
       idNumber: latestStudent.id_number,
-      course: latestStudent.course,
+      course: templateName || latestStudent.course || "COURSE",
       photo: getUrl(latestStudent.id_picture),
       signature: getUrl(latestStudent.signature_picture),
       guardian_name: latestStudent.guardian_name,
@@ -101,12 +102,12 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
   const getStagePNG = () => {
     if (!stageRef.current) return null;
     return stageRef.current.toDataURL({
-      pixelRatio: 1 / zoom,
+      pixelRatio: 3.4375,
       mimeType: 'image/png',
       quality: 1,
     });
   };
-
+  
   const handleExportPNG = () => {
     if (!stageRef.current) return;
     setSelectedId(null);
@@ -292,8 +293,14 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
     }
 
     // TEXT RENDERING
-    const displayText = previewData && (previewData as any)[key] ? (previewData as any)[key] : (config.text || `LABEL: ${key}`);
-    
+    // const displayText = previewData && (previewData as any)[key] ? (previewData as any)[key] : (config.text || `LABEL: ${key}`);
+    let displayText = "";
+    if(key === 'course') {
+      displayText = templateName || config.text || (previewData as any)?.[key] || "COURSE";
+    } else {
+      displayText = (previewData as any)?.[key] || config.text || `LABEL: ${key}`;
+    }
+
     return (
       <Text key={key} {...common} 
         text={displayText}
@@ -302,7 +309,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
         height={config.height}
         fontFamily={config.fontFamily || 'Arial'}
         fontStyle={config.fontStyle || 'bold'}
-        fill={config.fill || '#1e293b'}
+        fill={config.fill || '#ffffffff'}
         onTransform={(e) => {
           const node = e.target;
           const scaleX = node.scaleX();

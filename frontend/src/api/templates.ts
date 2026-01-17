@@ -11,7 +11,7 @@ export const createNewTemplate = async (name: string) => {
         front_config: { 
             photo: { x: 60, y: 80, width: 200, height: 180 },
             fullName: { x: 20, y: 300, fontSize: 22, fill: '#1e293b', fontStyle: 'bold' },
-            course: { x: 20, y: 180, fontSize: 14 },
+            course: { x: 20, y: 180, fontSize: 14, text: name.toUpperCase(), fontStyle: 'bold', },
             idNumber: { x: 20, y: 330, fontSize: 16, fill: '#64748b' }
         },
         back_config: { 
@@ -33,7 +33,8 @@ export const saveLayout = async (templateId: number, name: string, config: any) 
     const request = await api.put(`/card-layouts/${templateId}`, {
         name: name,
         front_config: config.front,
-        back_config: config.back
+        back_config: config.back,
+        // preview_images: previewImages
     });
     return request.data;
 }

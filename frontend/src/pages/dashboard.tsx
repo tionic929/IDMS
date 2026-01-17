@@ -99,7 +99,10 @@ const Dashboard: React.FC = () => {
 
   // Logic to automatically find the template matching the student's course
   const currentAutoLayout = useMemo(() => {
-    if (!latestStudent || allTemplates.length === 0) return null;
+    if (!latestStudent || allTemplates.length === 0) {
+      console.log("DEBUG: Mapping failed - No student or no templates available");
+      return null;
+    };
 
     const matched = allTemplates.find(
       (t) => t.name.trim().toUpperCase() === latestStudent.course.trim().toUpperCase()
@@ -165,6 +168,9 @@ const Dashboard: React.FC = () => {
   };
 
   const handleExport = async (studentId: number) => {
+    // console.log(currentAutoLayout);
+    console.log("DEBUG: Current Template being used:", currentAutoLayout?.name);
+console.log("DEBUG: Has Front Image:", !!currentAutoLayout?.previewImages?.front);
     if (!currentAutoLayout?.previewImages?.front) {
       toast.warn("Please ensure this layout is saved in Designer first.");
       return;
