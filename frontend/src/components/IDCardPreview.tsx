@@ -16,6 +16,18 @@ interface Props {
   scale?: number;
 }
 
+// Custom hook to handle individual uploaded images within the loop
+const DynamicImage = ({ src, common }: { src: string; common: any }) => {
+  const [img] = useImage(src, 'anonymous');
+  if (!img) return null;
+  return (
+    <KonvaImage
+      {...common}
+      image={img}
+    />
+  );
+};
+
 const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
   const isFront = side === 'FRONT';
 
@@ -59,7 +71,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
     const maxLines = config.maxLines || 1;
 
     let resolvedFontSize = baseSize;
-    let wrapString: "none" | "word" = "none";
+    let wrapString: "none" | "word" = "none" as const;
 
     if (mode === 'shrink') {
       resolvedFontSize = calculateShrinkFontSize(text, width, baseSize, maxLines, config.fontFamily, config.fontStyle);
@@ -73,19 +85,14 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
     return { fontSize: resolvedFontSize, wrap: wrapString };
   };
 
-  // --- IMAGE PROXY LOGIC ---
-// --- IMAGE PROXY LOGIC ---
   const getProxyUrl = (path: string | null | undefined) => {
     if (!path) return '';
-    
     if (path.startsWith('data:') || path.startsWith('blob:')) return path;
     const storagePath = `${VITE_API_URL}/storage/`;
     let cleanPath = path;
-    
     if (path.startsWith(storagePath)) {
       cleanPath = path.replace(storagePath, '');
     }
-
     return `${VITE_API_URL}/api/proxy-image?path=${encodeURIComponent(cleanPath)}`;
   };
 
@@ -113,16 +120,8 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
     const isPhoto = key === 'photo';
     const isSig = key === 'signature';
     const isAsset = isPhoto || isSig;
+    const isCustomImage = key.startsWith('img_');
     const isShape = key.startsWith('rect') || key.startsWith('circle');
-
-    const textMap: Record<string, any> = {
-      fullName: data.fullName,
-      idNumber: data.idNumber,
-      course: config.text || data.course,
-      guardian_name: data.guardian_name,
-      guardian_contact: data.guardian_contact,
-      address: data.address
-    };
 
     const common = {
       key: key,
@@ -134,6 +133,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
       opacity: config.opacity ?? 1,
     };
 
+    // 1. Handle Hardcoded Photo/Signature (with Aspect Ratio logic)
     if (isAsset) {
       const img = isPhoto ? photoImage : sigImage;
       return (
@@ -161,12 +161,28 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
       );
     }
 
+    // 2. Handle Custom Uploaded Images (Logos, etc)
+    if (isCustomImage && config.src) {
+      return <DynamicImage key={key} src={config.src} common={common} />;
+    }
+
+    // 3. Handle Shapes
     if (isShape) {
       if (config.type === 'circle') {
         return <Circle {...common} radius={common.width / 2} fill={config.fill || '#00ffe1ff'} />;
       }
       return <Rect {...common} fill={config.fill || '#00ffe1ff'} />;
     }
+
+    // 4. Handle Text
+    const textMap: Record<string, any> = {
+      fullName: data.fullName,
+      idNumber: data.idNumber,
+      course: config.text || data.course,
+      guardian_name: data.guardian_name,
+      guardian_contact: data.guardian_contact,
+      address: data.address
+    };
 
     const displayText = textMap[key] || (data as any)[key] || config.text || "";
     const { fontSize, wrap } = resolveTextLayout(config, displayText);
@@ -194,15 +210,15 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
     >
       <Stage width={DESIGN_WIDTH * scale} height={DESIGN_HEIGHT * scale} scaleX={scale} scaleY={scale}>
         <Layer>
-          {/* Layer 1: Front Assets Under the Background Template */}
+          {/* Layer 1: Front Student Assets Under Background */}
           {isFront && Object.entries(currentLayout).map(([key, config]) =>
             (key === 'photo' || key === 'signature') ? renderElement(key, config) : null
           )}
 
-          {/* Layer 2: The Physical Card Template (BG) */}
+          {/* Layer 2: Background Template */}
           <KonvaImage image={bgImage} width={DESIGN_WIDTH} height={DESIGN_HEIGHT} listening={false} />
 
-          {/* Layer 3: Text, Shapes, and Back Assets Overlay */}
+          {/* Layer 3: Text, Shapes, and Custom Images Overlay */}
           {Object.entries(currentLayout).map(([key, config]) => {
             const isAsset = ['photo', 'signature'].includes(key);
             if (!isFront) return renderElement(key, config);

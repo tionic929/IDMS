@@ -4,6 +4,16 @@ import { type LayoutItemSchema } from '../types/designer';
  * Calculates the largest font size that fits text within a specific width, height, and line count.
  * Now simulates actual word wrapping to prevent cut-off text.
  */
+
+export const getNewElementPosition = (data: Record<string, any>) => {
+  const count = Object.keys(data).length;
+  // Offset each new item by 20px so they don't stack perfectly on top of each other
+  return {
+    x: 50 + (count * 20 % 100),
+    y: 50 + (count * 20 % 100)
+  };
+};
+
 export const calculateShrinkFontSize = (
   text: string,
   width: number,

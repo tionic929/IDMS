@@ -1,4 +1,5 @@
 import React from 'react';
+import useImage from 'use-image';
 import { Group, Rect, Text, Image as KonvaImage, Circle } from 'react-konva';
 import { type LayoutItemSchema } from '../../types/designer';
 import { resolveTextLayout } from '../../utils/designerUtils';
@@ -24,38 +25,67 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
   const isPhoto = id === 'photo';
   const isSig = id === 'signature';
   const isShape = id.startsWith('rect') || id.startsWith('circle');
+  const isCustomImage = config.type === 'image' && !isPhoto && !isSig;
+  
+  const [customImage] = useImage(isCustomImage ? (config.src || '') : '', 'anonymous');
+  const activeImage = (isPhoto || isSig) ? image : customImage;
 
+  // --- EDITOR REFINEMENTS ---
+  // 1. "listening" determines if this layer catches clicks or lets them pass through
+  // 2. Cursor logic provides visual feedback to the user
   const commonProps = {
     name: id,
     x: config.x,
     y: config.y,
     rotation: config.rotation || 0,
     opacity: config.opacity ?? 1,
-    draggable: true,
-    onClick: (e: any) => { e.cancelBubble = true; onSelect(id); },
+    draggable: !config.locked, // Cannot drag if locked
+    listening: !config.locked, // Clicks pass through if locked
+    onClick: (e: any) => { 
+      e.cancelBubble = true; 
+      onSelect(id); 
+    },
+    onMouseEnter: (e: any) => {
+      const stage = e.target.getStage();
+      if (stage && !config.locked) stage.container().style.cursor = 'move';
+    },
+    onMouseLeave: (e: any) => {
+      const stage = e.target.getStage();
+      if (stage) stage.container().style.cursor = 'default';
+    },
     onDragEnd: (e: any) => onUpdate(id, { x: Math.round(e.target.x()), y: Math.round(e.target.y()) }),
     onTransform: (e: any) => onTransform(e, id, config),
     onTransformEnd: (e: any) => onTransformEnd(e, id, config)
   };
 
-  // --- 1. RENDER PHOTO / SIG ---
-  if (isPhoto || isSig) {
+  // --- 1. RENDER PHOTO / SIG / CUSTOM IMAGES ---
+  if (isPhoto || isSig || isCustomImage) {
     const w = config.width || 200;
     const h = config.height || 180;
     return (
       <Group {...commonProps} width={w} height={h}>
-        <Rect name="Bounds" width={w} height={h} stroke={isPhoto ? "#14b8a6" : "#6366f1"} strokeWidth={2/zoom} dash={[5,5]} opacity={isSelected ? 1 : 0} />
-        {image && (
+        <Rect 
+          name="Bounds" 
+          width={w} 
+          height={h} 
+          stroke={isPhoto ? "#14b8a6" : "#6366f1"} 
+          strokeWidth={2/zoom} 
+          dash={[5,5]} 
+          opacity={isSelected ? 1 : 0} 
+        />
+        {activeImage && (
           <KonvaImage 
-            name="Image" image={image} width={w} height={h} 
+            name="Image" 
+            image={activeImage} 
+            width={w} 
+            height={h} 
             sceneFunc={(context, shape) => {
               const nodeW = shape.width();
               const nodeH = shape.height();
-              const ratio = Math.min(nodeW / image.width, nodeH / image.height);
-              // Center logic
-              const x = (nodeW - image.width * ratio) / 2;
-              const y = (nodeH - image.height * ratio) / 2;
-              context.drawImage(image, x, y, image.width * ratio, image.height * ratio);
+              const ratio = Math.min(nodeW / activeImage.width, nodeH / activeImage.height);
+              const x = (nodeW - activeImage.width * ratio) / 2;
+              const y = (nodeH - activeImage.height * ratio) / 2;
+              context.drawImage(activeImage, x, y, activeImage.width * ratio, activeImage.height * ratio);
             }}
           />
         )}
@@ -72,7 +102,6 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
   }
 
   // --- 3. RENDER TEXT ---
-  // Text Resolution Logic: "Great Feature" restored
   const finalStr = previewText || config.text || `LABEL: ${id}`;
   const { fontSize, wrap } = resolveTextLayout(config, finalStr);
   const boxWidth = config.width || 200;
@@ -80,9 +109,19 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
 
   return (
     <Group {...commonProps} width={boxWidth} height={boxHeight}>
-      <Rect name="Bounds" width={boxWidth} height={boxHeight} stroke="#14b8a6" strokeWidth={1/zoom} dash={[4,4]} opacity={isSelected ? 0.6 : 0} />
+      <Rect 
+        name="Bounds" 
+        width={boxWidth} 
+        height={boxHeight} 
+        stroke="#14b8a6" 
+        strokeWidth={1/zoom} 
+        dash={[4,4]} 
+        opacity={isSelected ? 0.6 : 0} 
+      />
       <Text 
-        name="Text" x={0} y={0} 
+        name="Text" 
+        x={0} 
+        y={0} 
         text={finalStr} 
         fontSize={fontSize} 
         width={boxWidth}

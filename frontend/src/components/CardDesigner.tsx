@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Stage, Layer, Image as KonvaImage, Transformer } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Transformer, Rect } from 'react-konva';
 import useImage from 'use-image';
 import { RefreshCw, Save, ZoomIn, ZoomOut, Download } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -196,6 +196,80 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
     }, 50);
   };
 
+  const addText = () => {
+    const side = editSide.toLowerCase();
+    const id = `text_${Date.now()}`;
+    const newText = {
+      type: 'text',
+      text: 'New Text', // Default content
+      x: 50, y: 50, width: 200, height: 40,
+      fontSize: 18, fontFamily: 'Arial', fontStyle: 'bold',
+      fill: '#000000', align: 'center',
+      fit: 'none', opacity: 1, rotation: 0
+    };
+
+    setTempLayout((prev: any) => ({
+      ...prev,
+      [side]: { ...prev[side], [id]: newText }
+    }));
+    setSelectedId(id);
+  };
+
+  // 2. NEW: Handle Image Upload
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.warning("Image is large, compressing for optimal performance...");
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const src = event.target?.result as string;
+      const side = editSide.toLowerCase();
+      const id = `img_${Date.now()}`;
+      
+      // Create new image layer
+      const newImage = {
+        type: 'image',
+        src: src, // Store Base64 directly in config
+        x: 50, y: 50, width: 200, height: 200,
+        opacity: 1, rotation: 0
+      };
+
+      const img = new Image();
+      img.onload = () => {
+        const side = editSide.toLowerCase();
+        const id = `img_${Date.now()}`;
+
+        const defaultWidth = 200;
+        const aspectRatio = img.height / img.width;
+        const proportionateHeight = Math.round(defaultWidth * aspectRatio);
+
+        const newImage = {
+          type: 'image',
+          src: src,
+          x: 50,
+          y: 50,
+          width: defaultWidth,
+          height: proportionateHeight, // Now proportionate!
+          opacity: 1,
+          rotation: 0
+        };
+        setTempLayout((prev: any) => ({
+          ...prev,
+          [side]: { ...prev[side], [id]: newImage }
+        }));
+        setSelectedId(id);
+      };
+      
+      img.src = src;
+      e.target.value = '';
+    };
+    reader.readAsDataURL(file);
+  };
+
   // --- RENDER HELPERS ---
   const isTextLayer = (key: string) => !['photo', 'signature'].includes(key) && !key.startsWith('rect') && !key.startsWith('circle');
   const currentSideData = tempLayout[editSide.toLowerCase()] || {};
@@ -227,14 +301,29 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
 
       <div className="flex-1 flex overflow-hidden">
         {/* LEFT SIDEBAR */}
-        <SidebarLayers layers={currentSideData} selectedId={selectedId} onSelect={setSelectedId} onAddShape={addShape} />
+        <SidebarLayers 
+          layers={currentSideData}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onAddShape={addShape}
+          onAddText={addText}
+          onUploadImage={handleImageUpload}
+        />
 
         {/* CANVAS AREA */}
         <div className="flex-1 bg-slate-100 dark:bg-slate-950 flex items-center justify-center p-10 overflow-auto">
           <div className="shadow-2xl rounded-lg overflow-hidden bg-white" style={{ width: DESIGN_WIDTH * zoom, height: DESIGN_HEIGHT * zoom }}>
             <Stage ref={stageRef} width={DESIGN_WIDTH * zoom} height={DESIGN_HEIGHT * zoom} scaleX={zoom} scaleY={zoom} onMouseDown={(e) => e.target === e.target.getStage() && setSelectedId(null)}>
               <Layer ref={layerRef}>
-                {/* 1. RENDER PHOTO/SIG BEHIND BG (FRONT ONLY) */}
+                {/* render the pure white background first */}
+                <Rect 
+                    width={DESIGN_WIDTH} 
+                    height={DESIGN_HEIGHT} 
+                    fill="white" 
+                    listening={false} // So it doesn't interfere with clicking layers
+                  />
+                
+                {/* then the photos and signature  */}
                 {editSide === 'FRONT' && tempLayout.front && Object.entries(tempLayout.front).map(([key, config]: any) => {
                    if (key === 'photo' || key === 'signature') {
                       return <CanvasElement 
@@ -247,39 +336,38 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
                 })}
 
                 {/* 2. RENDER BACKGROUND */}
-                <KonvaImage image={bgImage} width={DESIGN_WIDTH} height={DESIGN_HEIGHT} listening={false} opacity={(selectedId === 'photo' || selectedId === 'signature') ? 0.4 : 1} />
+                {/* disabled for now for no backgrounds on creation  */}
+                {/* <KonvaImage image={bgImage} width={DESIGN_WIDTH} height={DESIGN_HEIGHT} listening={false} opacity={(selectedId === 'photo' || selectedId === 'signature') ? 0.4 : 1} /> */}
 
-                {/* 3. RENDER TEXT & SHAPES (OR EVERYTHING ON BACK) */}
+                {/* 3. LAYER: EVERYTHING ELSE (Custom Uploads, Shapes, Text) - These go ON TOP */}
                 {tempLayout && tempLayout[editSide.toLowerCase()] && Object.entries(tempLayout[editSide.toLowerCase()]).map(([key, config]: any) => {
-                   const isShape = key.startsWith('rect') || key.startsWith('circle');
-                   const isText = isTextLayer(key);
-                   
-                   // On BACK, we render everything that hasn't been rendered yet (which is everything because Step 1 was Front only)
-                   if (editSide === 'BACK') {
-                      return <CanvasElement 
-                        key={key} id={key} config={config} isSelected={selectedId === key} zoom={zoom}
-                        previewText={(previewData as any)?.[key]}
-                        onSelect={setSelectedId} onUpdate={updateItem} onTransform={handleTransform} onTransformEnd={handleTransformEnd}
-                      />
-                   }
-                   // On FRONT, we only render Shapes and Text here (Photo/Sig were Step 1)
-                   if (editSide === 'FRONT' && (isShape || isText)) {
-                      let pText = (previewData as any)?.[key];
-                      if(key === 'course') pText = templateName || pText; // Special course logic from original
-                      return <CanvasElement 
-                        key={key} id={key} config={config} isSelected={selectedId === key} zoom={zoom}
-                        previewText={pText}
-                        onSelect={setSelectedId} onUpdate={updateItem} onTransform={handleTransform} onTransformEnd={handleTransformEnd}
-                      />
-                   }
-                   return null;
+                  const isPhotoOrSig = key === 'photo' || key === 'signature';
+                  
+                  // Skip photo/sig because they were already rendered in Layer 1
+                  if (isPhotoOrSig && editSide === 'FRONT') return null;
+
+                  // Determine if it's a course field for special preview text
+                  let pText = (previewData as any)?.[key];
+                  if (key === 'course') pText = templateName || pText;
+
+                  return (
+                    <CanvasElement 
+                      key={key} id={key} config={config} isSelected={selectedId === key} zoom={zoom}
+                      previewText={pText}
+                      onSelect={setSelectedId} onUpdate={updateItem} onTransform={handleTransform} onTransformEnd={handleTransformEnd}
+                    />
+                  );
                 })}
 
                 <Transformer 
                   ref={trRef} 
                   rotateEnabled={true} 
                   enabledAnchors={getEnabledAnchors(selectedId ? tempLayout[editSide.toLowerCase()][selectedId] : null)}
-                  keepRatio={selectedId ? (tempLayout[editSide.toLowerCase()]?.[selectedId]?.fit === 'stretch' || ['photo', 'signature'].includes(selectedId)) : false} 
+                  keepRatio={selectedId ? (
+                    tempLayout[editSide.toLowerCase()]?.[selectedId]?.fit === 'stretch' || 
+                    ['photo', 'signature'].includes(selectedId)) ||
+                    selectedId.startsWith('img_') : false
+                  } 
                   boundBoxFunc={(oldBox, newBox) => (newBox.width < 10 || newBox.height < 10) ? oldBox : newBox}
                 />
               </Layer>

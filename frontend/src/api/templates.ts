@@ -1,3 +1,4 @@
+import type { Template } from "../types/templates";
 import api from "./axios";
 
 export const getTemplate = async () => {

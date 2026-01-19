@@ -28,7 +28,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
     );
   }
 
-  const isText = isTextLayer(selectedId);
+  const isText = isTextLayer(selectedId) || config.type === 'text';
 
   return (
     <div className="space-y-6">
@@ -52,6 +52,17 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+          {/* text content input  */}
+          <div className="space-y-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+            <label className="text-[9px] font-bold text-slate-400 uppercase">Text Content</label>
+            <input 
+              type="text" 
+              value={config.text || ''} 
+              onChange={(e) => onUpdate(selectedId, { text: e.target.value })}
+              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded p-2 text-xs"
+              placeholder="Enter text..."
+            />
           </div>
 
           <div className="space-y-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
