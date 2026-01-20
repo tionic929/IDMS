@@ -44,6 +44,7 @@ Route::middleware('auth:sanctum')->group(function () {
     
     Route::put('/applicant/{student}/toggle', [ApplicantsController::class, 'toggleHasCard']);
     Route::post('/confirm-applicant/{studentId}', [ApplicantsController::class, 'updateApplicantsExcelFile']);
+    Route::patch('/confirm/{studentId}', [ApplicantsController::class], 'confirm');
 
     // FOR ID CARD DESIGNER
 

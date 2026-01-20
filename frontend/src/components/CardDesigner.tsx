@@ -9,7 +9,7 @@ import BACK_BG from '../assets/ID/BACK.png';
 import { type Students } from '../types/students';
 import { saveLayout } from '../api/templates';
 import { type LayoutItemSchema } from '../types/designer';
-import { getEnabledAnchors } from '../utils/designerUtils'; // Imported Helper
+import { getEnabledAnchors, getNewElementPosition, reorderLayer } from '../utils/designerUtils'; // Imported Helper
 
 // Components
 import SidebarLayers from './Designer/SidebarLayers';
@@ -43,6 +43,24 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
     if (currentLayout) setTempLayout(currentLayout);
   }, [currentLayout]);
 
+  
+  const getProxyUrl = (path: string | null | undefined) => {
+    if (!path) return '';
+    if (path.startsWith('data:') || path.startsWith('blob:')) return path;
+    
+    const storagePath = `${VITE_API_URL}/storage/`;
+    let cleanPath = path;
+    
+    // This is the critical part: it removes the full URL/storage prefix 
+    // so the proxy API doesn't get a "double" path.
+    if (path.startsWith(storagePath)) {
+      cleanPath = path.replace(storagePath, '');
+    }
+    
+    return `${VITE_API_URL}/api/proxy-image?path=${encodeURIComponent(cleanPath)}`;
+    
+  };
+
   // --- DATA & IMAGES ---
   const latestStudent = useMemo(() => {
     if (!allStudents || !Array.isArray(allStudents)) return null;
@@ -52,13 +70,12 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
 
   const previewData = useMemo(() => {
     if (!latestStudent) return null;
-    const getUrl = (path: string | null) => path ? `${VITE_API_URL}/api/proxy-image?path=${path}` : '';
     return {
       fullName: `${latestStudent.first_name} ${latestStudent.last_name}`,
       idNumber: latestStudent.id_number,
       course: templateName || latestStudent.course || "COURSE",
-      photo: getUrl(latestStudent.id_picture),
-      signature: getUrl(latestStudent.signature_picture),
+      photo: getProxyUrl(latestStudent.id_picture),
+      signature: getProxyUrl(latestStudent.signature_picture),
       guardian_name: latestStudent.guardian_name,
       guardian_contact: latestStudent.guardian_contact,
       address: latestStudent.address,
@@ -89,19 +106,14 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
     setSelectedId(id);
   };
 
-  const moveLayer = (direction: 'up' | 'down') => {
+ const moveLayer = (direction: 'up' | 'down' | 'top' | 'bottom') => {
     if (!selectedId) return;
     const side = editSide.toLowerCase();
-    const sideData = tempLayout[side];
-    const keys = Object.keys(sideData);
-    const index = keys.indexOf(selectedId);
-    if ((direction === 'up' && index === keys.length - 1) || (direction === 'down' && index === 0)) return;
-    const newKeys = [...keys];
-    const newIndex = direction === 'up' ? index + 1 : index - 1;
-    [newKeys[index], newKeys[newIndex]] = [newKeys[newIndex], newKeys[index]];
-    const reordered: any = {};
-    newKeys.forEach(k => reordered[k] = sideData[k]);
-    setTempLayout((prev: any) => ({ ...prev, [side]: reordered }));
+    
+    setTempLayout((prev: any) => ({
+      ...prev,
+      [side]: reorderLayer(prev[side], selectedId, direction)
+    }));
   };
 
   const handleDelete = () => {
@@ -199,13 +211,22 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
   const addText = () => {
     const side = editSide.toLowerCase();
     const id = `text_${Date.now()}`;
+    const pos = getNewElementPosition(tempLayout[side] || {});
+    
     const newText = {
       type: 'text',
-      text: 'New Text', // Default content
-      x: 50, y: 50, width: 200, height: 40,
-      fontSize: 18, fontFamily: 'Arial', fontStyle: 'bold',
-      fill: '#000000', align: 'center',
-      fit: 'none', opacity: 1, rotation: 0
+      text: 'New Text',
+      ...pos,
+      width: 200,   // Default Width
+      height: 180,  // Default Height
+      fontSize: 18,
+      fontFamily: 'Arial',
+      fontStyle: 'bold',
+      fill: '#000000',
+      align: 'center',
+      fit: 'none',
+      opacity: 1,
+      rotation: 0
     };
 
     setTempLayout((prev: any) => ({
@@ -326,11 +347,14 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
                 {/* then the photos and signature  */}
                 {editSide === 'FRONT' && tempLayout.front && Object.entries(tempLayout.front).map(([key, config]: any) => {
                    if (key === 'photo' || key === 'signature') {
-                      return <CanvasElement 
+                      return ( 
+                      <CanvasElement 
                         key={key} id={key} config={config} isSelected={selectedId === key} zoom={zoom}
-                        image={key === 'photo' ? photoImage : sigImage}
+                        image={key === 'photo' ? photoImage : undefined}
                         onSelect={setSelectedId} onUpdate={updateItem} onTransform={handleTransform} onTransformEnd={handleTransformEnd}
+                        anyItemSelected={!!selectedId}
                       />
+                      )
                    }
                    return null;
                 })}
@@ -355,6 +379,8 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
                       key={key} id={key} config={config} isSelected={selectedId === key} zoom={zoom}
                       previewText={pText}
                       onSelect={setSelectedId} onUpdate={updateItem} onTransform={handleTransform} onTransformEnd={handleTransformEnd}
+                      anyItemSelected={!!selectedId}
+                      image={key === 'photo' ? photoImage : (key === 'signature' ? sigImage : undefined)}
                     />
                   );
                 })}

@@ -4,19 +4,30 @@ import useImage from 'use-image';
 import { type ApplicantCard } from '../types/card';
 import FRONT_DEFAULT_BG from '../assets/ID/NEWFRONT.png';
 import BACK_DEFAULT_BG from '../assets/ID/BACK.png';
+import { resolveTextLayout } from '../utils/designerUtils';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
+
+// DESIGN DIMENSIONS (portrait orientation)
 const DESIGN_WIDTH = 320;
 const DESIGN_HEIGHT = 500;
+
+// PRINT DIMENSIONS - Portrait CR80-ish card at 300 DPI
+// Using 2.125" width × 3.375" height (CR80 rotated to portrait)
+const PRINT_DPI = 300;
+const CARD_WIDTH_INCHES = 2.125;
+const CARD_HEIGHT_INCHES = 3.375;
+const PRINT_WIDTH = CARD_WIDTH_INCHES * PRINT_DPI;   // 637.5px
+const PRINT_HEIGHT = CARD_HEIGHT_INCHES * PRINT_DPI; // 1012.5px
 
 interface Props {
   data: ApplicantCard;
   layout: any;
   side: 'FRONT' | 'BACK';
   scale?: number;
+  isPrinting?: boolean;
 }
 
-// Custom hook to handle individual uploaded images within the loop
 const DynamicImage = ({ src, common }: { src: string; common: any }) => {
   const [img] = useImage(src, 'anonymous');
   if (!img) return null;
@@ -28,62 +39,8 @@ const DynamicImage = ({ src, common }: { src: string; common: any }) => {
   );
 };
 
-const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
+const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrinting = false }) => {
   const isFront = side === 'FRONT';
-
-  // --- ENGINE HELPERS ---
-  const calculateShrinkFontSize = (
-    text: string,
-    width: number,
-    maxFontSize: number,
-    maxLines: number = 1,
-    fontFamily: string = 'Arial',
-    fontStyle: string = 'normal'
-  ): number => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return maxFontSize;
-
-    let low = 1;
-    let high = maxFontSize;
-    let bestFit = low;
-
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2);
-      ctx.font = `${fontStyle} ${mid}px ${fontFamily}`;
-      const metrics = ctx.measureText(text);
-      const estimatedLines = Math.ceil(metrics.width / (width - 4));
-
-      if (estimatedLines <= maxLines) {
-        bestFit = mid;
-        low = mid + 1;
-      } else {
-        high = mid - 1;
-      }
-    }
-    return bestFit;
-  };
-
-  const resolveTextLayout = (config: any, text: string) => {
-    const mode = config.fit || 'none';
-    const baseSize = config.fontSize || 18;
-    const width = config.width || 200;
-    const maxLines = config.maxLines || 1;
-
-    let resolvedFontSize = baseSize;
-    let wrapString: "none" | "word" = "none" as const;
-
-    if (mode === 'shrink') {
-      resolvedFontSize = calculateShrinkFontSize(text, width, baseSize, maxLines, config.fontFamily, config.fontStyle);
-      wrapString = maxLines > 1 ? "word" : "none";
-    } else if (mode === 'wrap') {
-      wrapString = "word";
-    } else if (mode === 'stretch') {
-      resolvedFontSize = (config.height || 180) * 0.8;
-    }
-
-    return { fontSize: resolvedFontSize, wrap: wrapString };
-  };
 
   const getProxyUrl = (path: string | null | undefined) => {
     if (!path) return '';
@@ -103,11 +60,22 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
   const preRenderedImage = isFront ? layout?.previewImages?.front : layout?.previewImages?.back;
   const currentLayout = layout?.[side.toLowerCase()];
 
+  // Use high-res dimensions for printing, design dimensions for preview
+  const canvasWidth = isPrinting ? PRINT_WIDTH : DESIGN_WIDTH;
+  const canvasHeight = isPrinting ? PRINT_HEIGHT : DESIGN_HEIGHT;
+  
+  // Calculate scale factor from design space to print space
+  const printScale = isPrinting ? (PRINT_WIDTH / DESIGN_WIDTH) : 1;
+
   if (preRenderedImage) {
     return (
       <div
-        className="relative overflow-hidden rounded-xl bg-white shadow-2xl print-card"
-        style={{ width: `${DESIGN_WIDTH * scale}px`, height: `${DESIGN_HEIGHT * scale}px` }}
+        className="id-card-preview-container overflow-hidden"
+        style={{ 
+          width: isPrinting ? '100%' : `${DESIGN_WIDTH * scale}px`, 
+          height: isPrinting ? '100%' : `${DESIGN_HEIGHT * scale}px`, 
+          backgroundColor: 'transparent' 
+        }}
       >
         <img src={preRenderedImage} className="w-full h-full object-contain" alt="Final Render" />
       </div>
@@ -123,26 +91,32 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
     const isCustomImage = key.startsWith('img_');
     const isShape = key.startsWith('rect') || key.startsWith('circle');
 
+    // Scale all position and size values for print
+    const scaledX = config.x * printScale;
+    const scaledY = config.y * printScale;
+    const scaledWidth = (config.width || 200) * printScale;
+    const scaledHeight = (config.height || 180) * printScale;
+    
+    const textComponentHeight = (config.fit === 'none') ? undefined : scaledHeight;
+
     const common = {
       key: key,
-      x: config.x,
-      y: config.y,
-      width: config.width || 200,
-      height: config.height || 180,
+      x: scaledX,
+      y: scaledY,
+      width: scaledWidth,
       rotation: config.rotation || 0,
       opacity: config.opacity ?? 1,
     };
 
-    // 1. Handle Hardcoded Photo/Signature (with Aspect Ratio logic)
     if (isAsset) {
       const img = isPhoto ? photoImage : sigImage;
       return (
-        <Group {...common}>
+        <Group {...common} height={scaledHeight}>
           {img && (
             <KonvaImage
               image={img}
-              width={common.width}
-              height={common.height}
+              width={scaledWidth}
+              height={scaledHeight}
               sceneFunc={(context, shape) => {
                 const nodeW = shape.width();
                 const nodeH = shape.height();
@@ -161,20 +135,17 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
       );
     }
 
-    // 2. Handle Custom Uploaded Images (Logos, etc)
     if (isCustomImage && config.src) {
-      return <DynamicImage key={key} src={config.src} common={common} />;
+      return <DynamicImage key={key} src={config.src} common={{...common, height: scaledHeight}} />;
     }
 
-    // 3. Handle Shapes
     if (isShape) {
       if (config.type === 'circle') {
-        return <Circle {...common} radius={common.width / 2} fill={config.fill || '#00ffe1ff'} />;
+        return <Circle {...common} width={scaledWidth} height={scaledHeight} radius={scaledWidth / 2} fill={config.fill || '#00ffe1ff'} />;
       }
-      return <Rect {...common} fill={config.fill || '#00ffe1ff'} />;
+      return <Rect {...common} width={scaledWidth} height={scaledHeight} fill={config.fill || '#00ffe1ff'} />;
     }
 
-    // 4. Handle Text
     const textMap: Record<string, any> = {
       fullName: data.fullName,
       idNumber: data.idNumber,
@@ -185,11 +156,33 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
     };
 
     const displayText = textMap[key] || (data as any)[key] || config.text || "";
-    const { fontSize, wrap } = resolveTextLayout(config, displayText);
+    
+    // For print, we need to recalculate font size at the scaled dimensions
+    let fontSize: number;
+    let wrap: 'none' | 'word';
+    
+    if (isPrinting) {
+      // Recalculate layout at print scale
+      const scaledConfig = {
+        ...config,
+        width: scaledWidth,
+        height: scaledHeight,
+        fontSize: config.fontSize * printScale
+      };
+      const resolved = resolveTextLayout(scaledConfig, displayText);
+      fontSize = resolved.fontSize;
+      wrap = resolved.wrap;
+    } else {
+      // Use normal resolution for preview
+      const resolved = resolveTextLayout(config, displayText);
+      fontSize = resolved.fontSize;
+      wrap = resolved.wrap;
+    }
 
     return (
       <Text
         {...common}
+        height={textComponentHeight}
         text={displayText}
         fontSize={fontSize}
         fontFamily={config.fontFamily || 'Arial'}
@@ -197,7 +190,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
         fill={config.fill || '#1e293b'}
         align={config.align || 'center'}
         verticalAlign="middle"
-        wrap={wrap}
+        wrap={wrap as any}
         ellipsis={config.overflow === 'ellipsis'}
       />
     );
@@ -205,20 +198,32 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1 }) => {
 
   return (
     <div
-      className="relative overflow-hidden rounded-xl bg-white shadow-2xl"
-      style={{ width: `${DESIGN_WIDTH * scale}px`, height: `${DESIGN_HEIGHT * scale}px` }}
+      className={`relative overflow-hidden ${isPrinting ? 'bg-white' : 'rounded-xl bg-white shadow-2xl'}`}
+      style={{ 
+        width: isPrinting ? '100%' : `${DESIGN_WIDTH * scale}px`, 
+        height: isPrinting ? '100%' : `${DESIGN_HEIGHT * scale}px` 
+      }}
     >
-      <Stage width={DESIGN_WIDTH * scale} height={DESIGN_HEIGHT * scale} scaleX={scale} scaleY={scale}>
+      <Stage 
+        width={canvasWidth * scale} 
+        height={canvasHeight * scale} 
+        scaleX={scale} 
+        scaleY={scale}
+        style={{ display: 'block', width: '100%', height: '100%' }}
+        pixelRatio={isPrinting ? 2 : 1}
+      >
         <Layer>
-          {/* Layer 1: Front Student Assets Under Background */}
           {isFront && Object.entries(currentLayout).map(([key, config]) =>
             (key === 'photo' || key === 'signature') ? renderElement(key, config) : null
           )}
 
-          {/* Layer 2: Background Template */}
-          <KonvaImage image={bgImage} width={DESIGN_WIDTH} height={DESIGN_HEIGHT} listening={false} />
+          <KonvaImage 
+            image={bgImage} 
+            width={canvasWidth} 
+            height={canvasHeight} 
+            listening={false} 
+          />
 
-          {/* Layer 3: Text, Shapes, and Custom Images Overlay */}
           {Object.entries(currentLayout).map(([key, config]) => {
             const isAsset = ['photo', 'signature'].includes(key);
             if (!isFront) return renderElement(key, config);
