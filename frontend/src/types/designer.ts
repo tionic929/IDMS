@@ -17,6 +17,7 @@ export interface LayoutItemSchema {
     rotation?: number;
     fill?: string;
     text?: string;
+    src?: string;
     type?: 'rect' | 'circle' | 'text' | 'image';
 }
 

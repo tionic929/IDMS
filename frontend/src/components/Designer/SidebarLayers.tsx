@@ -1,5 +1,5 @@
-import React from 'react';
-import { Square, Type, Layers, Box, Circle as CircleIcon } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Square, Type, Layers, Box, Circle as CircleIcon, ImageIcon } from 'lucide-react';
 import { type LayoutItemSchema } from '../../types/designer';
 
 interface SidebarLayersProps {
@@ -7,9 +7,13 @@ interface SidebarLayersProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onAddShape: (type: 'rect' | 'circle') => void;
+  onAddText: () => void;
+  onUploadImage: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-const SidebarLayers: React.FC<SidebarLayersProps> = ({ layers, selectedId, onSelect, onAddShape }) => {
+const SidebarLayers: React.FC<SidebarLayersProps> = ({ layers, selectedId, onSelect, onAddShape, onAddText, onUploadImage }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="w-72 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 flex flex-col gap-6">
       <div>
@@ -25,6 +29,21 @@ const SidebarLayers: React.FC<SidebarLayersProps> = ({ layers, selectedId, onSel
             <CircleIcon size={20} />
             <span className="text-[8px] font-bold mt-1 uppercase">Circle</span>
           </button>
+          <button onClick={onAddText} className="flex flex-col items-center justify-center p-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 hover:border-teal-50 transition-colors text-slate-500">
+            <Type size={20} />
+            <span className="text-[8px] font-bold mt-1 uppercase">Text</span>
+          </button>
+          <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center justify-center p-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 hover:border-teal-50 transition-colors text-slate-500">
+            <ImageIcon size={20} />
+            <span className="text-[8px] font-bold mt-1 uppercase">Upload</span>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept="image/*" 
+              onChange={onUploadImage} 
+            />
+          </button>
         </div>
       </div>
       <div className="flex-1 flex flex-col min-h-0">
@@ -32,7 +51,7 @@ const SidebarLayers: React.FC<SidebarLayersProps> = ({ layers, selectedId, onSel
           <Layers size={14} /> Layers
         </span>
         <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
-          {layers && Object.entries(layers).map(([key, pos]) => (
+          {layers && Object.entries(layers).reverse().map(([key, pos]) => (
             <button
               key={key}
               onClick={() => onSelect(key)}
