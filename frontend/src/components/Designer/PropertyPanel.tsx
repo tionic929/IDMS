@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlignLeft, ArrowUp, ArrowDown, Trash2, MousePointer2 } from 'lucide-react';
+import { AlignLeft, ArrowUp, ArrowDown, Trash2, MousePointer2, ArrowUpToLine, ArrowDownToLine, Unlock, Lock } from 'lucide-react';
 import { type LayoutItemSchema } from '../../types/designer';
 
 interface PropertyPanelProps {
@@ -7,7 +7,7 @@ interface PropertyPanelProps {
   config: LayoutItemSchema | null;
   onUpdate: (id: string, attrs: any) => void;
   onDelete: () => void;
-  onMoveLayer: (direction: 'up' | 'down') => void;
+  onMoveLayer: (direction: 'up' | 'down' | 'top' | 'bottom') => void;
   isTextLayer: (id: string) => boolean;
 }
 
@@ -32,9 +32,26 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2">
-        <button onClick={() => onMoveLayer('up')} className="flex-1 flex items-center justify-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-[9px] font-bold hover:bg-slate-100"><ArrowUp size={12} /> UP</button>
-        <button onClick={() => onMoveLayer('down')} className="flex-1 flex items-center justify-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-[9px] font-bold hover:bg-slate-100"><ArrowDown size={12} /> DOWN</button>
+      <div className="flex gap-1">
+        <button onClick={() => onMoveLayer('top')} title="Bring to Front" className="flex-1 flex items-center justify-center p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 rounded-lg">
+          <ArrowUpToLine size={14} />
+        </button>
+        <button onClick={() => onMoveLayer('up')} title="Bring Forward" className="flex-1 flex items-center justify-center p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 rounded-lg">
+          <ArrowUp size={14} />
+        </button>
+        <button onClick={() => onMoveLayer('down')} title="Send Backward" className="flex-1 flex items-center justify-center p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 rounded-lg">
+          <ArrowDown size={14} />
+        </button>
+        <button onClick={() => onMoveLayer('bottom')} title="Send to Back" className="flex-1 flex items-center justify-center p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 rounded-lg">
+          <ArrowDownToLine size={14} />
+        </button>
+        <div className="w-[1px] bg-slate-200 dark:bg-slate-700 mx-1" />
+        <button 
+          onClick={() => onUpdate(selectedId, { locked: !config.locked })}
+          className={`flex-1 flex items-center justify-center p-2 rounded-lg transition-colors ${config.locked ? 'bg-orange-500 text-white' : 'bg-slate-50 dark:bg-slate-800'}`}
+        >
+          {config.locked ? <Lock size={14} /> : <Unlock size={14} />}
+        </button>
       </div>
 
       {isText && (
@@ -53,6 +70,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
               ))}
             </div>
           </div>
+          
           {/* text content input  */}
           <div className="space-y-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
             <label className="text-[9px] font-bold text-slate-400 uppercase">Text Content</label>

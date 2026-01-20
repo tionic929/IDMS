@@ -27,7 +27,7 @@ export const getStudents = async (): Promise< {queue: Students[], history: Stude
 }
 
 export const confirmApplicant = async (studentId: number): Promise<{ message: string }> => {
-    const {data} = await api.post(`/confirm-applicant/${studentId}`);
+    const {data} = await api.patch(`/confirm/${studentId}`);
     return data;
 }
 

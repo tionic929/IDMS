@@ -6,16 +6,18 @@ import {
   MoreVertical, CheckCircle2, XCircle
 } from 'lucide-react';
 
+import { useReactToPrint } from 'react-to-print';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
-import { getStudents } from '../api/students';
+import { confirmApplicant, getStudents } from '../api/students';
 
 // Types
 import type { Students } from '../types/students';
 import { type ApplicantCard } from '../types/card';
 
 // Components
+import PrintPreviewModal from '../components/PrintPreviewModal';
 import IDCardPreview from '../components/IDCardPreview';
 import CardDesigner from '../components/CardDesigner';
 import Templates from '../components/Templates';
@@ -24,6 +26,8 @@ const VITE_API_URL = import.meta.env.VITE_API_URL;
 type SortKey = 'created_at' | 'id_number' | 'name';
 
 const Dashboard: React.FC = () => {
+  const [printData, setPrintData] = useState<{ student: ApplicantCard, layout: any} | null>(null);
+
   const [saveCount, setSaveCount] = useState(0);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [allTemplates, setAllTemplates] = useState<any[]>([]);
@@ -168,18 +172,32 @@ const Dashboard: React.FC = () => {
   };
 
   const handleExport = async (studentId: number) => {
-//     // console.log(currentAutoLayout);
-//     console.log("DEBUG: Current Template being used:", currentAutoLayout?.name);
-// console.log("DEBUG: Has Front Image:", !!currentAutoLayout?.previewImages?.front);
-//     if (!currentAutoLayout?.previewImages?.front) {
-//       toast.warn("Please ensure this layout is saved in Designer first.");
-//       return;
-//     }
-    
     setLoading(true);
     try {
-      setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, has_card: true } : s));
-      toast.success("ID Saved to Database");
+      const targetStudent = allStudents.find(s => s.id === studentId);
+      if(targetStudent){
+        setAllStudents(prev => prev.map(s => s.id === studentId ? { ...s, has_card: true } : s));
+        const printUrl = (path: string | null) =>
+          !path ? '' : (path.startsWith('http') ? path : `${VITE_API_URL}/storage/${path}`);
+
+        const printPreviewData: ApplicantCard = {
+          fullName: `${targetStudent.first_name} ${targetStudent.last_name}`,
+          idNumber: targetStudent.id_number,
+          course: targetStudent.course,
+          photo: printUrl(targetStudent.id_picture),
+          signature: printUrl(targetStudent.signature_picture),
+          guardian_name: targetStudent.guardian_name,
+          guardian_contact: targetStudent.guardian_contact,
+          address: targetStudent.address
+         };
+
+        setPrintData({
+          student: printPreviewData,
+          layout: currentAutoLayout
+        });
+        await confirmApplicant(studentId);
+        toast.success("Marked as printed. Opening print dialog...");
+      }
       // setTimeout(() => window.print(), 500);
     } catch (error) {
       toast.error("Process Failed");
@@ -233,6 +251,20 @@ const Dashboard: React.FC = () => {
         </header>
 
         <AnimatePresence mode="wait">
+          {printData && (
+            <motion.div
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100]" // High z-index to sit on top of everything
+            >
+                <PrintPreviewModal 
+                    data={printData.student}
+                    layout={printData.layout}
+                    onClose={() => setPrintData(null)}
+                />
+            </motion.div>
+         )}
           {viewMode === 'designer' ? (
             <motion.div key="designer" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
                 <div className="flex gap-6 h-[85vh] p-6">

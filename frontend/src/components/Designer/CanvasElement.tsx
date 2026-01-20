@@ -15,10 +15,12 @@ interface CanvasElementProps {
   onUpdate: (id: string, attrs: any) => void;
   onTransform: (e: any, id: string, config: LayoutItemSchema) => void;
   onTransformEnd: (e: any, id: string, config: LayoutItemSchema) => void;
+  // FIXED: Changed from function signature to boolean
+  anyItemSelected: boolean; 
 }
 
 const CanvasElement: React.FC<CanvasElementProps> = ({
-  id, config, isSelected, zoom, previewText, image,
+  id, config, isSelected, zoom, previewText, image, anyItemSelected,
   onSelect, onUpdate, onTransform, onTransformEnd
 }) => {
   
@@ -30,24 +32,42 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
   const [customImage] = useImage(isCustomImage ? (config.src || '') : '', 'anonymous');
   const activeImage = (isPhoto || isSig) ? image : customImage;
 
-  // --- EDITOR REFINEMENTS ---
-  // 1. "listening" determines if this layer catches clicks or lets them pass through
-  // 2. Cursor logic provides visual feedback to the user
+  /**
+   * SELECTION PRIORITY LOGIC (Logic C)
+   * This ensures that if a layer is selected (via sidebar or click), 
+   * it becomes the only 'hittable' object in that area.
+   */
+  const calculateListening = () => {
+    if (config.locked) return false;
+    // If something is selected, only the selected item responds to the mouse
+    if (anyItemSelected) return isSelected;
+    // Otherwise, standard behavior (top-most wins)
+    return true;
+  };
+
   const commonProps = {
     name: id,
     x: config.x,
     y: config.y,
     rotation: config.rotation || 0,
     opacity: config.opacity ?? 1,
-    draggable: !config.locked, // Cannot drag if locked
-    listening: !config.locked, // Clicks pass through if locked
+    // Use the logic here:
+    draggable: isSelected && !config.locked, 
+    listening: calculateListening(), 
     onClick: (e: any) => { 
       e.cancelBubble = true; 
       onSelect(id); 
     },
+    onTap: (e: any) => {
+      e.cancelBubble = true;
+      onSelect(id);
+    },
     onMouseEnter: (e: any) => {
       const stage = e.target.getStage();
-      if (stage && !config.locked) stage.container().style.cursor = 'move';
+      // Only show move cursor if this element is the priority
+      if (stage && !config.locked && (!anyItemSelected || isSelected)) {
+        stage.container().style.cursor = 'move';
+      }
     },
     onMouseLeave: (e: any) => {
       const stage = e.target.getStage();
@@ -60,8 +80,8 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
 
   // --- 1. RENDER PHOTO / SIG / CUSTOM IMAGES ---
   if (isPhoto || isSig || isCustomImage) {
-    const w = config.width || 200;
-    const h = config.height || 180;
+    const w = config.width || 200; // Default width per instruction
+    const h = config.height || 180; // Default height per instruction
     return (
       <Group {...commonProps} width={w} height={h}>
         <Rect 

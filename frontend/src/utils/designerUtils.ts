@@ -1,9 +1,34 @@
 import { type LayoutItemSchema } from '../types/designer';
 
-/**
- * Calculates the largest font size that fits text within a specific width, height, and line count.
- * Now simulates actual word wrapping to prevent cut-off text.
- */
+export const reorderLayer = (
+  data: Record<string, any>,
+  id: string,
+  direction: 'up' | 'down' | 'top' | 'bottom'
+): Record<string, any> => {
+  const keys = Object.keys(data);
+  const index = keys.indexOf(id);
+  if (index === -1) return data;
+
+  const newKeys = [...keys];
+
+  if (direction === 'up' && index < keys.length - 1) {
+    [newKeys[index], newKeys[index + 1]] = [newKeys[index + 1], newKeys[index]];
+  } else if (direction === 'down' && index > 0) {
+    [newKeys[index], newKeys[index - 1]] = [newKeys[index - 1], newKeys[index]];
+  } else if (direction === 'top') {
+    newKeys.splice(index, 1);
+    newKeys.push(id);
+  } else if (direction === 'bottom') {
+    newKeys.splice(index, 1);
+    newKeys.unshift(id);
+  }
+
+  const result: Record<string, any> = {};
+  newKeys.forEach((k) => {
+    result[k] = data[k];
+  });
+  return result;
+};
 
 export const getNewElementPosition = (data: Record<string, any>) => {
   const count = Object.keys(data).length;

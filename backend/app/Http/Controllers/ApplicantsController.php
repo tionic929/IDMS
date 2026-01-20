@@ -34,6 +34,12 @@ class ApplicantsController extends Controller
         ], 200);
     }   
 
+    public function confirm($studentId){
+        $student = Student::findOrFail($studentId);
+        $student->update(['has_card' => true]);
+        return response()->json();
+    }
+
     public function getPreview($id)
     {
         $student = Student::findOrFail($id);
