@@ -1,8 +1,8 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Printer, Scissors, FlipHorizontal } from 'lucide-react';
-import { useReactToPrint } from 'react-to-print';
 import IDCardPreview from './IDCardPreview';
 import { type ApplicantCard } from '../types/card';
+import { toast } from 'react-toastify';
 
 interface PrintModalProps {
   data: ApplicantCard;
@@ -15,53 +15,75 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
   const [mirrorBack, setMirrorBack] = useState(false);
   const componentRef = useRef<HTMLDivElement>(null);
 
-  const handlePrint = useReactToPrint({
-    contentRef: componentRef,
-    documentTitle: `ID_${data.idNumber}`,
-  });
+  // Constants for the 1.58 ratio
+  const DESIGN_WIDTH = 320;
+  const DESIGN_HEIGHT = 500;
+
+  const handleSilentPrint = () => {
+    // 1. Check if we are running inside the Electron shell
+    if (window.require) {
+      try {
+        const { ipcRenderer } = window.require('electron');
+        
+        toast.info("Sending job to CX-D80...");
+
+        // 2. Send the command to main.js
+        ipcRenderer.send('print-to-printer', {
+          deviceName: 'DNP CX-D80', // Must match exact name in Windows Control Panel
+          orientation: 'portrait'
+        });
+
+        // 3. Listen for the success/fail hardware response
+        ipcRenderer.once('print-reply', (_event, arg) => {
+          if (arg.success) {
+            toast.success("Card sent to printer successfully!");
+          } else {
+            toast.error(`Hardware Error: ${arg.failureReason}`);
+          }
+        });
+      } catch (err) {
+        console.error("IPC Error:", err);
+        toast.error("Could not connect to Electron Print Service");
+      }
+    } else {
+      // Fallback for standard browsers (shows the Chrome/Edge print dialog)
+      window.print();
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950 p-4">
       <style>{`
         @media print {
-          body { 
-            margin: 0 !important; 
-            padding: 0 !important;
-            background: white !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            color-adjust: exact !important;
+          @page {
+            size: 2.125in 3.375in;
+            margin: 0;
           }
+          
           * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-            color-adjust: exact !important;
           }
 
-
-          /* Remove page break after last card */
-          .id-card-print-wrapper:last-child {
-            page-break-after: auto !important;
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
           }
 
-          /* Ensure inner container respects dimensions */
-          .id-card-print-wrapper > div {
+          /* The print container must match the CX-D80 physical area */
+          .print-content-root {
+            width: 2.125in !important;
+            display: block !important;
+          }
+
+          .id-card-print-wrapper {
             width: 2.125in !important;
             height: 3.375in !important;
-            display: block !important;
-            position: relative !important;
-          }
-
-          /* Force canvas to fill container exactly */
-          .id-card-print-wrapper canvas {
-            width: 2.125in !important;
-            height: 3.375in !important;
-            max-width: 2.125in !important;
-            max-height: 3.375in !important;
-            display: block !important;
-            object-fit: fill !important;
-            image-rendering: -webkit-optimize-contrast !important;
-            image-rendering: crisp-edges !important;
+            page-break-after: always !important;
+            page-break-inside: avoid !important;
+            margin: 0 !important;
+            overflow: hidden !important;
           }
 
           .no-print { 
@@ -69,21 +91,38 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
           }
         }
 
-        /* Screen preview styling */
-        @media screen {
-          .id-card-print-wrapper {
-            margin-bottom: 1rem;
-          }
+        /* Screen Preview Styling */
+        .preview-scroll-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 32px;
+            padding: 40px;
+        }
+
+        .screen-card-wrapper {
+            width: ${DESIGN_WIDTH}px;
+            height: ${DESIGN_HEIGHT}px;
+            background: white;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+            flex-shrink: 0;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .cut-guide-border {
+            outline: 2px dashed #14b8a6;
+            outline-offset: -2px;
         }
       `}</style>
 
-      <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row h-[90vh]">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-[90vh]">
         
-        {/* SIDEBAR CONTROLS */}
+        {/* SIDEBAR */}
         <div className="w-full md:w-80 bg-slate-50 dark:bg-slate-800 p-8 border-r border-slate-200 dark:border-slate-700 flex flex-col gap-6 no-print">
           <div>
             <h3 className="text-2xl font-black uppercase italic tracking-tighter">Print<span className="text-teal-500">Center</span></h3>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Ready for hardware output</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Professional Print Shell</p>
           </div>
 
           <div className="space-y-4 flex-1">
@@ -93,12 +132,10 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                 showCutLines ? 'border-teal-500 bg-teal-50' : 'border-slate-200 dark:border-slate-700'
               }`}
             >
-              <div className={`p-2 rounded-lg ${showCutLines ? 'bg-teal-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                <Scissors size={20} />
-              </div>
+              <Scissors size={20} className={showCutLines ? 'text-teal-500' : 'text-slate-400'} />
               <div className="text-left">
-                <p className="text-xs font-black uppercase tracking-tight text-slate-700">Cut Guides</p>
-                <p className="text-[9px] text-slate-400 font-bold uppercase">Boundary Lines</p>
+                <p className="text-xs font-black uppercase text-slate-700">Bleed Guides</p>
+                <p className="text-[9px] text-slate-400 font-bold uppercase">Screen Preview Only</p>
               </div>
             </button>
 
@@ -108,65 +145,52 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                 mirrorBack ? 'border-teal-500 bg-teal-50' : 'border-slate-200 dark:border-slate-700'
               }`}
             >
-              <div className={`p-2 rounded-lg ${mirrorBack ? 'bg-teal-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                <FlipHorizontal size={20} />
-              </div>
+              <FlipHorizontal size={20} className={mirrorBack ? 'text-teal-500' : 'text-slate-400'} />
               <div className="text-left">
-                <p className="text-xs font-black uppercase tracking-tight text-slate-700">Mirror Back</p>
-                <p className="text-[9px] text-slate-400 font-bold uppercase">Reverse Image</p>
+                <p className="text-xs font-black uppercase text-slate-700">Mirror Back</p>
+                <p className="text-[9px] text-slate-400 font-bold uppercase">For Film Transfer</p>
               </div>
             </button>
-
-            <div className="mt-4 p-4 bg-amber-50 border-2 border-amber-200 rounded-xl">
-              <p className="text-xs font-bold text-amber-900 mb-2">⚠️ Print Settings</p>
-              <ul className="text-[10px] text-amber-800 space-y-1">
-                <li>• Card size: 2.125" × 3.375" (Portrait)</li>
-                <li>• 2 pages: Page 1 = Front, Page 2 = Back</li>
-                <li>• Use high-quality/best settings</li>
-                <li>• Disable "Fit to page"</li>
-                <li>• Use actual size (100%)</li>
-              </ul>
-            </div>
           </div>
 
           <div className="space-y-3">
             <button 
-              onClick={() => handlePrint()}
+              onClick={handleSilentPrint}
               className="w-full py-4 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 transition-all"
             >
-              <Printer size={20} /> Print Now
+              <Printer size={20} /> Professional Print
             </button>
             <button onClick={onClose} className="w-full py-3 text-slate-400 font-black uppercase text-[10px]">
-              Discard & Close
+              Close Preview
             </button>
           </div>
         </div>
 
         {/* PRINT PREVIEW AREA */}
-        <div className="flex-1 bg-slate-200 dark:bg-slate-950 overflow-y-auto flex items-center justify-center p-4">
-          <div ref={componentRef} className="print-canvas">
+        <div className="flex-1 bg-slate-200 dark:bg-slate-950 overflow-y-auto preview-scroll-container">
+          <div ref={componentRef} className="print-content-root">
             
-            {/* FRONT SIDE - Page 1 */}
-            <div className={`id-card-print-wrapper ${showCutLines ? 'cut-guide-border' : ''}`}>
+            {/* FRONT SIDE */}
+            <div className={`id-card-print-wrapper screen-card-wrapper ${showCutLines ? 'cut-guide-border' : ''}`}>
               <IDCardPreview 
                 data={data} 
                 layout={layout} 
                 side="FRONT" 
-                scale={1} 
+                scale={0.67} 
                 isPrinting={true}
               />
             </div>
 
-            {/* BACK SIDE - Page 2 */}
+            {/* BACK SIDE */}
             <div 
-              className={`id-card-print-wrapper ${showCutLines ? 'cut-guide-border' : ''}`}
+              className={`id-card-print-wrapper screen-card-wrapper ${showCutLines ? 'cut-guide-border' : ''}`}
               style={{ transform: mirrorBack ? 'scaleX(-1)' : 'none' }}
             >
               <IDCardPreview 
                 data={data} 
                 layout={layout} 
                 side="BACK" 
-                scale={1} 
+                scale={0.67} 
                 isPrinting={true}
               />
             </div>

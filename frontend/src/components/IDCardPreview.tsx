@@ -65,7 +65,11 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
   const canvasHeight = isPrinting ? PRINT_HEIGHT : DESIGN_HEIGHT;
   
   // Calculate scale factor from design space to print space
+<<<<<<< HEAD
   const printScale = isPrinting ? (PRINT_WIDTH / DESIGN_WIDTH) : 1;
+=======
+  const printScale = isPrinting ? 1.50 : 1;
+>>>>>>> 2cd2e3f7b71b5407a18fa29341d80f9c4c70c6bc
 
   if (preRenderedImage) {
     return (
@@ -217,12 +221,20 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
             (key === 'photo' || key === 'signature') ? renderElement(key, config) : null
           )}
 
+<<<<<<< HEAD
           <KonvaImage 
+=======
+          {/* <KonvaImage 
+>>>>>>> 2cd2e3f7b71b5407a18fa29341d80f9c4c70c6bc
             image={bgImage} 
             width={canvasWidth} 
             height={canvasHeight} 
             listening={false} 
+<<<<<<< HEAD
           />
+=======
+          /> */}
+>>>>>>> 2cd2e3f7b71b5407a18fa29341d80f9c4c70c6bc
 
           {Object.entries(currentLayout).map(([key, config]) => {
             const isAsset = ['photo', 'signature'].includes(key);
