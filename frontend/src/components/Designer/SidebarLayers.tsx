@@ -8,7 +8,7 @@ interface SidebarLayersProps {
   onSelect: (id: string) => void;
   onAddShape: (type: 'rect' | 'circle') => void;
   onAddText: () => void;
-  onUploadImage: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onUploadImage: () => void;
 }
 
 const SidebarLayers: React.FC<SidebarLayersProps> = ({ layers, selectedId, onSelect, onAddShape, onAddText, onUploadImage }) => {

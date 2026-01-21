@@ -15,7 +15,6 @@ interface CanvasElementProps {
   onUpdate: (id: string, attrs: any) => void;
   onTransform: (e: any, id: string, config: LayoutItemSchema) => void;
   onTransformEnd: (e: any, id: string, config: LayoutItemSchema) => void;
-  // FIXED: Changed from function signature to boolean
   anyItemSelected: boolean; 
 }
 
@@ -26,22 +25,16 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
   
   const isPhoto = id === 'photo';
   const isSig = id === 'signature';
+  const isCustomImage = id.startsWith('img') || config.type === 'image';
   const isShape = id.startsWith('rect') || id.startsWith('circle');
-  const isCustomImage = config.type === 'image' && !isPhoto && !isSig;
   
-  const [customImage] = useImage(isCustomImage ? (config.src || '') : '', 'anonymous');
+  // Load Base64 if it's a custom upload
+  const [customImage] = useImage(isCustomImage && !isPhoto && !isSig ? (config.src || '') : '', 'anonymous');
   const activeImage = (isPhoto || isSig) ? image : customImage;
 
-  /**
-   * SELECTION PRIORITY LOGIC (Logic C)
-   * This ensures that if a layer is selected (via sidebar or click), 
-   * it becomes the only 'hittable' object in that area.
-   */
   const calculateListening = () => {
     if (config.locked) return false;
-    // If something is selected, only the selected item responds to the mouse
     if (anyItemSelected) return isSelected;
-    // Otherwise, standard behavior (top-most wins)
     return true;
   };
 
@@ -51,44 +44,28 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
     y: config.y,
     rotation: config.rotation || 0,
     opacity: config.opacity ?? 1,
-    // Use the logic here:
     draggable: isSelected && !config.locked, 
     listening: calculateListening(), 
-    onClick: (e: any) => { 
-      e.cancelBubble = true; 
-      onSelect(id); 
-    },
-    onTap: (e: any) => {
-      e.cancelBubble = true;
-      onSelect(id);
-    },
-    onMouseEnter: (e: any) => {
-      const stage = e.target.getStage();
-      // Only show move cursor if this element is the priority
-      if (stage && !config.locked && (!anyItemSelected || isSelected)) {
-        stage.container().style.cursor = 'move';
-      }
-    },
-    onMouseLeave: (e: any) => {
-      const stage = e.target.getStage();
-      if (stage) stage.container().style.cursor = 'default';
-    },
+    onClick: (e: any) => { e.cancelBubble = true; onSelect(id); },
+    onTap: (e: any) => { e.cancelBubble = true; onSelect(id); },
     onDragEnd: (e: any) => onUpdate(id, { x: Math.round(e.target.x()), y: Math.round(e.target.y()) }),
     onTransform: (e: any) => onTransform(e, id, config),
     onTransformEnd: (e: any) => onTransformEnd(e, id, config)
   };
 
-  // --- 1. RENDER PHOTO / SIG / CUSTOM IMAGES ---
+  // --- 1. RENDER IMAGES (Photo / Sig / Uploads) ---
   if (isPhoto || isSig || isCustomImage) {
-    const w = config.width || 200; // Default width per instruction
-    const h = config.height || 180; // Default height per instruction
+    // Default width 200, height 180 as per instructions
+    const w = config.width || 200; 
+    const h = config.height || 180;
+
     return (
       <Group {...commonProps} width={w} height={h}>
         <Rect 
           name="Bounds" 
           width={w} 
           height={h} 
-          stroke={isPhoto ? "#14b8a6" : "#6366f1"} 
+          stroke="#14b8a6" 
           strokeWidth={2/zoom} 
           dash={[5,5]} 
           opacity={isSelected ? 1 : 0} 
@@ -129,19 +106,9 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
 
   return (
     <Group {...commonProps} width={boxWidth} height={boxHeight}>
-      <Rect 
-        name="Bounds" 
-        width={boxWidth} 
-        height={boxHeight} 
-        stroke="#14b8a6" 
-        strokeWidth={1/zoom} 
-        dash={[4,4]} 
-        opacity={isSelected ? 0.6 : 0} 
-      />
+      <Rect name="Bounds" width={boxWidth} height={boxHeight} stroke="#14b8a6" strokeWidth={1/zoom} dash={[4,4]} opacity={isSelected ? 0.6 : 0} />
       <Text 
         name="Text" 
-        x={0} 
-        y={0} 
         text={finalStr} 
         fontSize={fontSize} 
         width={boxWidth}

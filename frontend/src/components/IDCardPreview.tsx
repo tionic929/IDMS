@@ -2,22 +2,16 @@ import React from 'react';
 import { Stage, Layer, Text, Rect, Image as KonvaImage, Group, Circle } from 'react-konva';
 import useImage from 'use-image';
 import { type ApplicantCard } from '../types/card';
-import FRONT_DEFAULT_BG from '../assets/ID/NEWFRONT.png';
-import BACK_DEFAULT_BG from '../assets/ID/BACK.png';
 import { resolveTextLayout } from '../utils/designerUtils';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 
-// DESIGN DIMENSIONS (your working canvas - portrait)
+// DESIGN DIMENSIONS (portrait orientation - your working canvas)
 const DESIGN_WIDTH = 320;
 const DESIGN_HEIGHT = 500;
 
-// PRINT DIMENSIONS - PORTRAIT CR80 card at 300 DPI
-const PRINT_DPI = 300;
-const CARD_WIDTH_INCHES = 2.125;   // portrait width
-const CARD_HEIGHT_INCHES = 3.375;  // portrait height
-const PRINT_WIDTH = Math.round(CARD_WIDTH_INCHES * PRINT_DPI);   // 638px
-const PRINT_HEIGHT = Math.round(CARD_HEIGHT_INCHES * PRINT_DPI); // 1012px
+const PRINT_WIDTH = 640; 
+const PRINT_HEIGHT = 1000; 
 
 interface Props {
   data: ApplicantCard;
@@ -52,7 +46,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     return `${VITE_API_URL}/api/proxy-image?path=${encodeURIComponent(cleanPath)}`;
   };
 
-  const [bgImage] = useImage(isFront ? FRONT_DEFAULT_BG : BACK_DEFAULT_BG, 'anonymous');  
+  // const [bgImage] = useImage(isFront ? FRONT_DEFAULT_BG : BACK_DEFAULT_BG, 'anonymous');  
   const [photoImage] = useImage(getProxyUrl(data.photo), 'anonymous');
   const [sigImage] = useImage(getProxyUrl(data.signature), 'anonymous');
 
@@ -63,7 +57,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
   const canvasWidth = isPrinting ? PRINT_WIDTH : DESIGN_WIDTH;
   const canvasHeight = isPrinting ? PRINT_HEIGHT : DESIGN_HEIGHT;
   
-  // Calculate scale factor from design space to print space (BOTH PORTRAIT - no rotation needed)
+  // Calculate scale factor from design space to print space (BOTH PORTRAIT)
   const printScaleX = isPrinting ? (PRINT_WIDTH / DESIGN_WIDTH) : 1;   // 638/320 = 1.994
   const printScaleY = isPrinting ? (PRINT_HEIGHT / DESIGN_HEIGHT) : 1; // 1012/500 = 2.024
 
@@ -91,7 +85,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     const isCustomImage = key.startsWith('img_');
     const isShape = key.startsWith('rect') || key.startsWith('circle');
 
-    // For printing: scale all coordinates proportionally (no rotation for portrait->portrait)
+    // For printing: scale all coordinates proportionally (no rotation needed for portrait->portrait)
     const scaledX = config.x * printScaleX;
     const scaledY = config.y * printScaleY;
     const scaledWidth = (config.width || 200) * printScaleX;
@@ -213,15 +207,15 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
         pixelRatio={isPrinting ? 2 : 1}
       >
         <Layer>
-          {/* Background image */}
-          {bgImage && (
+          {/* Background image - scaled to fit print dimensions */}
+          {/* {bgImage && (
             <KonvaImage 
               image={bgImage} 
               width={canvasWidth} 
               height={canvasHeight} 
               listening={false} 
             />
-          )}
+          )} */}
 
           {/* Render photo and signature first (behind other elements) */}
           {isFront && Object.entries(currentLayout).map(([key, config]) =>

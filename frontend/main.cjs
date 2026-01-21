@@ -40,20 +40,18 @@ ipcMain.on('print-card-images', async (event, options) => {
       <html>
       <head>
         <style>
-          @page {
+          @page { 
             margin: 0; 
           }
           body { 
             margin: 0; 
             padding: 0; 
-            width: 54mm; 
-            height: 86mm;
-            overflow: hidden;
-            background: white;
+            width: 100vw; 
+            height: 100vh;
           }
           .page { 
-            width: 54mm; 
-            height: 86mm; 
+            width: 100vw; 
+            height: 100vh; 
             page-break-after: always; 
             display: flex;
             align-items: center;
@@ -62,8 +60,6 @@ ipcMain.on('print-card-images', async (event, options) => {
           img { 
             width: 100%; 
             height: 100%; 
-            object-fit: cover;
-            image-rendering: -webkit-optimize-contrast;
           }
         </style>
       </head>
