@@ -15,7 +15,6 @@ function createWindow() {
     },
   });
 
-  // Ensure the session persists cookies properly
   const { session } = require('electron');
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     details.requestHeaders['Origin'] = 'http://localhost:5173';
@@ -33,7 +32,7 @@ ipcMain.on('print-to-printer', (event, options) => {
   
   const printOptions = {
     silent: true,                // Bypasses the print dialog
-    deviceName: 'DNP CX-D80',    // Must match your Windows printer name exactly
+    deviceName: 'CX-D80 U1',    // Must match your Windows printer name exactly
     printBackground: true,
     margins: { marginType: 'none' },
     pageSize: { width: 54000, height: 86000 } // CR80 dimensions in microns
