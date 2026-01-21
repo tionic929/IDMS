@@ -8,17 +8,16 @@ import { resolveTextLayout } from '../utils/designerUtils';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 
-// DESIGN DIMENSIONS (portrait orientation)
+// DESIGN DIMENSIONS (your working canvas - portrait)
 const DESIGN_WIDTH = 320;
 const DESIGN_HEIGHT = 500;
 
-// PRINT DIMENSIONS - Portrait CR80-ish card at 300 DPI
-// Using 2.125" width × 3.375" height (CR80 rotated to portrait)
+// PRINT DIMENSIONS - PORTRAIT CR80 card at 300 DPI
 const PRINT_DPI = 300;
-const CARD_WIDTH_INCHES = 2.125;
-const CARD_HEIGHT_INCHES = 3.375;
-const PRINT_WIDTH = CARD_WIDTH_INCHES * PRINT_DPI;   // 637.5px
-const PRINT_HEIGHT = CARD_HEIGHT_INCHES * PRINT_DPI; // 1012.5px
+const CARD_WIDTH_INCHES = 2.125;   // portrait width
+const CARD_HEIGHT_INCHES = 3.375;  // portrait height
+const PRINT_WIDTH = Math.round(CARD_WIDTH_INCHES * PRINT_DPI);   // 638px
+const PRINT_HEIGHT = Math.round(CARD_HEIGHT_INCHES * PRINT_DPI); // 1012px
 
 interface Props {
   data: ApplicantCard;
@@ -64,12 +63,9 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
   const canvasWidth = isPrinting ? PRINT_WIDTH : DESIGN_WIDTH;
   const canvasHeight = isPrinting ? PRINT_HEIGHT : DESIGN_HEIGHT;
   
-  // Calculate scale factor from design space to print space
-<<<<<<< HEAD
-  const printScale = isPrinting ? (PRINT_WIDTH / DESIGN_WIDTH) : 1;
-=======
-  const printScale = isPrinting ? 1.50 : 1;
->>>>>>> 2cd2e3f7b71b5407a18fa29341d80f9c4c70c6bc
+  // Calculate scale factor from design space to print space (BOTH PORTRAIT - no rotation needed)
+  const printScaleX = isPrinting ? (PRINT_WIDTH / DESIGN_WIDTH) : 1;   // 638/320 = 1.994
+  const printScaleY = isPrinting ? (PRINT_HEIGHT / DESIGN_HEIGHT) : 1; // 1012/500 = 2.024
 
   if (preRenderedImage) {
     return (
@@ -95,11 +91,11 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     const isCustomImage = key.startsWith('img_');
     const isShape = key.startsWith('rect') || key.startsWith('circle');
 
-    // Scale all position and size values for print
-    const scaledX = config.x * printScale;
-    const scaledY = config.y * printScale;
-    const scaledWidth = (config.width || 200) * printScale;
-    const scaledHeight = (config.height || 180) * printScale;
+    // For printing: scale all coordinates proportionally (no rotation for portrait->portrait)
+    const scaledX = config.x * printScaleX;
+    const scaledY = config.y * printScaleY;
+    const scaledWidth = (config.width || 200) * printScaleX;
+    const scaledHeight = (config.height || 180) * printScaleY;
     
     const textComponentHeight = (config.fit === 'none') ? undefined : scaledHeight;
 
@@ -161,7 +157,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
 
     const displayText = textMap[key] || (data as any)[key] || config.text || "";
     
-    // For print, we need to recalculate font size at the scaled dimensions
+    // For print, recalculate font size at the scaled dimensions
     let fontSize: number;
     let wrap: 'none' | 'word';
     
@@ -171,7 +167,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
         ...config,
         width: scaledWidth,
         height: scaledHeight,
-        fontSize: config.fontSize * printScale
+        fontSize: config.fontSize * Math.max(printScaleX, printScaleY)
       };
       const resolved = resolveTextLayout(scaledConfig, displayText);
       fontSize = resolved.fontSize;
@@ -217,25 +213,22 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
         pixelRatio={isPrinting ? 2 : 1}
       >
         <Layer>
+          {/* Background image */}
+          {bgImage && (
+            <KonvaImage 
+              image={bgImage} 
+              width={canvasWidth} 
+              height={canvasHeight} 
+              listening={false} 
+            />
+          )}
+
+          {/* Render photo and signature first (behind other elements) */}
           {isFront && Object.entries(currentLayout).map(([key, config]) =>
             (key === 'photo' || key === 'signature') ? renderElement(key, config) : null
           )}
 
-<<<<<<< HEAD
-          <KonvaImage 
-=======
-          {/* <KonvaImage 
->>>>>>> 2cd2e3f7b71b5407a18fa29341d80f9c4c70c6bc
-            image={bgImage} 
-            width={canvasWidth} 
-            height={canvasHeight} 
-            listening={false} 
-<<<<<<< HEAD
-          />
-=======
-          /> */}
->>>>>>> 2cd2e3f7b71b5407a18fa29341d80f9c4c70c6bc
-
+          {/* Render all other elements */}
           {Object.entries(currentLayout).map(([key, config]) => {
             const isAsset = ['photo', 'signature'].includes(key);
             if (!isFront) return renderElement(key, config);

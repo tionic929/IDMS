@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Printer, Scissors, FlipHorizontal } from 'lucide-react';
+import { Printer, Scissors, FlipHorizontal, Download } from 'lucide-react';
 import IDCardPreview from './IDCardPreview';
 import { type ApplicantCard } from '../types/card';
 import { toast } from 'react-toastify';
@@ -13,40 +13,75 @@ interface PrintModalProps {
 const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose }) => {
   const [showCutLines, setShowCutLines] = useState(true);
   const [mirrorBack, setMirrorBack] = useState(false);
+  const [frontImage, setFrontImage] = useState<string>('');
+  const [backImage, setBackImage] = useState<string>('');
   const componentRef = useRef<HTMLDivElement>(null);
 
-  // Constants for the 1.58 ratio
   const DESIGN_WIDTH = 320;
   const DESIGN_HEIGHT = 500;
+  const PRINT_WIDTH = 638;
+  const PRINT_HEIGHT = 1012;
+
+  // Generate card images when component mounts
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const frontCanvas = document.querySelector('#front-print-stage canvas') as HTMLCanvasElement;
+      const backCanvas = document.querySelector('#back-print-stage canvas') as HTMLCanvasElement;
+      
+      if (frontCanvas) {
+        setFrontImage(frontCanvas.toDataURL('image/png', 1.0));
+      }
+      if (backCanvas) {
+        setBackImage(backCanvas.toDataURL('image/png', 1.0));
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [data, layout]);
+
+  const handleDownloadImages = () => {
+    if (frontImage) {
+      const link = document.createElement('a');
+      link.download = `${data.idNumber}_FRONT.png`;
+      link.href = frontImage;
+      link.click();
+    }
+    
+    if (backImage) {
+      const link = document.createElement('a');
+      link.download = `${data.idNumber}_BACK.png`;
+      link.href = backImage;
+      link.click();
+    }
+    
+    toast.success('Card images downloaded!');
+  };
 
   const handleSilentPrint = () => {
-    // 1. Check if we are running inside the Electron shell
     if (window.require) {
       try {
         const { ipcRenderer } = window.require('electron');
+        toast.info("Sending job to printer...");
         
-        toast.info("Sending job to CX-D80...");
-
-        // 2. Send the command to main.js
-        ipcRenderer.send('print-to-printer', {
-          deviceName: 'DNP CX-D80', // Must match exact name in Windows Control Panel
-          orientation: 'portrait'
+        // Use 'print-card-images' for image-based printing
+        ipcRenderer.send('print-card-images', {
+          deviceName: 'CX-D80 U1',  // MUST MATCH WINDOWS PRINTER NAME EXACTLY
+          frontImage: frontImage,
+          backImage: backImage,
+          width: PRINT_WIDTH,
+          height: PRINT_HEIGHT
         });
 
-        // 3. Listen for the success/fail hardware response
         ipcRenderer.once('print-reply', (_event, arg) => {
-          if (arg.success) {
-            toast.success("Card sent to printer successfully!");
-          } else {
-            toast.error(`Hardware Error: ${arg.failureReason}`);
-          }
+          if (arg.success) toast.success("Printed successfully!");
+          else toast.error(`Error: ${arg.failureReason}`);
         });
       } catch (err) {
         console.error("IPC Error:", err);
-        toast.error("Could not connect to Electron Print Service");
+        toast.error("Printing failed. Try 'Download Images' instead.");
       }
     } else {
-      // Fallback for standard browsers (shows the Chrome/Edge print dialog)
+      // Fallback to browser print
       window.print();
     }
   };
@@ -56,148 +91,156 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
       <style>{`
         @media print {
           @page {
-            size: 2.125in 3.375in;
             margin: 0;
           }
           
-          * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
-          body {
+          body, html {
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
           }
 
-          /* The print container must match the CX-D80 physical area */
-          .print-content-root {
-            width: 2.125in !important;
-            display: block !important;
+          body * {
+            visibility: hidden;
           }
 
-          .id-card-print-wrapper {
+          #print-root, #print-root * {
+            visibility: visible;
+          }
+
+          #print-root {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+
+          .print-page {
             width: 2.125in !important;
             height: 3.375in !important;
             page-break-after: always !important;
-            page-break-inside: avoid !important;
-            margin: 0 !important;
-            overflow: hidden !important;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
 
-          .no-print { 
+          .no-print, .screen-only { 
             display: none !important; 
           }
         }
 
-        /* Screen Preview Styling */
-        .preview-scroll-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 32px;
-            padding: 40px;
+        @media screen {
+          .print-only {
+            display: none !important;
+          }
         }
-
-        .screen-card-wrapper {
-            width: ${DESIGN_WIDTH}px;
-            height: ${DESIGN_HEIGHT}px;
-            background: white;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.5);
-            flex-shrink: 0;
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
+        
         .cut-guide-border {
             outline: 2px dashed #14b8a6;
             outline-offset: -2px;
         }
+        .hidden-canvas {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+        }
       `}</style>
 
-      <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-[90vh]">
-        
+      <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-[90vh] no-print">
         {/* SIDEBAR */}
-        <div className="w-full md:w-80 bg-slate-50 dark:bg-slate-800 p-8 border-r border-slate-200 dark:border-slate-700 flex flex-col gap-6 no-print">
+        <div className="w-full md:w-80 bg-slate-50 dark:bg-slate-800 p-8 border-r border-slate-200 dark:border-slate-700 flex flex-col gap-6">
           <div>
             <h3 className="text-2xl font-black uppercase italic tracking-tighter">Print<span className="text-teal-500">Center</span></h3>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Professional Print Shell</p>
+            <p className="text-xs text-slate-500 mt-2">CX-D80 U1</p>
           </div>
-
           <div className="space-y-4 flex-1">
-            <button 
-              onClick={() => setShowCutLines(!showCutLines)}
-              className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${
-                showCutLines ? 'border-teal-500 bg-teal-50' : 'border-slate-200 dark:border-slate-700'
-              }`}
-            >
-              <Scissors size={20} className={showCutLines ? 'text-teal-500' : 'text-slate-400'} />
-              <div className="text-left">
-                <p className="text-xs font-black uppercase text-slate-700">Bleed Guides</p>
-                <p className="text-[9px] text-slate-400 font-bold uppercase">Screen Preview Only</p>
-              </div>
-            </button>
-
-            <button 
-              onClick={() => setMirrorBack(!mirrorBack)}
-              className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-4 ${
-                mirrorBack ? 'border-teal-500 bg-teal-50' : 'border-slate-200 dark:border-slate-700'
-              }`}
-            >
-              <FlipHorizontal size={20} className={mirrorBack ? 'text-teal-500' : 'text-slate-400'} />
-              <div className="text-left">
-                <p className="text-xs font-black uppercase text-slate-700">Mirror Back</p>
-                <p className="text-[9px] text-slate-400 font-bold uppercase">For Film Transfer</p>
-              </div>
-            </button>
+             <div className="p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200">
+              <p className="text-xs font-bold text-slate-600 mb-2">Output Settings</p>
+              <p className="text-xs text-slate-500">
+                {PRINT_WIDTH} × {PRINT_HEIGHT}px<br/>
+                Portrait CR80 @ 300 DPI
+              </p>
+            </div>
+            
+             <button onClick={() => setShowCutLines(!showCutLines)} className={`w-full p-4 rounded-2xl border-2 border-slate-200 flex items-center gap-4 ${showCutLines ? 'border-teal-500 bg-teal-50' : ''}`}>
+                <Scissors size={20} className={showCutLines ? 'text-teal-500' : 'text-slate-400'} />
+                <span className="text-xs font-bold uppercase">Cut Lines</span>
+             </button>
+             
+             <button onClick={() => setMirrorBack(!mirrorBack)} className={`w-full p-4 rounded-2xl border-2 border-slate-200 flex items-center gap-4 ${mirrorBack ? 'border-teal-500 bg-teal-50' : ''}`}>
+                <FlipHorizontal size={20} className={mirrorBack ? 'text-teal-500' : 'text-slate-400'} />
+                <span className="text-xs font-bold uppercase">Mirror Back</span>
+             </button>
           </div>
-
           <div className="space-y-3">
-            <button 
-              onClick={handleSilentPrint}
-              className="w-full py-4 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-2xl font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 transition-all"
-            >
-              <Printer size={20} /> Professional Print
+            <button onClick={handleDownloadImages} className="w-full py-4 bg-blue-500 text-white rounded-2xl font-black uppercase hover:bg-blue-600">
+              <Download size={20} className="inline mr-2"/> Download Images
             </button>
-            <button onClick={onClose} className="w-full py-3 text-slate-400 font-black uppercase text-[10px]">
-              Close Preview
+            <button onClick={handleSilentPrint} className="w-full py-4 bg-teal-500 text-slate-950 rounded-2xl font-black uppercase hover:bg-teal-600">
+              <Printer size={20} className="inline mr-2"/> Print Now
             </button>
+            <button onClick={onClose} className="w-full py-3 text-slate-400 font-black uppercase text-[10px]">Close</button>
           </div>
         </div>
 
-        {/* PRINT PREVIEW AREA */}
-        <div className="flex-1 bg-slate-200 dark:bg-slate-950 overflow-y-auto preview-scroll-container">
-          <div ref={componentRef} className="print-content-root">
-            
-            {/* FRONT SIDE */}
-            <div className={`id-card-print-wrapper screen-card-wrapper ${showCutLines ? 'cut-guide-border' : ''}`}>
-              <IDCardPreview 
-                data={data} 
-                layout={layout} 
-                side="FRONT" 
-                scale={0.67} 
-                isPrinting={true}
-              />
+        {/* SCREEN PREVIEW AREA */}
+        <div className="flex-1 bg-slate-200 dark:bg-slate-950 overflow-y-auto preview-scroll-container screen-only">
+            <div className={`screen-card-wrapper ${showCutLines ? 'cut-guide-border' : ''}`}>
+              <IDCardPreview data={data} layout={layout} side="FRONT" scale={0.67} isPrinting={false} />
             </div>
-
-            {/* BACK SIDE */}
-            <div 
-              className={`id-card-print-wrapper screen-card-wrapper ${showCutLines ? 'cut-guide-border' : ''}`}
-              style={{ transform: mirrorBack ? 'scaleX(-1)' : 'none' }}
-            >
-              <IDCardPreview 
-                data={data} 
-                layout={layout} 
-                side="BACK" 
-                scale={0.67} 
-                isPrinting={true}
-              />
+            <div className={`screen-card-wrapper ${showCutLines ? 'cut-guide-border' : ''}`} style={{ transform: mirrorBack ? 'scaleX(-1)' : 'none' }}>
+              <IDCardPreview data={data} layout={layout} side="BACK" scale={0.67} isPrinting={false} />
             </div>
-
-          </div>
         </div>
       </div>
+
+      {/* HIDDEN HIGH-RES CANVAS FOR EXPORT */}
+      <div className="hidden-canvas">
+        <div id="front-print-stage">
+          <IDCardPreview 
+            data={data} 
+            layout={layout} 
+            side="FRONT" 
+            scale={1} 
+            isPrinting={true} 
+          />
+        </div>
+        
+        <div id="back-print-stage">
+          <IDCardPreview 
+            data={data} 
+            layout={layout} 
+            side="BACK" 
+            scale={1} 
+            isPrinting={true} 
+          />
+        </div>
+      </div>
+
+      {/* PRINT AREA (Fallback for Ctrl+P) */}
+      <div id="print-root" className="print-only">
+        <div className="print-page">
+          <IDCardPreview 
+            data={data} 
+            layout={layout} 
+            side="FRONT" 
+            scale={1} 
+            isPrinting={true} 
+          />
+        </div>
+
+        <div className="print-page" style={{ transform: mirrorBack ? 'scaleX(-1)' : 'none' }}>
+           <IDCardPreview 
+            data={data} 
+            layout={layout} 
+            side="BACK" 
+            scale={1} 
+            isPrinting={true} 
+          />
+        </div>
+      </div>
+
     </div>
   );
 };
