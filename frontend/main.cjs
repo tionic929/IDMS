@@ -14,6 +14,7 @@ function createWindow() {
       contextIsolation: false,
       webSecurity: true,
     },
+    autoHideMenuBar: true,
   });
 
   const { session } = require('electron');

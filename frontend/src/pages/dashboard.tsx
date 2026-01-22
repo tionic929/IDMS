@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { echo } from '../echo';
 import { 
   Users, Search, Edit3, Trash2, ChevronUp, ChevronDown, 
@@ -59,7 +59,7 @@ const Dashboard: React.FC = () => {
     'HE': { name: 'HE', color: 'text-amber-400' },
   }
 
-  const fetchInitialData = async () => {
+  const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
       const [studentRes, templateRes] = await Promise.all([
@@ -74,7 +74,7 @@ const Dashboard: React.FC = () => {
     } finally {
       setTimeout(() => setLoading(false), 800);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchInitialData(); 
@@ -139,37 +139,32 @@ const Dashboard: React.FC = () => {
   }, [latestStudent]);
 
   const filteredStudents = useMemo(() => {
-    let filtered = allStudents.filter(s => {
-      const query = searchTerm.toLowerCase();
-      const fullName = `${s.first_name} ${s.last_name} ${s.middle_initial || ''}`.toLowerCase();
-      return s.id_number.toLowerCase().includes(query) || 
-              fullName.includes(query) || 
-              s.course.toLowerCase().includes(query);
-    });
-
-    return filtered.sort((a, b) => {
-      let aVal: any, bVal: any;
-      if (sortBy === 'created_at') {
-        aVal = new Date(a.created_at).getTime();
-        bVal = new Date(b.created_at).getTime();
-      } else if (sortBy === 'id_number') {
-        aVal = a.id_number; bVal = b.id_number;
-      } else {
-        aVal = `${a.last_name} ${a.first_name}`;
-        bVal = `${b.last_name} ${b.first_name}`;
-      }
-      return sortOrder === 'asc' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
-    });
+    const query = searchTerm.toLowerCase().trim();
+    return allStudents
+      .filter(s => {
+        if (!query) return true;
+        const fullName = `${s.first_name} ${s.last_name}`.toLowerCase();
+        return s.id_number.toLowerCase().includes(query) || 
+               fullName.includes(query) || 
+               s.course.toLowerCase().includes(query);
+      })
+      .sort((a, b) => {
+        let aVal = sortBy === 'created_at' ? new Date(a.created_at).getTime() : a[sortBy];
+        let bVal = sortBy === 'created_at' ? new Date(b.created_at).getTime() : b[sortBy];
+        return sortOrder === 'asc' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
+      });
   }, [allStudents, searchTerm, sortBy, sortOrder]);
 
-  const toggleSort = (key: SortKey) => {
-    if (sortBy === key) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(key);
+  const toggleSort = useCallback((key: SortKey) => {
+    setSortBy(prev => {
+      if (prev === key) {
+        setSortOrder(o => o === 'asc' ? 'desc' : 'asc');
+        return prev;
+      }
       setSortOrder('desc');
-    }
-  };
+      return key;
+    });
+  }, []);  
 
   const handleExport = async (studentId: number) => {
     setLoading(true);
@@ -216,6 +211,18 @@ const Dashboard: React.FC = () => {
       toast.error("Delete failed");
     }
   };
+
+  const SortHeader = React.memo(({ label, active, order, onClick }: any) => (
+    <th className="px-10 py-6 cursor-pointer hover:text-teal-500 transition-colors group" onClick={onClick}>
+      <div className="flex items-center gap-2">
+        {label}
+        <div className="flex flex-col text-[8px] leading-[0.5] opacity-50 group-hover:opacity-100">
+          <ChevronUp size={10} className={active && order === 'asc' ? 'text-teal-500' : 'text-slate-600'} />
+          <ChevronDown size={10} className={active && order === 'desc' ? 'text-teal-500' : 'text-slate-600'} />
+        </div>
+      </div>
+    </th>
+  ));
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 selection:bg-teal-500/30">
@@ -459,17 +466,6 @@ const Dashboard: React.FC = () => {
   );
 };
 
-const SortHeader = ({ label, active, order, onClick }: any) => (
-  <th className="px-10 py-6 cursor-pointer hover:text-teal-500 transition-colors group" onClick={onClick}>
-    <div className="flex items-center gap-2">
-      {label}
-      <div className="flex flex-col text-[8px] leading-[0.5] opacity-50 group-hover:opacity-100">
-        <ChevronUp size={10} className={active && order === 'asc' ? 'text-teal-500' : 'text-slate-600'} />
-        <ChevronDown size={10} className={active && order === 'desc' ? 'text-teal-500' : 'text-slate-600'} />
-      </div>
-    </div>
-  </th>
-);
 
 const TableAction = ({ icon, color, onClick }: any) => (
   <button onClick={onClick} className={`${color} p-3 rounded-xl transition-all border border-transparent active:scale-90`}>

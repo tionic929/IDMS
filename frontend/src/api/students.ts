@@ -4,6 +4,8 @@ import type { Students, PaginatedResponse } from "../types/students";
 
 export interface TotalApplicantsPayload{
     applicantsReport: number;
+    pendingCount: number;
+    issuedCount: number;
 }
 
 export const getPaginatedApplicants = async(

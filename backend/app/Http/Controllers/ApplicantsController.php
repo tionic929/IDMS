@@ -9,6 +9,7 @@ use App\Models\Applicant as Student;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\DB;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -21,12 +22,11 @@ class ApplicantsController extends Controller
     {
         $queue = Student::where('has_card', false)
             ->orderBy('created_at', 'asc')
-            ->get();
+            ->paginate(5);
 
         $history = Student::where('has_card', true)
             ->orderBy('updated_at', 'desc')
-            ->take(10)
-            ->get();
+            ->paginate(5);
         
         return response()->json([
             'queue' => $this->formatStudents($queue),
@@ -244,9 +244,18 @@ class ApplicantsController extends Controller
     }
 
     public function applicantsReport(){
-        $totalApplicants = Student::count();
+        $stats = DB::table('students')
+        ->select(DB::raw("
+            COUNT(*) as total,
+            SUM(CASE WHEN has_card = 0 THEN 0 ELSE 1 END) as pending,
+            SUM(CASE WHEN has_card = 1 THEN 1 ELSE 0 END) as issued
+        "))
+        ->first();
+
         return response()->json([
-            'applicantsReport' => $totalApplicants,
+            'applicantsReport' => (int) $stats->total,
+            'pendingCount'     => (int) $stats->pending,
+            'issuedCount'      => (int) $stats->issued,
         ]);
     }
 
