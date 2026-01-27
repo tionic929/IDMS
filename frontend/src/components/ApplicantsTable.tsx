@@ -2,19 +2,18 @@ import React, { useState, useEffect, useCallback } from "react";
 import { getFullName, type Students } from "../types/students";
 import { getPaginatedApplicants } from "../api/students";
 import { CgDetailsMore } from "react-icons/cg";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
-interface ApplicantsTableProps {
-  query: string;
-}
+interface ApplicantsTableProps { query: string; }
 
 const TableSkeleton: React.FC = () => (
-  <tr className="animate-pulse">
-    <td className="px-10 py-6"><div className="h-4 w-20 bg-slate-200 rounded" /></td>
-    <td className="px-10 py-6"><div className="h-4 w-40 bg-slate-200 rounded" /></td>
-    <td className="px-10 py-6"><div className="h-6 w-20 bg-slate-200 rounded-full" /></td>
-    <td className="px-10 py-6"><div className="h-5 w-16 bg-slate-200 rounded-lg" /></td>
-    <td className="px-10 py-6"><div className="h-3 w-20 bg-slate-200 rounded" /></td>
-    <td className="px-10 py-6"><div className="h-9 w-9 bg-slate-200 rounded-2xl" /></td>
+  <tr className="border-b border-slate-50 last:border-0">
+    <td className="px-6 py-5"><div className="h-3 w-20 bg-slate-100 rounded animate-pulse" /></td>
+    <td className="px-6 py-5"><div className="h-4 w-48 bg-slate-100 rounded animate-pulse" /></td>
+    <td className="px-6 py-5"><div className="h-6 w-16 bg-slate-50 rounded-full animate-pulse" /></td>
+    <td className="px-6 py-5"><div className="h-4 w-32 bg-slate-50 rounded animate-pulse" /></td>
+    <td className="px-6 py-5"><div className="h-4 w-24 bg-slate-50 rounded animate-pulse" /></td>
+    <td className="px-6 py-5 text-right"><div className="inline-flex h-8 w-8 bg-slate-50 rounded animate-pulse" /></td>
   </tr>
 );
 
@@ -32,93 +31,97 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query }) => {
       setPage(res.current_page);
       setLastPage(res.last_page);
     } catch (err) {
-      console.error(err);
       setStudents([]);
     } finally {
-      setLoading(false);
+      setTimeout(() => setLoading(false), 300);
     }
   }, [query]);
 
-  // Handle Search Debounce and Reset to Page 1
   useEffect(() => {
-    const handler = setTimeout(() => {
-      fetchApplicants(1);
-    }, 600); // Optimized debounce time
+    const handler = setTimeout(() => fetchApplicants(1), 500);
     return () => clearTimeout(handler);
   }, [query, fetchApplicants]);
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border border-white bg-white/60 shadow-xl shadow-slate-200/60">
+    <div className="flex flex-col gap-4">
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm relative">
+        {loading && students.length > 0 && (
+          <div className="absolute inset-0 z-20 bg-white/40 backdrop-blur-[1px] flex justify-center items-start pt-32">
+            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+          </div>
+        )}
+
         <div className="overflow-x-auto">
-          <table className="w-full border-separate border-spacing-0 text-left table-fixed">
-            <thead>
-              <tr className="bg-slate-100/70 text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
-                <th className="px-10 py-5 border-b border-slate-200 w-[15%]">ID Number</th>
-                <th className="px-10 py-5 border-b border-slate-200 w-[25%]">Full Name</th>
-                <th className="px-10 py-5 border-b border-slate-200 w-[15%]">Status</th>
-                <th className="px-10 py-5 border-b border-slate-200 w-[15%]">Course</th>
-                <th className="px-10 py-5 border-b border-slate-200 w-[15%]">Registered</th>
-                <th className="px-10 py-5 border-b border-slate-200 w-[15%] text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                [...Array(5)].map((_, i) => <TableSkeleton key={i} />)
-              ) : students.length > 0 ? (
-                students.map((s) => (
-                  <tr key={s.id} className="group transition-colors hover:bg-white">
-                    <td className="px-10 py-6 font-mono text-sm font-bold text-slate-600 truncate">{s.id_number}</td>
-                    <td className="px-10 py-6 text-sm font-semibold text-slate-900 truncate">{getFullName(s)}</td>
-                    <td className="px-10 py-6">
-                      <span className={`inline-flex items-center gap-2 rounded-full px-4 py-1 text-[10px] font-black uppercase tracking-widest
-                        ${s.has_card ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100" : "bg-rose-50 text-rose-500 ring-1 ring-rose-100"}`}>
-                        {s.has_card ? "Issued" : "No ID"}
-                      </span>
-                    </td>
-                    <td className="px-10 py-6">
-                      <span className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-500 truncate inline-block w-full text-center">{s.course}</span>
-                    </td>
-                    <td className="px-10 py-6">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-700">{s.formatted_date}</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{s.formatted_time}</span>
-                      </div>
-                    </td>
-                    <td className="px-10 py-6 text-right">
-                       <button className="border rounded-2xl p-2 bg-slate-300/5 hover:bg-slate-100 transition-colors">
+          <div className="min-h-[580px]">
+            <table className="w-full text-left border-separate border-spacing-0">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-slate-100">ID Number</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-slate-100">Student Name</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-slate-100">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-slate-100">Course</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-slate-100">Enrolled</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-slate-100 text-right">Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {loading && students.length === 0 ? (
+                  [...Array(10)].map((_, i) => <TableSkeleton key={i} />)
+                ) : students.length > 0 ? (
+                  students.map((s) => (
+                    <tr key={s.id} className="group hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4 font-mono text-[11px] font-bold text-indigo-600 uppercase tracking-tight">{s.id_number}</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-800 tracking-tight">{getFullName(s)}</td>
+                      <td className="px-6 py-4">
+                        <div className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${
+                          s.has_card ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-amber-50 text-amber-700 border-amber-100'
+                        }`}>
+                          <span className={`w-1 h-1 rounded-full mr-1.5 ${s.has_card ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                          {s.has_card ? "Issued" : "Pending"}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-medium text-slate-500 truncate max-w-[150px]">{s.course}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-semibold text-slate-600">{s.formatted_date}</span>
+                          <span className="text-[10px] text-slate-400 uppercase font-medium">{s.formatted_time}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
                           <CgDetailsMore size={20} />
                         </button>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={6} className="px-10 py-12 text-center text-gray-500 italic">No applicants found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr><td colSpan={6} className="py-40 text-center text-slate-400 text-sm font-medium">No records matching your search query.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      {/* Pagination Footer - Now part of the sub-component */}
-      <div className="flex justify-end items-center gap-4 mt-4">
-        <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Page {page} of {lastPage}</span>
+      {/* Standalone Pagination Island */}
+      <div className="flex items-center justify-between px-6 py-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+        <p className="text-xs font-medium text-slate-500">
+          Viewing page <span className="text-slate-900 font-bold">{page}</span> of <span className="text-slate-400">{lastPage}</span>
+        </p>
         <div className="flex gap-2">
           <button 
-              disabled={page === 1 || loading} 
-              onClick={() => fetchApplicants(page - 1)} 
-              className="px-4 py-2 text-xs font-bold uppercase tracking-widest bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-all"
+            disabled={page === 1 || loading} 
+            onClick={() => fetchApplicants(page - 1)}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 transition-all"
           >
-              Prev
+            <ChevronLeft size={16} /> Previous
           </button>
           <button 
-              disabled={page === lastPage || loading} 
-              onClick={() => fetchApplicants(page + 1)} 
-              className="px-4 py-2 text-xs font-bold uppercase tracking-widest bg-white border border-slate-200 rounded-xl hover:bg-slate-50 disabled:opacity-50 transition-all"
+            disabled={page === lastPage || loading} 
+            onClick={() => fetchApplicants(page + 1)}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-30 transition-all shadow-sm shadow-indigo-200"
           >
-              Next
+            Next <ChevronRight size={16} />
           </button>
         </div>
       </div>

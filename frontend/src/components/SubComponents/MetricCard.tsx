@@ -17,10 +17,15 @@ const getRandomNum = (min: any, max: any) => {
 const randomNum = getRandomNum(1, 30);
 const randomVal = getRandomNum(2400, 10000);
 
-const dummyData = [
-  { pv: {randomVal} }, { pv: {randomVal} }, { pv: {randomVal} }, 
-  { pv: {randomVal} }, { pv: {randomVal} }, { pv: {randomVal} }, { pv: {randomVal} },
-];
+// old dummy 
+// const dummyData = [
+//   { pv: {randomVal} }, { pv: {randomVal} }, { pv: {randomVal} }, 
+//   { pv: {randomVal} }, { pv: {randomVal} }, { pv: {randomVal} }, { pv: {randomVal} },
+// ];
+
+const dummyData = Array.from({ length: 7 }, () => ({
+  pv: getRandomNum(2400, 10000)
+}));
 
 const MetricCard: React.FC<MetricCardProps> = ({ title, value, icon: Icon, color }) => {
   const textColor = color.replace("bg-", "text-");

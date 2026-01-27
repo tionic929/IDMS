@@ -81,7 +81,7 @@ class ReportsController extends Controller
         return response()->json($paginated);
     }
 
-public function import(Request $request)
+    public function import(Request $request)
     {
         $request->validate([
             'file' => 'required|mimes:xlsx,xls|max:5120', 

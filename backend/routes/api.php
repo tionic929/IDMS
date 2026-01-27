@@ -7,7 +7,6 @@ use App\Http\Controllers\UsersController;
 use App\Http\Controllers\ApplicantsController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\DepartmentsController;
-use App\Http\Controllers\LayoutController;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\CardLayoutController;
 
@@ -36,7 +35,6 @@ Route::middleware('auth:sanctum')->group(function () {
     
     Route::post('/logout', [AuthController::class, 'logout']);
 
-
     Route::get('/total-applicants', [ApplicantsController::class, 'applicantsReport']);
 
     Route::get('/paginated-applicants', [ApplicantsController::class, 'paginatedApplicants']);
@@ -44,7 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
     
     Route::put('/applicant/{student}/toggle', [ApplicantsController::class, 'toggleHasCard']);
     Route::post('/confirm-applicant/{studentId}', [ApplicantsController::class, 'updateApplicantsExcelFile']);
-    Route::patch('/confirm/{studentId}', [ApplicantsController::class], 'confirm');
+    Route::post('/confirm/{studentId}', [ApplicantsController::class, 'confirm']);
 
     // FOR ID CARD DESIGNER
 
@@ -57,10 +55,6 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::get('/applicants/{id}/card-preview', [ApplicantsController::class, 'getPreview']);
-    // Designer saves the master config here
-    Route::post('/layouts/save', [LayoutController::class, 'saveLayout']);
-    Route::get('/applicants/{id}/card/{side}', [LayoutController::class, 'getPopulatedCard']);
-    Route::get('/layouts/active', [LayoutController::class, 'getActiveLayouts']);
 
     Route::post('/import', [ReportsController::class, 'import']);
 

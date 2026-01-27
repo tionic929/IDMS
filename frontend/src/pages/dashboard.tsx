@@ -23,7 +23,7 @@ import CardDesigner from '../components/CardDesigner';
 import Templates from '../components/Templates';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
-type SortKey = 'created_at' | 'id_number' | 'name';
+type SortKey = 'created_at' | 'id_number' | 'first_name' | 'last_name';
 
 const Dashboard: React.FC = () => {
   const [printData, setPrintData] = useState<{ student: ApplicantCard, layout: any} | null>(null);
@@ -190,8 +190,6 @@ const Dashboard: React.FC = () => {
           student: printPreviewData,
           layout: currentAutoLayout
         });
-        await confirmApplicant(studentId);
-        toast.success("Marked as printed. Opening print dialog...");
       }
       // setTimeout(() => window.print(), 500);
     } catch (error) {
@@ -225,15 +223,14 @@ const Dashboard: React.FC = () => {
   ));
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 selection:bg-teal-500/30">
-      <div className="mx-auto p-4 md:p-8 space-y-3">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 selection:bg-teal-500/30 scroll-hidden overflow-y-auto">
+      <div className="mx-auto p-4">
         
-        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 pb-3">
           <div className="space-y-1">
-            <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase italic">
-              Card <span className="text-teal-500 underline decoration-teal-500/30">Management</span>
+            <h1 className="text-4xl md:text-5xl font-[550] tracking-tighter uppercase">
+              Card <span className="text-teal-500 decoration-teal-500/30">Management</span>
             </h1>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-[0.3em]">Institutional ID Printing System</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-white dark:bg-slate-900 px-6 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 hidden sm:block">
@@ -312,60 +309,93 @@ const Dashboard: React.FC = () => {
                 </div>
             </motion.div>
           ) : (
-            <motion.div key="queue" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+            <motion.div key="queue" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 items-start">
                 
                   <div className="xl:col-span-4">
                     {latestStudent && previewData && currentAutoLayout ? (
-                      <div className="flex flex-col lg:flex-row gap-6 items-stretch">
+                      <div className="flex flex-col lg:flex-row gap-3 items-stretch">
                         
-                        <div className="w-full lg:w-fit bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 border border-slate-200 dark:border-slate-800 shadow-xl flex flex-col items-left gap-6">
+                        <div className="w-full lg:w-fit bg-white dark:bg-slate-900 rounded-[0.5rem] p-3 border border-slate-200 dark:border-slate-800 shadow-xl flex flex-col items-left gap-2">
                           <div className="text-left">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Live Auto-Preview ({latestStudent.course} Layout)</p>
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{latestStudent.course} Layout</p>
                           </div>
                           <div className="flex flex-col sm:flex-row gap-4">
                               <IDCardPreview data={previewData} layout={currentAutoLayout} side="FRONT" scale={.7} />
                               <IDCardPreview data={previewData} layout={currentAutoLayout} side="BACK" scale={.7} />
                           </div>
-                          <div className="flex-1 w-[45vh] bg-slate-900 overflow-hidden shadow-2xl border-slate-800 grid grid-cols-1 p-6 rounded-3xl">
-                            <div className="justify-between">
-                                  <span className="text-slate-700 font-mono text-xs font-bold italic">Timestamp: {new Date(latestStudent.created_at).toLocaleTimeString()}</span>
-                                  <h2 className="text-[3rem] font-black text-teal-500 leading-none tracking-tighter italic">{latestStudent.id_number}</h2>
-                                  <h2 className="text-4xl font-black text-white uppercase tracking-tight">{latestStudent.last_name}, <span className="text-white">{latestStudent.first_name}</span></h2>
-                                  <p className={`text-4xl font-bold uppercase tracking-tight ${
-                                    Courses[latestStudent.course as keyof typeof Courses]?.color || 'text-white'
+                          {/* Current Applicant Focus Card (Grid Row 1, Col 1 Area) */}
+                          <div className="flex-1 w-full bg-white dark:bg-slate-900 overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col rounded-xl">
+                            <div className="p-6 border-b border-slate-50 dark:border-slate-800/50">
+                              <div className="flex justify-between items-start mb-4">
+                                <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em]">
+                                  Entry Received: {new Date(latestStudent.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                <div className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">
+                                  Active Queue
+                                </div>
+                              </div>
+
+                              <div className="space-y-1">
+                                <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                  {latestStudent.last_name}, {latestStudent.first_name}
+                                </h2>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-mono font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded">
+                                    {latestStudent.id_number}
+                                  </span>
+                                  <span className="text-slate-300 dark:text-slate-700">•</span>
+                                  <p className={`text-sm font-semibold uppercase tracking-wide ${
+                                    Courses[latestStudent.course as keyof typeof Courses]?.color || 'text-slate-600 dark:text-slate-400'
                                   }`}>
                                     {Courses[latestStudent.course as keyof typeof Courses]?.name || latestStudent.course}
                                   </p>
-                            </div>
-                            <div className="grid grid-cols-2 gap-8 border-t border-slate-800/50 mt-4 pt-4">
-                              <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Emergency Name</p>
-                                <p className="text-lg font-black text-white uppercase">{latestStudent.guardian_name}</p>
-                              </div>
-                              <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contact No.</p>
-                                <p className="text-lg text-white font-sans">{latestStudent.guardian_contact}</p>
+                                </div>
                               </div>
                             </div>
-                              <div className="grid grid-cols-1 mt-4">
-                                <div>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase">Address</p>
-                                <p className="text-lg text-white font-sans ">{latestStudent.address}</p>
-                              </div>
-                            </div>
-                            <button 
-                              onClick={() => handleExport(latestStudent.id)} 
-                              disabled={loading}
-                              className="w-full mt-6 py-4 bg-teal-500 text-slate-950 rounded-2xl font-black uppercase tracking-widest hover:bg-teal-400 transition-all shadow-xl shadow-teal-500/20 active:scale-95 disabled:opacity-50"
-                            >
-                              {loading ? 'Processing...' : 'Confirm & Mark as Printed'}
-                            </button>
 
-                        </div>
+                            {/* Metadata Grid */}
+                            <div className="p-6 space-y-6 flex-1">
+                              <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Emergency Contact</p>
+                                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{latestStudent.guardian_name}</p>
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Contact No.</p>
+                                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 font-sans">{latestStudent.guardian_contact}</p>
+                                </div>
+                                <div className="col-span-2 space-y-1">
+                                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Permanent Address</p>
+                                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                                    {latestStudent.address}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Action Footer */}
+                              <div className="pt-4 border-t border-slate-50 dark:border-slate-800/50">
+                                <button 
+                                  onClick={() => handleExport(latestStudent.id)} 
+                                  disabled={loading}
+                                  className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white rounded-lg font-semibold text-sm transition-all shadow-sm shadow-indigo-200 dark:shadow-none active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                  {loading ? (
+                                    <RefreshCw size={16} className="animate-spin" />
+                                  ) : (
+                                    <Printer size={16} />
+                                  )}
+                                  {loading ? 'Processing...' : 'Confirm & Mark as Printed'}
+                                </button>
+                                <p className="text-[10px] text-center text-slate-400 mt-3 font-medium">
+                                  This will update the student status and trigger the print preview.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
                         </div>
 
-                        <section className="bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col flex-1">
+                        <section className="bg-white dark:bg-slate-900 rounded-[0.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col flex-1">
                           <div className="p-10 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-8 bg-slate-50/30 dark:bg-transparent">
                             <div className="space-y-1">
                               <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight italic">Records <span className="text-teal-500">Directory</span></h3>

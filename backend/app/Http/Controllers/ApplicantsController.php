@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -34,11 +35,44 @@ class ApplicantsController extends Controller
         ], 200);
     }   
 
-    public function confirm($studentId){
+    public function confirm($studentId) {
+    try {
+        // 1. Find the student or throw a ModelNotFoundException
         $student = Student::findOrFail($studentId);
+
+        // 2. Perform the update
         $student->update(['has_card' => true]);
-        return response()->json();
+
+        // 3. Log the successful card issuance for audit purposes
+        Log::info("ID Card issued successfully for Student ID: {$studentId}", [
+            'student_name' => $student->name, // Adjust based on your columns
+            'issued_at' => now()
+        ]);
+
+        return response()->json([
+            'message' => 'Student card status updated successfully',
+            'student' => $student
+        ], 200);
+
+    } catch (ModelNotFoundException $e) {
+        // Log that someone tried to update a non-existent ID
+        Log::warning("Attempted to issue card for non-existent Student ID: {$studentId}");
+
+        return response()->json([
+            'message' => 'Student not found.'
+        ], 404);
+
+    } catch (Exception $e) {
+        // Log any other unexpected errors (database down, etc.)
+        Log::error("Failed to update card status for Student ID: {$studentId}", [
+            'error' => $e->getMessage()
+        ]);
+
+        return response()->json([
+            'message' => 'An internal error occurred while updating the card status.'
+        ], 500);
     }
+}
 
     public function getPreview($id)
     {
@@ -68,8 +102,8 @@ class ApplicantsController extends Controller
                 'address' => 'required|string',
                 'guardianName' => 'required|string|max:255',
                 'guardianContact' => 'required|string|max:20',
-                'id_picture' => 'nullable|file|mimes:jpeg,png,jpg|max:10240',
-                'signature_picture' => 'nullable|image|mimes:jpeg,png,jpg|max:10240',
+                'id_picture' => 'nullable|file|mimes:jpeg,png,jpg',
+                'signature_picture' => 'nullable|image|mimes:jpeg,png,jpg',
             ]);
 
             $idPath = $request->hasFile('id_picture')
@@ -232,7 +266,7 @@ class ApplicantsController extends Controller
             });
         }
 
-        $paginated = $query->paginate(5);
+        $paginated = $query->paginate(20);
 
         $paginated->getCollection()->transform(function ($student){
             $student->formatted_date = $student->created_at ? $student->created_at->format('M d, Y') : 'N/A'; 

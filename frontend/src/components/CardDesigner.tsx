@@ -333,7 +333,7 @@ const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
                    return null;
                 })}
 
-                <KonvaImage image={bgImage} width={DESIGN_WIDTH} height={DESIGN_HEIGHT} listening={false} opacity={(selectedId === 'photo' || selectedId === 'signature') ? 0.4 : 1} />
+                {/* <KonvaImage image={bgImage} width={DESIGN_WIDTH} height={DESIGN_HEIGHT} listening={false} opacity={(selectedId === 'photo' || selectedId === 'signature') ? 0.4 : 1} /> */}
 
                 {tempLayout && tempLayout[editSide.toLowerCase()] && Object.entries(tempLayout[editSide.toLowerCase()]).map(([key, config]: any) => {
                    const isShape = key.startsWith('rect') || key.startsWith('circle') || key.startsWith('img');

@@ -43,6 +43,8 @@ const SubmitDetails: React.FC = () => {
   const [isProcessingSig, setIsProcessingSig] = useState(false);
   const [status, setStatus] = useState<'success' | 'error' | ''>('');
 
+  const isFormIncomplete = !form.idNumber || !form.firstName || !form.lastName || !form.id_picture || !form.signature_picture;
+
   // Composites the transparent ID PNG onto a solid white background
   const applyWhiteBackground = (blob: Blob): Promise<File> => {
     return new Promise((resolve) => {
@@ -175,6 +177,7 @@ const SubmitDetails: React.FC = () => {
     }
   }, [form.idNumber]);
 
+  
   return (
     <div className="min-h-screen bg-[#f1f5f9] font-sans pb-20">
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-2xl border-b border-slate-200 px-4 md:px-10 py-4 lg:py-6">
@@ -275,7 +278,7 @@ const SubmitDetails: React.FC = () => {
                       <div className="w-full h-full rounded-[2.5rem] bg-slate-50 border-2 border-dashed border-slate-200 overflow-hidden flex items-center justify-center">
                         {isProcessingSig ? <Loader2 className="animate-spin text-slate-500" size={30} /> : sigPreview ? <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/gray-paper.png')] bg-repeat"><img src={sigPreview} alt="Signature" className="w-full h-full object-contain p-4" /></div> : <FileCheck size={40} className="text-slate-300" />}
                       </div>
-                      <input type="file" accept="image/*" onChange={e => handleFile(e, 'signature_picture')} className="hidden" id="sig-p" />
+                      <input type="file" accept="image/*" onChange={e => handleFile(e, 'signature_picture')} className="hidden" id="sig-p" required/>
                       <label htmlFor="sig-p" className="absolute -bottom-2 -right-2 bg-slate-800 text-white p-3 rounded-2xl cursor-pointer hover:scale-110 transition-transform"><FileCheck size={20} /></label>
                     </div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Digital Signature</p>
@@ -287,7 +290,7 @@ const SubmitDetails: React.FC = () => {
                 whileHover={{ scale: 1.02 }} 
                 whileTap={{ scale: 0.98 }} 
                 type="submit" 
-                disabled={isSubmitting || isProcessingId || isProcessingSig || verificationStatus !== 'valid'}
+                disabled={isSubmitting || isProcessingId || isProcessingSig || verificationStatus !== 'valid' || isFormIncomplete}
                 className={`w-full py-6 lg:py-8 rounded-[2.5rem] font-black text-sm lg:text-base tracking-[0.3em] shadow-2xl flex items-center justify-center gap-4 transition-all ${
                     verificationStatus === 'valid' ? 'bg-[#00928a] hover:bg-[#007a73] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                 }`}
@@ -318,16 +321,17 @@ const FormSection = ({ icon, title, subtitle, children }: any) => (
   </div>
 );
 
-const ScalingInput = ({ label, value, onChange, placeholder = "", isTextArea = false, status = 'idle' }: any) => (
+const ScalingInput = ({ label, value, onChange, placeholder = "", isTextArea = false, status = 'idle', required = false }: any) => (
   <div className="w-full">
     <label className="block text-[10px] lg:text-xs font-black text-slate-400 uppercase mb-3 ml-2 tracking-[0.1em]">{label}</label>
     {isTextArea ? (
-      <textarea value={value} onChange={e => onChange(e.target.value)} rows={4} className="w-full bg-slate-50 border border-slate-200 rounded-[1.8rem] p-5 lg:p-6 text-sm lg:text-base focus:bg-white focus:ring-[6px] focus:ring-teal-50 focus:border-teal-500 outline-none transition-all placeholder:text-slate-300" placeholder="Input full details..." />
+      <textarea value={value} onChange={e => onChange(e.target.value)} rows={4} required={required} className="w-full bg-slate-50 border border-slate-200 rounded-[1.8rem] p-5 lg:p-6 text-sm lg:text-base focus:bg-white focus:ring-[6px] focus:ring-teal-50 focus:border-teal-500 outline-none transition-all placeholder:text-slate-300" placeholder="Input full details..." />
     ) : (
       <div className="relative">
           <input 
             type="text" 
             value={value} 
+            required={required}
             onChange={e => onChange(e.target.value)} 
             placeholder={placeholder} 
             className={`w-full bg-slate-50 border rounded-[1.8rem] p-5 lg:p-6 text-sm lg:text-base focus:bg-white focus:ring-[6px] outline-none transition-all placeholder:text-slate-300 ${

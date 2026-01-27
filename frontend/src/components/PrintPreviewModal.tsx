@@ -4,6 +4,8 @@ import IDCardPreview from './IDCardPreview';
 import { type ApplicantCard } from '../types/card';
 import { toast } from 'react-toastify';
 
+import { confirmApplicant } from '../api/students';
+
 interface PrintModalProps {
   data: ApplicantCard;
   layout: any;
@@ -11,7 +13,7 @@ interface PrintModalProps {
 }
 
 const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose }) => {
-  const [showCutLines, setShowCutLines] = useState(true);
+  const [showCutLines, setShowCutLines] = useState(false);
   const [mirrorBack, setMirrorBack] = useState(false);
   const [frontImage, setFrontImage] = useState<string>('');
   const [backImage, setBackImage] = useState<string>('');
@@ -57,9 +59,11 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
     toast.success('Card images downloaded!');
   };
 
-  const handleSilentPrint = () => {
+  const handleSilentPrint = async (studentId: number) => {
     if (window.require) {
       try {
+        await confirmApplicant(studentId);
+        toast.success("Confirmed & Marked as printed. Opening print dialog...");
         const { ipcRenderer } = window.require('electron');
         toast.info("Sending job to printer...");
         
