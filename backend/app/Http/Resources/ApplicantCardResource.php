@@ -10,6 +10,7 @@ class ApplicantCardResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            'id' => $this->id,
             'idNumber'  => $this->id_number,
             'fullName'  => strtoupper(trim(
                 "{$this->last_name}, {$this->first_name} " . ($this->middle_initial ?? '')

@@ -117,6 +117,7 @@ const Dashboard: React.FC = () => {
       !path ? '' : (path.startsWith('http') ? path : `${VITE_API_URL}/storage/${path}`);
 
     return {
+      id: latestStudent.id,
       fullName: `${latestStudent.first_name} ${latestStudent.last_name}`,
       idNumber: latestStudent.id_number,
       course: latestStudent.course,
@@ -166,6 +167,7 @@ const Dashboard: React.FC = () => {
           !path ? '' : (path.startsWith('http') ? path : `${VITE_API_URL}/storage/${path}`);
 
         const printPreviewData: ApplicantCard = {
+          id: latestStudent.id,
           fullName: `${targetStudent.first_name} ${targetStudent.last_name}`,
           idNumber: targetStudent.id_number,
           course: targetStudent.course,

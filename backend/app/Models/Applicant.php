@@ -17,6 +17,7 @@ class Applicant extends Model
     ];
     
     protected $fillable = [
+        'id',
         'has_card',
         'id_number',
         'first_name',

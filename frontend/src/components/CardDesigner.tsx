@@ -19,16 +19,14 @@ import { saveLayout } from '../api/templates';
 import { type LayoutItemSchema, type FitMode } from '../types/designer';
 import { getEnabledAnchors, reorderLayer } from '../utils/designerUtils';
 
-// Components
 import SidebarLayers from './Designer/SidebarLayers';
 import PropertyPanel from './Designer/PropertyPanel';
 import CanvasElement from './Designer/CanvasElement';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 const DESIGN_WIDTH = 320;
-const DESIGN_HEIGHT = 500;
+const DESIGN_HEIGHT = 508;
 
-// --- UI SUBCOMPONENTS FROM REFERENCE ---  166, 167]
 const RulerHorizontal = ({ zoom }: { zoom: number }) => (
   <div className="h-6 w-full bg-zinc-900 border-b border-zinc-800 relative overflow-hidden flex text-[9px] text-zinc-500 font-mono select-none">
     {Array.from({ length: 40 }).map((_, i) => (
@@ -126,7 +124,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
   const [photoImage] = useImage(previewData?.photo || '', 'anonymous');
   const [sigImage] = useImage(previewData?.signature || '', 'anonymous');
 
-  // --- ACTIONS ---
   const updateItem = (id: string, attrs: any) => {
     const side = editSide.toLowerCase();
     setTempLayout((prev: any) => ({
@@ -263,7 +260,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
       const getSidePNG = async (side: 'FRONT' | 'BACK') => {
         setEditSide(side);
         await new Promise(r => setTimeout(r, 150));
-        return stageRef.current?.toDataURL({ pixelRatio: 3.4375 });
+        return stageRef.current?.toDataURL({ pixelRatio: 3.2125 });
       };
       const frontPng = await getSidePNG('FRONT');
       const backPng = await getSidePNG('BACK');
@@ -279,7 +276,7 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
     if (!stageRef.current) return;
     setSelectedId(null);
     setTimeout(() => {
-      const dataURL = stageRef.current.toDataURL({ pixelRatio: 3.4375 });
+      const dataURL = stageRef.current.toDataURL({ pixelRatio: 3.2125 });
       const link = document.createElement('a');
       link.download = `${previewData?.idNumber || 'ID'}_${editSide}.png`;
       link.href = dataURL;
@@ -296,7 +293,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
       
       <div className="h-12 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-4 z-20">
         <div className="flex items-center gap-4">
-          {/* <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-emerald-600 rounded-lg flex items-center justify-center text-white font-bold text-xs">ID</div> */}
           <div className="flex items-center gap-2 text-xs text-zinc-400">
             <span>Project</span>
             <ChevronRight size={12} />
@@ -322,7 +318,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* 2. LEFT TOOLBAR (Narrow) */} 
         <div className="w-12 border-r border-zinc-800 bg-zinc-900 flex flex-col items-center py-4 gap-3 z-20">
           <IconButton icon={MousePointer2} active={activeTool === 'select'} onClick={() => setActiveTool('select')} label="Select" />
           <IconButton icon={Move} active={activeTool === 'hand'} onClick={() => setActiveTool('hand')} label="Pan" />
@@ -332,7 +327,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
           <IconButton icon={ImageIcon} onClick={() => fileInputRef.current?.click()} label="Upload Image" />
         </div>
 
-        {/* 3. LAYERS PANEL */}
         <div className="w-64 border-r border-zinc-800 bg-zinc-900/50 flex flex-col z-10">
           <div className="p-4 border-b border-zinc-800">
             <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800">
@@ -347,7 +341,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
           <SidebarLayers layers={currentSideData} selectedId={selectedId} onSelect={setSelectedId} onAddShape={addShape} onAddText={addText} onUploadImage={() => fileInputRef.current?.click()} />
         </div>
 
-        {/* 4. CANVAS AREA (With Rulers and Grid) */}
         <div className="flex-1 relative bg-[#18181b] flex flex-col overflow-hidden">
           <div className="h-10 border-b border-zinc-800 bg-zinc-900 flex items-center justify-between px-4 z-10">
             <div className="flex items-center gap-2">
@@ -397,7 +390,6 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
           </div>
         </div>
 
-        {/* 5. PROPERTIES PANEL */}
         <div className="w-72 border-l border-zinc-800 bg-zinc-900 p-6 flex flex-col gap-6 overflow-y-auto">
           <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Properties</span>
           <PropertyPanel 

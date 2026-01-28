@@ -35,7 +35,6 @@ ipcMain.on('print-card-images', async (event, options) => {
     const tempDir = os.tmpdir();
     const htmlPath = path.join(tempDir, `print_portrait_${Date.now()}.html`);
     
-    // Sized for Portrait Card: 54mm width, 86mm height (CR80)
     const htmlContent = `
       <!DOCTYPE html>
       <html>
@@ -43,24 +42,31 @@ ipcMain.on('print-card-images', async (event, options) => {
         <style>
           @page { 
             margin: 0; 
+            size: 54mm 86mm; /* Exact CR80 */
           }
-          body { 
+          html, body { 
             margin: 0; 
             padding: 0; 
-            width: 100vw; 
-            height: 100vh;
+            width: 54mm; 
+            height: 86mm;
+            overflow: hidden;
+            background-color: white;
           }
           .page { 
-            width: 100vw; 
-            height: 100vh; 
+            position: relative;
+            width: 54mm; 
+            height: 86mm; 
             page-break-after: always; 
-            display: flex;
-            align-items: center;
-            justify-content: center;
           }
           img { 
-            width: 100%; 
-            height: 100%; 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 54mm; 
+            height: 86mm; 
+            display: block;
+            margin: 0;
+            padding: 0;
           }
         </style>
       </head>
@@ -72,16 +78,23 @@ ipcMain.on('print-card-images', async (event, options) => {
 
     fs.writeFileSync(htmlPath, htmlContent);
 
-    const printWindow = new BrowserWindow({ show: false, webPreferences: { nodeIntegration: false } });
+    // Default width 200 and height 180 as requested
+    const printWindow = new BrowserWindow({ 
+      show: false, 
+      width: 200, 
+      height: 180, 
+      webPreferences: { nodeIntegration: false } 
+    });
 
     printWindow.webContents.on('did-finish-load', () => {
       printWindow.webContents.print({
-        silent: true,
+        silent: true, // Margin issue usually happens here
         deviceName: deviceName || '',
         printBackground: true,
         margins: { marginType: 'none' },
-        // CR80 Portrait in microns: 54,000 x 86,000
-        pageSize: { width: 54000, height: 86000 } 
+        pageSize: { width: 54000, height: 86000 },
+        scaleFactor: 100,
+        preferCSSPageSize: true // This tells Electron to respect the @page CSS above
       }, (success, failureReason) => {
         printWindow.close();
         if (fs.existsSync(htmlPath)) fs.unlinkSync(htmlPath);

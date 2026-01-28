@@ -42,41 +42,40 @@ class ApplicantsController extends Controller
     }   
 
     public function confirm($studentId) {
-    try {
-        // 1. Find the student or throw a ModelNotFoundException
-        $student = Student::findOrFail($studentId);
+        try {
+            $student = Student::findOrFail($studentId);
 
-        // 2. Perform the update
-        $student->update(['has_card' => true]);
+            // 2. Perform the update
+            $student->update(['has_card' => true]);
 
-        // 3. Log the successful card issuance for audit purposes
-        Log::info("ID Card issued successfully for Student ID: {$studentId}", [
-            'student_name' => $student->name, // Adjust based on your columns
-            'issued_at' => now()
-        ]);
+            // 3. Log the successful card issuance for audit purposes
+            Log::info("ID Card issued successfully for Student ID: {$studentId}", [
+                'student_id' => $student->id,
+                'student_name' => $student->name, // Adjust based on your columns
+                'issued_at' => now()
+            ]);
 
-        return response()->json([
-            'message' => 'Student card status updated successfully',
-            'student' => $student
-        ], 200);
+            return response()->json([
+                'message' => 'Student card status updated successfully',
+                'student' => $student
+            ], 200);
 
-    } catch (ModelNotFoundException $e) {
-        // Log that someone tried to update a non-existent ID
-        Log::warning("Attempted to issue card for non-existent Student ID: {$studentId}");
+        } catch (ModelNotFoundException $e) {
+            // Log that someone tried to update a non-existent ID
+            Log::warning("Attempted to issue card for non-existent Student ID: {$studentId}");
 
-        return response()->json([
-            'message' => 'Student not found.'
-        ], 404);
+            return response()->json([
+                'message' => 'Student not found.'
+            ], 404);
+        } catch (Exception $e) {
+            // Log any other unexpected errors (database down, etc.)
+            Log::error("Failed to update card status for Student ID: {$studentId}", [
+                'error' => $e->getMessage()
+            ]);
 
-    } catch (Exception $e) {
-        // Log any other unexpected errors (database down, etc.)
-        Log::error("Failed to update card status for Student ID: {$studentId}", [
-            'error' => $e->getMessage()
-        ]);
-
-        return response()->json([
-            'message' => 'An internal error occurred while updating the card status.'
-        ], 500);
+            return response()->json([
+                'message' => 'An internal error occurred while updating the card status.'
+            ], 500);
     }
 }
 

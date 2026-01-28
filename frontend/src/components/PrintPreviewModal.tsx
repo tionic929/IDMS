@@ -181,7 +181,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             <button onClick={handleDownloadImages} className="w-full py-4 bg-blue-500 text-white rounded-2xl font-black uppercase hover:bg-blue-600">
               <Download size={20} className="inline mr-2"/> Download Images
             </button>
-            <button onClick={handleSilentPrint} className="w-full py-4 bg-teal-500 text-slate-950 rounded-2xl font-black uppercase hover:bg-teal-600">
+            <button onClick={() => handleSilentPrint(data.id)} className="w-full py-4 bg-teal-500 text-slate-950 rounded-2xl font-black uppercase hover:bg-teal-600">
               <Printer size={20} className="inline mr-2"/> Print Now
             </button>
             <button onClick={onClose} className="w-full py-3 text-slate-400 font-black uppercase text-[10px]">Close</button>

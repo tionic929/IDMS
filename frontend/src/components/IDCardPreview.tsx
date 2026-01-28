@@ -6,12 +6,11 @@ import { resolveTextLayout } from '../utils/designerUtils';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 
-// DESIGN DIMENSIONS (portrait orientation - your working canvas)
 const DESIGN_WIDTH = 320;
-const DESIGN_HEIGHT = 500;
+const DESIGN_HEIGHT = 508; // Updated to match your high-res target
 
-const PRINT_WIDTH = 640; 
-const PRINT_HEIGHT = 1000; 
+const PRINT_WIDTH = 648; 
+const PRINT_HEIGHT = 1028; // Updated to match your high-res target
 
 interface Props {
   data: ApplicantCard;
@@ -24,12 +23,7 @@ interface Props {
 const DynamicImage = ({ src, common }: { src: string; common: any }) => {
   const [img] = useImage(src, 'anonymous');
   if (!img) return null;
-  return (
-    <KonvaImage
-      {...common}
-      image={img}
-    />
-  );
+  return <KonvaImage {...common} image={img} />;
 };
 
 const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrinting = false }) => {
@@ -46,31 +40,22 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     return `${VITE_API_URL}/api/proxy-image?path=${encodeURIComponent(cleanPath)}`;
   };
 
-  // const [bgImage] = useImage(isFront ? FRONT_DEFAULT_BG : BACK_DEFAULT_BG, 'anonymous');  
   const [photoImage] = useImage(getProxyUrl(data.photo), 'anonymous');
   const [sigImage] = useImage(getProxyUrl(data.signature), 'anonymous');
 
   const preRenderedImage = isFront ? layout?.previewImages?.front : layout?.previewImages?.back;
   const currentLayout = layout?.[side.toLowerCase()];
 
-  // Use high-res dimensions for printing, design dimensions for preview
   const canvasWidth = isPrinting ? PRINT_WIDTH : DESIGN_WIDTH;
   const canvasHeight = isPrinting ? PRINT_HEIGHT : DESIGN_HEIGHT;
   
-  // Calculate scale factor from design space to print space (BOTH PORTRAIT)
-  const printScaleX = isPrinting ? (PRINT_WIDTH / DESIGN_WIDTH) : 1;   // 638/320 = 1.994
-  const printScaleY = isPrinting ? (PRINT_HEIGHT / DESIGN_HEIGHT) : 1; // 1012/500 = 2.024
+  const printScaleX = isPrinting ? (PRINT_WIDTH / DESIGN_WIDTH) : 1;
+  const printScaleY = isPrinting ? (PRINT_HEIGHT / DESIGN_HEIGHT) : 1;
 
-  if (preRenderedImage) {
+  if (preRenderedImage && !isPrinting) {
     return (
-      <div
-        className="id-card-preview-container overflow-hidden"
-        style={{ 
-          width: isPrinting ? '100%' : `${DESIGN_WIDTH * scale}px`, 
-          height: isPrinting ? '100%' : `${DESIGN_HEIGHT * scale}px`, 
-          backgroundColor: 'transparent' 
-        }}
-      >
+      <div className="id-card-preview-container overflow-hidden"
+        style={{ width: `${DESIGN_WIDTH * scale}px`, height: `${DESIGN_HEIGHT * scale}px`, backgroundColor: 'transparent' }}>
         <img src={preRenderedImage} className="w-full h-full object-contain" alt="Final Render" />
       </div>
     );
@@ -85,14 +70,11 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     const isCustomImage = key.startsWith('img_');
     const isShape = key.startsWith('rect') || key.startsWith('circle');
 
-    // For printing: scale all coordinates proportionally (no rotation needed for portrait->portrait)
     const scaledX = config.x * printScaleX;
     const scaledY = config.y * printScaleY;
     const scaledWidth = (config.width || 200) * printScaleX;
     const scaledHeight = (config.height || 180) * printScaleY;
     
-    const textComponentHeight = (config.fit === 'none') ? undefined : scaledHeight;
-
     const common = {
       key: key,
       x: scaledX,
@@ -151,12 +133,10 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
 
     const displayText = textMap[key] || (data as any)[key] || config.text || "";
     
-    // For print, recalculate font size at the scaled dimensions
     let fontSize: number;
     let wrap: 'none' | 'word';
     
     if (isPrinting) {
-      // Recalculate layout at print scale
       const scaledConfig = {
         ...config,
         width: scaledWidth,
@@ -167,7 +147,6 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
       fontSize = resolved.fontSize;
       wrap = resolved.wrap;
     } else {
-      // Use normal resolution for preview
       const resolved = resolveTextLayout(config, displayText);
       fontSize = resolved.fontSize;
       wrap = resolved.wrap;
@@ -176,7 +155,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     return (
       <Text
         {...common}
-        height={textComponentHeight}
+        height={config.fit === 'none' ? undefined : scaledHeight}
         text={displayText}
         fontSize={fontSize}
         fontFamily={config.fontFamily || 'Arial'}
@@ -191,44 +170,29 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
   };
 
   return (
-    <div
+    <div 
       className={`relative overflow-hidden ${isPrinting ? 'bg-white' : 'rounded-xl bg-white shadow-2xl'}`}
       style={{ 
-        width: isPrinting ? '100%' : `${DESIGN_WIDTH * scale}px`, 
-        height: isPrinting ? '100%' : `${DESIGN_HEIGHT * scale}px` 
+        width: isPrinting ? `${PRINT_WIDTH}px` : `${DESIGN_WIDTH * scale}px`, 
+        height: isPrinting ? `${PRINT_HEIGHT}px` : `${DESIGN_HEIGHT * scale}px` 
       }}
     >
       <Stage 
-        width={canvasWidth * scale} 
-        height={canvasHeight * scale} 
-        scaleX={scale} 
-        scaleY={scale}
-        style={{ display: 'block', width: '100%', height: '100%' }}
+        width={canvasWidth * (isPrinting ? 1 : scale)} 
+        height={canvasHeight * (isPrinting ? 1 : scale)} 
+        scaleX={isPrinting ? 1 : scale} 
+        scaleY={isPrinting ? 1 : scale}
         pixelRatio={isPrinting ? 2 : 1}
       >
         <Layer>
-          {/* Background image - scaled to fit print dimensions */}
-          {/* {bgImage && (
-            <KonvaImage 
-              image={bgImage} 
-              width={canvasWidth} 
-              height={canvasHeight} 
-              listening={false} 
-            />
-          )} */}
-
-          {/* Render photo and signature first (behind other elements) */}
-          {isFront && Object.entries(currentLayout).map(([key, config]) =>
+          {/* Photos/Sigs first */}
+          {Object.entries(currentLayout).map(([key, config]) =>
             (key === 'photo' || key === 'signature') ? renderElement(key, config) : null
           )}
-
-          {/* Render all other elements */}
-          {Object.entries(currentLayout).map(([key, config]) => {
-            const isAsset = ['photo', 'signature'].includes(key);
-            if (!isFront) return renderElement(key, config);
-            if (isFront && !isAsset) return renderElement(key, config);
-            return null;
-          })}
+          {/* Rest of the elements */}
+          {Object.entries(currentLayout).map(([key, config]) =>
+            (key !== 'photo' && key !== 'signature') ? renderElement(key, config) : null
+          )}
         </Layer>
       </Stage>
     </div>

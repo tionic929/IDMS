@@ -51,7 +51,7 @@ function App() {
       {user && isAdmin && <Header isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />}
         <main className="flex-1 overflow-y-auto custom-scrollbar">
           <Routes>
-            <Route path="/" element={<Welcome />}/>
+            <Route path="/" element={<Login />}/>
             <Route path="/submit-details" element={<ProfileDetails />} />
             <Route path="/how-to-submit" element={<Instructions />} />
             
