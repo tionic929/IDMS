@@ -1,29 +1,53 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { getDepartmentsWithStudents } from '../../../api/departments';
-import { type DepartmentWithStudents } from '../../../types/departments';
-import { getFullName, type Students } from '../../../types/students';
+import { getFullName } from '../../../types/students';
 import { 
-    Loader2, 
-    Users, 
-    GraduationCap, 
-    MapPin, 
-    Search, 
-    LayoutDashboard,
-    CheckCircle2,
-    AlertCircle
+    Loader2, Users, GraduationCap, MapPin, Search, 
+    LayoutDashboard, CheckCircle2, AlertCircle,
+    ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { BsPerson } from "react-icons/bs";
 import { CgDetailsMore } from "react-icons/cg";
+import type { DepartmentSidebarItem } from '../../../types/departments';
 
-// --- SKELETON COMPONENTS ---
+// --- LOGO IMPORTS ---
+import ncLogo from '../../../assets/nc_logo.png';
+import abLogo from '../../../assets/dept_logo/ab.webp';
+import becLogo from '../../../assets/dept_logo/bec.webp';
+import bsbaLogo from '../../../assets/dept_logo/bsba.webp';
+import bscrimLogo from '../../../assets/dept_logo/bscrim.webp';
+import bsedLogo from '../../../assets/dept_logo/bsed.webp';
+import bsgeLogo from '../../../assets/dept_logo/bsge.webp';
+import bshmLogo from '../../../assets/dept_logo/bshm.webp';
+import bsitLogo from '../../../assets/dept_logo/bsit.webp';
+import bsnLogo from '../../../assets/dept_logo/bsn.webp';
+import colaLogo from '../../../assets/dept_logo/cola.webp';
+import masteralLogo from '../../../assets/dept_logo/masteral.webp';
+import midwiferyLogo from '../../../assets/dept_logo/midwifery.webp';
+
+// Mapping object to link department strings to imported images
+const LOGO_MAP: Record<string, string> = {
+    'AB': abLogo,
+    'BEC': becLogo,
+    'BSBA': bsbaLogo,
+    'BSCRIM': bscrimLogo,
+    'BSED': bsedLogo,
+    'BSGE': bsgeLogo,
+    'BSHM': bshmLogo,
+    'BSIT': bsitLogo,
+    'BSN': bsnLogo,
+    'JD': colaLogo,
+    'MASTERAL': masteralLogo,
+    'MIDWIFERY': midwiferyLogo,
+    'EMPLOYEE': ncLogo, // Fallback for Employee if no logo exists
+};
+
+// --- SKELETONS ---
 const NavItemSkeleton = () => (
   <div className="flex items-center justify-between px-4 py-4 rounded-2xl animate-pulse bg-slate-50">
     <div className="flex items-center gap-3">
       <div className="w-9 h-9 rounded-xl bg-slate-200" />
-      <div className="space-y-2">
-        <div className="h-3 w-24 bg-slate-200 rounded" />
-        <div className="h-2 w-12 bg-slate-100 rounded" />
-      </div>
+      <div className="h-3 w-24 bg-slate-200 rounded" />
     </div>
     <div className="w-6 h-4 bg-slate-200 rounded" />
   </div>
@@ -42,24 +66,13 @@ const MetricSkeleton = () => (
 const TableRowSkeleton = () => (
   <tr className="animate-pulse">
     <td className="px-10 py-7"><div className="h-4 bg-slate-100 rounded w-24" /></td>
-    <td className="px-10 py-7">
-      <div className="space-y-2">
-        <div className="h-4 bg-slate-200 rounded w-40" />
-        <div className="h-3 bg-slate-100 rounded w-20" />
-      </div>
-    </td>
+    <td className="px-10 py-7"><div className="space-y-2"><div className="h-4 bg-slate-200 rounded w-40" /><div className="h-3 bg-slate-100 rounded w-20" /></div></td>
     <td className="px-10 py-7"><div className="h-7 bg-slate-100 rounded-xl w-20 mx-auto" /></td>
-    <td className="px-10 py-7">
-      <div className="space-y-2">
-        <div className="h-3 bg-slate-200 rounded w-32" />
-        <div className="h-2 bg-slate-100 rounded w-48" />
-      </div>
-    </td>
+    <td className="px-10 py-7"><div className="space-y-2"><div className="h-3 bg-slate-200 rounded w-32" /><div className="h-2 bg-slate-100 rounded w-48" /></div></td>
     <td className="px-10 py-7"><div className="h-11 w-11 bg-slate-100 rounded-2xl mx-auto" /></td>
   </tr>
 );
 
-// --- MAIN COMPONENTS ---
 const MetricCard: React.FC<{ title: string; value: string; icon: React.ElementType; color: string }> = ({ title, value, icon: Icon, color }) => (
   <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:shadow-md hover:border-indigo-100">
     <div className="flex flex-col">
@@ -73,38 +86,58 @@ const MetricCard: React.FC<{ title: string; value: string; icon: React.ElementTy
 );
 
 const DepartmentList: React.FC = () => {
-  const [data, setData] = useState<DepartmentWithStudents[]>([]);
-  const [selectedDept, setSelectedDept] = useState<DepartmentWithStudents | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [sidebarDepts, setSidebarDepts] = useState<DepartmentSidebarItem[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [prevCursor, setPrevCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [selectedDeptName, setSelectedDeptName] = useState<string>("EMPLOYEE");
+  const selectedDeptObj = sidebarDepts.find(d => d.department === selectedDeptName);
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const fetchData = useCallback(async (isInitial = false) => {
+    try {
+      if (isInitial) setLoading(true);
+      else setTableLoading(true);
+
+      const response = await getDepartmentsWithStudents(selectedDeptName, cursor || '', searchQuery);
+
+      if (response.success) {
+        const sidebarData = Array.isArray(response.sidebar) ? response.sidebar : [response.sidebar];
+        setSidebarDepts(sidebarData);
+        setStudents(response.students || []);
+        setNextCursor(response.pagination.next_cursor || null);
+        setPrevCursor(response.pagination.prev_cursor || null);
+        setHasMore(response.pagination.has_more || false);
+      }
+    } catch (err) {
+      setError('Failed to load department data.');
+    } finally {
+      setLoading(false);
+      setTableLoading(false);
+    }
+  }, [selectedDeptName, cursor, searchQuery]);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setLoading(true);
-        const response = await getDepartmentsWithStudents();
-        if (response.success && response.data.length > 0) {
-          setData(response.data);
-          setSelectedDept(response.data[0]);
-        }
-      } catch (err: any) {
-        setError('Failed to load department data.');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStats();
-  }, []);
+    const handler = setTimeout(() => {
+      fetchData(sidebarDepts.length === 0);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [selectedDeptName, cursor, searchQuery, fetchData]);
 
-  const filteredStudents = useMemo(() => {
-    if (!selectedDept) return [];
-    return selectedDept.students.filter(s => 
-      getFullName(s).toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.id_number.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [selectedDept, searchQuery]);
+  const handleDeptChange = (name: string) => {
+    setSelectedDeptName(name);
+    setCursor(null);
+    setNextCursor(null);
+    setPrevCursor(null);
+  };
+
+  const handleNext = () => nextCursor && setCursor(nextCursor);
+  const handlePrev = () => prevCursor && setCursor(prevCursor);
 
   if (error) {
     return (
@@ -121,40 +154,36 @@ const DepartmentList: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50/60 overflow-hidden">
-      {/* SIDEBAR NAVIGATION - Styled Thin Scrollbar */}
-      <aside className="w-85 bg-white border-r border-slate-200 flex flex-col h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10">
-        <div className="p-8 pb-6">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-2 h-8 bg-indigo-600 rounded-full shadow-[0_0_12px_rgba(79,70,229,0.4)]" />
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Departments</h2>
-          </div>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto px-4 space-y-1.5 pb-8 custom-scrollbar">
+      <aside className="w-[320px] bg-white border-r border-slate-200 flex flex-col h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10">
+        <nav className="flex-1 overflow-y-auto px-4 space-y-1.5 pt-2 pb-8 custom-scrollbar">
           {loading ? (
              [...Array(8)].map((_, i) => <NavItemSkeleton key={i} />)
           ) : (
-            data.map((dept) => {
-                const isActive = selectedDept?.department === dept.department;
+            sidebarDepts.map((dept) => {
+                const isActive = selectedDeptName === dept.department;
+                // Get logo from map or default to GraduationCap icon if not found
+                const deptLogo = LOGO_MAP[dept.department.toUpperCase()];
+
                 return (
                   <button
                     key={dept.department}
-                    onClick={() => setSelectedDept(dept)}
+                    onClick={() => handleDeptChange(dept.department)}
                     className={`w-full flex items-center justify-between px-4 py-4 rounded-2xl transition-all duration-300 relative group
                       ${isActive 
                         ? "bg-indigo-600 text-white shadow-xl shadow-indigo-100 scale-[1.02]" 
                         : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                       }`}
                   >
-                    {isActive && <div className="absolute left-0 w-1.5 h-6 bg-white rounded-r-full" />}
                     <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors shadow-sm
-                        ${isActive ? "bg-indigo-500" : "bg-slate-100 group-hover:bg-white"}`}>
-                        <GraduationCap size={18} className={isActive ? "text-white" : "text-slate-400"} />
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden transition-colors shadow-sm
+                        ${isActive ? "bg-white" : "bg-slate-100 group-hover:bg-white"}`}>
+                        {deptLogo ? (
+                            <img src={deptLogo} alt={dept.department} className="w-full h-full object-cover p-1.5" />
+                        ) : (
+                            <GraduationCap size={18} className={isActive ? "text-indigo-600" : "text-slate-400"} />
+                        )}
                       </div>
-                      <div className="flex flex-col items-start">
-                        <span className="text-sm font-black truncate w-36 text-left tracking-tight">{dept.department}</span>
-                      </div>
+                      <span className="text-sm font-black truncate w-36 text-left tracking-tight">{dept.department}</span>
                     </div>
                     <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all
                       ${isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"}`}>
@@ -162,78 +191,64 @@ const DepartmentList: React.FC = () => {
                     </div>
                   </button>
                 );
-              })
+            })
           )}
         </nav>
-
-        <div className="p-6 bg-slate-50/50 border-t border-slate-100">
-          <div className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-            <div className={`w-2.5 h-2.5 rounded-full ${loading ? 'bg-slate-200' : 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.4)]'}`} />
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                {loading ? 'Connecting...' : 'System Operational'}
-            </p>
-          </div>
-        </div>
       </aside>
 
-      {/* MAIN CONTENT AREA - Styled Scrollbar */}
       <main className="flex-1 h-screen p-10 space-y-10 overflow-y-auto custom-scrollbar">
         <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-indigo-600 mb-2">
-              <LayoutDashboard size={20} />
-              <span className="text-xs font-black uppercase tracking-[0.3em]">Management Portal</span>
-            </div>
-            <h1 className="text-6xl font-black tracking-tighter text-slate-900 uppercase">Applicants</h1>
-            <div className="h-5 pl-1">
-                {loading ? (
-                    <div className="h-3 w-48 bg-slate-200 rounded animate-pulse" />
-                ) : (
-                    <p className="text-xs font-bold tracking-[0.4em] uppercase text-slate-400">
-                        Course: <span className="text-indigo-600 font-black">{selectedDept?.department}</span>
-                    </p>
-                )}
-            </div>
+            <h1 className="text-6xl font-black tracking-tighter text-slate-900 uppercase">{selectedDeptName}</h1>
+            <p className="text-xs font-bold tracking-[0.4em] uppercase text-slate-400 pl-1">applicants</p>
           </div>
 
           <div className="relative group">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
             <input
               type="text"
-              placeholder="Search by name or ID..."
+              placeholder="Filter by name or ID..."
               value={searchQuery}
-              disabled={loading}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-96 p-4 rounded-2xl border-none bg-white px-14 py-4.5 text-sm font-bold shadow-xl shadow-slate-200/50 focus:ring-2 focus:ring-indigo-500 outline-none placeholder:text-slate-300 transition-all disabled:opacity-50"
+              onChange={(e) => { setSearchQuery(e.target.value); setCursor(null); }}
+              className="w-96 p-4 rounded-2xl border-none bg-white px-14 py-4.5 text-sm font-bold shadow-xl shadow-slate-200/50 focus:ring-2 focus:ring-indigo-500 outline-none placeholder:text-slate-300 transition-all"
             />
           </div>
         </header>
 
-        {/* METRICS */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {loading ? (
-             <>
-               <MetricSkeleton />
-               <MetricSkeleton />
-               <div className="h-32 bg-slate-100 rounded-2xl animate-pulse" />
-             </>
+             <><MetricSkeleton /><MetricSkeleton /><div className="h-32 bg-slate-100 rounded-2xl animate-pulse" /></>
           ) : (
             <>
-              <MetricCard icon={BsPerson} title="Total Applicants" value={selectedDept?.applicant_count.toString() || "0"} color="bg-indigo-600" />
-              <MetricCard icon={Users} title="Visible Records" value={filteredStudents.length.toString()} color="bg-emerald-500" />
-              <div className="bg-indigo-900 p-6 rounded-2xl shadow-xl shadow-indigo-200/50 flex flex-col justify-center relative overflow-hidden group transition-transform hover:scale-[1.01]">
+              <MetricCard icon={BsPerson} title="Total Applicants" value={selectedDeptObj?.applicant_count.toString() || "0"} color="bg-indigo-600" />
+              <MetricCard icon={Users} title="Current Page" value={students.length.toString()} color="bg-emerald-500" />
+              <div className="bg-indigo-900 p-6 rounded-2xl shadow-xl flex flex-col justify-center relative overflow-hidden">
                   <div className="relative z-10">
                     <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Active Selection</span>
-                    <p className="text-white font-black text-xl mt-1 tracking-tight">{selectedDept?.department} Group</p>
+                    <p className="text-white font-black text-xl mt-1 tracking-tight">{selectedDeptName} Records</p>
                   </div>
-                  <GraduationCap className="absolute -right-4 -bottom-4 text-white/10 group-hover:scale-110 transition-transform" size={100} />
+                  {/* Bottom Right Dynamic Logo */}
+                  {LOGO_MAP[selectedDeptName.toUpperCase()] ? (
+                     <img 
+                        src={LOGO_MAP[selectedDeptName.toUpperCase()]} 
+                        className="absolute -right-4 -bottom-4 w-32 h-32 opacity-20 grayscale brightness-200" 
+                        alt="" 
+                     />
+                  ) : (
+                    <GraduationCap className="absolute -right-4 -bottom-4 text-white/10" size={100} />
+                  )}
               </div>
             </>
           )}
         </section>
 
-        {/* DATA TABLE - Scrollbar only on X if needed */}
-        <div className="overflow-hidden rounded-[2.5rem] border border-white bg-white/70 shadow-2xl shadow-slate-200/60 mb-10">
+        <div className="relative overflow-hidden rounded-[2.5rem] border border-white bg-white/70 shadow-2xl shadow-slate-200/60">
+          {tableLoading && (
+            <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] z-20 flex items-center justify-center">
+                <Loader2 className="animate-spin text-indigo-600" size={40} />
+            </div>
+          )}
+          
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full border-separate border-spacing-0 text-left table-fixed">
               <thead>
@@ -248,13 +263,13 @@ const DepartmentList: React.FC = () => {
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   [...Array(6)].map((_, i) => <TableRowSkeleton key={i} />)
-                ) : filteredStudents.length > 0 ? (
-                  filteredStudents.map((s) => (
-                    <tr key={s.id} className="group transition-all hover:bg-white hover:shadow-inner">
-                      <td className="px-10 py-7 font-mono text-sm font-bold text-slate-500 truncate">{s.id_number}</td>
+                ) : students.length > 0 ? (
+                  students.map((s) => (
+                    <tr key={s.id} className="group transition-all hover:bg-white">
+                      <td className="px-10 py-7 font-mono text-sm font-bold text-slate-500">{s.id_number}</td>
                       <td className="px-10 py-7">
                         <div className="flex flex-col">
-                          <span className="text-sm font-black text-slate-900 truncate">{getFullName(s)}</span>
+                          <span className="text-sm font-black text-slate-900">{getFullName(s)}</span>
                           <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">{s.course}</span>
                         </div>
                       </td>
@@ -268,32 +283,43 @@ const DepartmentList: React.FC = () => {
                       <td className="px-10 py-7">
                         <div className="flex flex-col gap-1">
                           <span className="text-xs font-bold text-slate-700 truncate">{s.guardian_name}</span>
-                          <span className="text-[10px] text-slate-400 flex items-center gap-1 font-bold uppercase tracking-tighter italic">
-                            <MapPin size={10} className="text-indigo-300" /> {s.address || 'Location Unset'}
+                          <span className="text-[10px] text-slate-400 flex items-center gap-1 font-bold uppercase italic">
+                            <MapPin size={10} className="text-indigo-300" /> {s.address || 'Unset'}
                           </span>
                         </div>
                       </td>
                       <td className="px-10 py-7 text-center">
-                        <button className="inline-flex items-center justify-center w-11 h-11 border border-slate-100 rounded-2xl bg-white shadow-sm hover:shadow-md hover:border-indigo-200 hover:text-indigo-600 transition-all group/btn">
-                          <CgDetailsMore size={22} className="text-slate-400 group-hover/btn:text-indigo-600 transition-colors" />
+                        <button className="w-11 h-11 border border-slate-100 rounded-2xl bg-white shadow-sm hover:border-indigo-200 transition-all flex items-center justify-center mx-auto group/btn">
+                          <CgDetailsMore size={22} className="text-slate-400 group-hover/btn:text-indigo-600" />
                         </button>
                       </td>
                     </tr>
                   ))
                 ) : (
-                  <tr>
-                    <td colSpan={5} className="px-10 py-32 text-center bg-slate-50/30">
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="p-6 bg-white rounded-full shadow-sm">
-                            <Users className="text-slate-200" size={64} />
-                        </div>
-                        <p className="text-sm font-black text-slate-400 uppercase tracking-[0.3em] mt-4">No Matching Applicants Found</p>
-                      </div>
-                    </td>
-                  </tr>
+                  <tr><td colSpan={5} className="py-32 text-center bg-slate-50/30"><p className="text-sm font-black text-slate-400 uppercase tracking-[0.3em]">No Applicants Found</p></td></tr>
                 )}
               </tbody>
             </table>
+          </div>
+          
+          <div className="bg-slate-50/50 px-10 py-6 border-t border-slate-100 flex items-center justify-between">
+            <div></div>
+            <div className="flex items-center gap-3">
+                <button 
+                    disabled={!prevCursor || tableLoading}
+                    onClick={handlePrev}
+                    className="p-3 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition-all"
+                >
+                    <ChevronLeft size={20} />
+                </button>
+                <button 
+                    disabled={!hasMore || tableLoading}
+                    onClick={handleNext}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-widest hover:bg-indigo-700 disabled:opacity-30 transition-all shadow-lg shadow-indigo-100"
+                >
+                    Next <ChevronRight size={18} />
+                </button>
+            </div>
           </div>
         </div>
       </main>

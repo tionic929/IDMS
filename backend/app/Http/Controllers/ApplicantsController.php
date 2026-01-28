@@ -21,16 +21,22 @@ class ApplicantsController extends Controller
 {
     public function index()
     {
-        $queue = Student::where('has_card', false)
+        $totalQueue = Student::where('has_card', false)->count();
+
+
+        $queueList = Student::where('has_card', false)
             ->orderBy('created_at', 'asc')
-            ->paginate(5);
+            ->limit(10)
+            ->get();
 
         $history = Student::where('has_card', true)
             ->orderBy('updated_at', 'desc')
-            ->paginate(5);
+            ->limit(10)
+            ->get();
         
         return response()->json([
-            'queue' => $this->formatStudents($queue),
+            'totalQueue' => $totalQueue,
+            'queueList' => $this->formatStudents($queueList),
             'history' => $this->formatStudents($history)
         ], 200);
     }   
@@ -82,10 +88,10 @@ class ApplicantsController extends Controller
         ]);
     }
 
-    private function formatStudents($collection){
-        return $collection->map(function ($student) {
-            $student->formatted_date = $student->created_at->format('M d, Y'); 
-            $student->formatted_time = $student->created_at->format('g:i A');  
+    private function formatStudents($paginator){
+        return $paginator->map(function ($student) {
+            $student->formatted_date = $student->created_at ? $student->created_at->format('M d, Y') : null; 
+            $student->formatted_time = $student->created_at ? $student->created_at->format('g:i A') : null;  
             return $student;
         });
     }

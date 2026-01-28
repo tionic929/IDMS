@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Sidebar from "./layout/sidebar";
 import Welcome from './pages/welcome';
@@ -13,6 +13,9 @@ import Instructions from "./pages/instructions";
 import ApplicantsIndex from "./pages/Admin/Applicants/ApplicantsIndex";
 import ImportReports from "./pages/Admin/Reports/importReports";
 import DepartmentList from "./pages/Admin/Departments/DepartmentsIndex";
+import CardManagement from "./pages/cardManagement";
+
+import Header from './layout/header';
 
 const RoleGuard = ({ 
   children, 
@@ -32,6 +35,7 @@ const RoleGuard = ({
 
 function App() {
   const { user, loading } = useAuth();
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const isAdmin = user?.role === 'admin';
 
   if (loading) {
@@ -39,15 +43,12 @@ function App() {
   }
   
   return (
-    // 1. h-screen + overflow-hidden prevents the whole window from scrolling
     <div className="flex h-screen w-full bg-white dark:bg-[#eef3ff] overflow-hidden">
       <ToastContainer theme="dark" />
+      {user && isAdmin && <Sidebar isCollapsed={isCollapsed} />}
       
-      {/* 2. Sidebar is fixed in height by the parent's h-screen */}
-      {user && isAdmin && <Sidebar />}
-      
-      {/* 3. Main container needs flex-1 to fill remaining width and overflow-y-auto to scroll */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {user && isAdmin && <Header isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />}
         <main className="flex-1 overflow-y-auto custom-scrollbar">
           <Routes>
             <Route path="/" element={<Welcome />}/>
@@ -64,6 +65,14 @@ function App() {
             />
             
             <Route element={<ProtectedRoute />}>
+              <Route 
+                path="/card-management"
+                element={
+                  <RoleGuard allowedRoles={['admin']}>
+                    <CardManagement />
+                  </RoleGuard>
+                }
+              />
               <Route 
                 path="/dashboard" 
                 element={

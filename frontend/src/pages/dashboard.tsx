@@ -2,15 +2,13 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { echo } from '../echo';
 import { 
   Users, Search, Edit3, Trash2, ChevronUp, ChevronDown, 
-  Download, Eye, AlertCircle, Layout, Printer, RefreshCw,
-  MoreVertical, CheckCircle2, XCircle
+  Layout, Printer, RefreshCw, CheckCircle2
 } from 'lucide-react';
 
-import { useReactToPrint } from 'react-to-print';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
-import { confirmApplicant, getStudents } from '../api/students';
+import { getStudents } from '../api/students';
 
 // Types
 import type { Students } from '../types/students';
@@ -19,21 +17,18 @@ import { type ApplicantCard } from '../types/card';
 // Components
 import PrintPreviewModal from '../components/PrintPreviewModal';
 import IDCardPreview from '../components/IDCardPreview';
-import CardDesigner from '../components/CardDesigner';
-import Templates from '../components/Templates';
+import DesignerWorkspace from '../components/DesignerWorkspace';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 type SortKey = 'created_at' | 'id_number' | 'first_name' | 'last_name';
 
 const Dashboard: React.FC = () => {
+  const [totalQueueCount, setTotalQueueCount] = useState(0);
   const [printData, setPrintData] = useState<{ student: ApplicantCard, layout: any} | null>(null);
-
   const [saveCount, setSaveCount] = useState(0);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [allTemplates, setAllTemplates] = useState<any[]>([]);
-
   const [viewMode, setViewMode] = useState<'queue' | 'designer'>('queue');
-  
   const [allStudents, setAllStudents] = useState<Students[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -57,7 +52,7 @@ const Dashboard: React.FC = () => {
     'HUMSS': { name: 'HUMSS', color: 'text-amber-400' },
     'STEM': { name: 'STEM', color: 'text-amber-400' },
     'HE': { name: 'HE', color: 'text-amber-400' },
-  }
+  };
 
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
@@ -66,11 +61,13 @@ const Dashboard: React.FC = () => {
         getStudents(),
         api.get('/card-layouts')
       ]);
-      const combined = [...(studentRes.queue || []), ...(studentRes.history || [])]; 
+      const combined = [ ...(studentRes.queueList || []), ...(studentRes.history || [])]; 
       setAllStudents(combined);
       setAllTemplates(templateRes.data);
+      setTotalQueueCount(studentRes.totalQueue);
+      console.log(studentRes.totalQueue);
     } catch (error) {
-      toast.error("Failed to fetch records");
+      toast.error("Failed to load records");
     } finally {
       setTimeout(() => setLoading(false), 800);
     }
@@ -88,7 +85,7 @@ const Dashboard: React.FC = () => {
       });
 
     return () => { channel.stopListening('.new-submission'); };
-  }, [saveCount]);
+  }, [saveCount, fetchInitialData]);
 
   const queueCount = useMemo(() => 
     allStudents.filter(s => !s.has_card).length, [allStudents]
@@ -101,19 +98,12 @@ const Dashboard: React.FC = () => {
     )[0] || null;
   }, [allStudents]);
 
-  // Logic to automatically find the template matching the student's course
   const currentAutoLayout = useMemo(() => {
-    if (!latestStudent || allTemplates.length === 0) {
-      console.log("DEBUG: Mapping failed - No student or no templates available");
-      return null;
-    };
-
+    if (!latestStudent || allTemplates.length === 0) return null;
     const matched = allTemplates.find(
       (t) => t.name.trim().toUpperCase() === latestStudent.course.trim().toUpperCase()
     );
-
     const templateToUse = matched || allTemplates.find(t => t.is_active) || allTemplates[0];
-
     return {
       front: templateToUse.front_config,
       back: templateToUse.back_config,
@@ -191,7 +181,6 @@ const Dashboard: React.FC = () => {
           layout: currentAutoLayout
         });
       }
-      // setTimeout(() => window.print(), 500);
     } catch (error) {
       toast.error("Process Failed");
     } finally {
@@ -223,267 +212,220 @@ const Dashboard: React.FC = () => {
   ));
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 selection:bg-teal-500/30 scroll-hidden overflow-y-auto">
-      <div className="mx-auto p-4">
-        
-        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 pb-3">
-          <div className="space-y-1">
-            <h1 className="text-4xl md:text-5xl font-[550] tracking-tighter uppercase">
-              Card <span className="text-teal-500 decoration-teal-500/30">Management</span>
-            </h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="bg-white dark:bg-slate-900 px-6 py-3 rounded-2xl border border-slate-200 dark:border-slate-800 hidden sm:block">
-               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Queue</p>
-               <p className="text-xl font-black text-teal-500 leading-none mt-1">{queueCount}</p>
-            </div>
-            <div className="flex bg-slate-200 dark:bg-slate-900 p-1.5 rounded-2xl border border-slate-300 dark:border-slate-800 shadow-inner">
-               <button 
-                onClick={() => setViewMode('queue')}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === 'queue' ? 'bg-teal-500 text-slate-950 shadow-lg' : 'text-slate-500'}`}
-              >
-                <Printer size={14} /> Records
-              </button>
-              <button 
-                onClick={() => setViewMode('designer')}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ${viewMode === 'designer' ? 'bg-teal-500 text-slate-950 shadow-lg' : 'text-slate-500'}`}
-              >
-                <Layout size={14} /> Designer
-              </button>
-            </div>
-          </div>
-        </header>
+    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 selection:bg-teal-500/30 overflow-hidden flex flex-col">
+      {/* COMPACT INTEGRATED HEADER */}
+      <header className="flex items-center justify-between px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-zinc-950 z-20">
+        <div className="flex items-center gap-6">
+          <h1 className="text-xl font-black tracking-tighter uppercase flex items-center gap-2">
+            Card <span className="text-teal-500">Management</span>
+          </h1>
+          
+          <nav className="flex items-center bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-inner">
+            <button 
+              onClick={() => setViewMode('queue')}
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === 'queue' ? 'bg-white dark:bg-zinc-800 text-teal-500 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              <Printer size={12} /> Records
+            </button>
+            <button 
+              onClick={() => setViewMode('designer')}
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === 'designer' ? 'bg-white dark:bg-zinc-800 text-teal-500 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              <Layout size={12} /> Designer
+            </button>
+          </nav>
+        </div>
 
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-3 py-1 bg-teal-500/10 border border-teal-500/20 rounded-lg">
+            <span className="text-[10px] font-black text-teal-500 uppercase tracking-widest">Queue: {queueCount}</span>
+          </div>
+          <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700"></div>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-hidden relative">
         <AnimatePresence mode="wait">
           {printData && (
-            <motion.div
-                initial={{ opacity: 0 }} 
-                animate={{ opacity: 1 }} 
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[100]" // High z-index to sit on top of everything
+            <PrintPreviewModal 
+                data={printData.student}
+                layout={printData.layout}
+                onClose={() => setPrintData(null)}
+            />
+          )}
+
+          {viewMode === 'designer' ? (
+            <motion.div 
+              key="designer" 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              className="h-full"
             >
-                <PrintPreviewModal 
-                    data={printData.student}
-                    layout={printData.layout}
-                    onClose={() => setPrintData(null)}
+                <DesignerWorkspace 
+                  selectedTemplate={selectedTemplate}
+                  setSelectedTemplate={setSelectedTemplate}
+                  saveCount={saveCount}
+                  setSaveCount={setSaveCount}
+                  allStudents={allStudents}
                 />
             </motion.div>
-         )}
-          {viewMode === 'designer' ? (
-            <motion.div key="designer" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-                <div className="flex gap-6 h-[85vh] p-6">
-                  <div className="w-80">
-                    <Templates 
-                      activeId={selectedTemplate?.id} 
-                      onSelect={(t) => setSelectedTemplate(t)} 
-                      refreshTrigger={saveCount}
-                    />
-                  </div>
-
-                  <div className="flex-1">
-                    {selectedTemplate ? (
-                      <CardDesigner 
-                        templateId={selectedTemplate.id}
-                        templateName={selectedTemplate.name}
-                        currentLayout={{
-                          front: { ...selectedTemplate.front_config},
-                          back: { ...selectedTemplate.back_config}
-                        }}
-                        allStudents={allStudents}
-                        onSave={(updatedConfig) => {
-                          setSelectedTemplate((prev: any) => ({
-                            ...prev,
-                            front_config: updatedConfig.front,
-                            back_config: updatedConfig.back
-                          }));
-                          setSaveCount(prev => prev + 1);
-                        }}
-                      />
-                    ) : (
-                      <div className="h-full flex flex-col items-center justify-center bg-white dark:bg-slate-900 rounded-[2rem] border-2 border-dashed border-slate-200">
-                        <Layout size={48} className="text-slate-200 mb-4" />
-                        <p className="text-slate-400 font-bold uppercase tracking-widest">Select a template to edit</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-            </motion.div>
           ) : (
-            <motion.div key="queue" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-2 items-start">
-                
+            <motion.div 
+              key="queue" 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              className="h-full overflow-y-auto p-4 space-y-4 custom-scrollbar"
+            >
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start max-w-[1600px] mx-auto">
                   <div className="xl:col-span-4">
                     {latestStudent && previewData && currentAutoLayout ? (
-                      <div className="flex flex-col lg:flex-row gap-3 items-stretch">
-                        
-                        <div className="w-full lg:w-fit bg-white dark:bg-slate-900 rounded-[0.5rem] p-3 border border-slate-200 dark:border-slate-800 shadow-xl flex flex-col items-left gap-2">
-                          <div className="text-left">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{latestStudent.course} Layout</p>
+                      <div className="flex flex-col lg:flex-row gap-4 items-stretch">
+                        <div className="w-full lg:w-fit bg-white dark:bg-slate-900 rounded-3xl p-4 border border-slate-200 dark:border-slate-800 shadow-xl flex flex-col gap-3">
+                          <div className="text-left px-2">
+                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{latestStudent.course} Template</p>
                           </div>
                           <div className="flex flex-col sm:flex-row gap-4">
                               <IDCardPreview data={previewData} layout={currentAutoLayout} side="FRONT" scale={.7} />
                               <IDCardPreview data={previewData} layout={currentAutoLayout} side="BACK" scale={.7} />
                           </div>
-                          {/* Current Applicant Focus Card (Grid Row 1, Col 1 Area) */}
                           <div className="flex-1 w-full bg-white dark:bg-slate-900 overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col rounded-xl">
-                            <div className="p-6 border-b border-slate-50 dark:border-slate-800/50">
-                              <div className="flex justify-between items-start mb-4">
-                                <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em]">
-                                  Entry Received: {new Date(latestStudent.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                                <div className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">
-                                  Active Queue
-                                </div>
-                              </div>
-
-                              <div className="space-y-1">
-                                <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-                                  {latestStudent.last_name}, {latestStudent.first_name}
-                                </h2>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-mono font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded">
-                                    {latestStudent.id_number}
-                                  </span>
-                                  <span className="text-slate-300 dark:text-slate-700">•</span>
-                                  <p className={`text-sm font-semibold uppercase tracking-wide ${
-                                    Courses[latestStudent.course as keyof typeof Courses]?.color || 'text-slate-600 dark:text-slate-400'
-                                  }`}>
-                                    {Courses[latestStudent.course as keyof typeof Courses]?.name || latestStudent.course}
-                                  </p>
-                                </div>
+                          <div className="p-6 border-b border-slate-50 dark:border-slate-800/50">
+                            <div className="flex justify-between items-start mb-4">
+                              <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em]">
+                                Entry Received: {new Date(latestStudent.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <div className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">
+                                Active Queue
                               </div>
                             </div>
 
-                            {/* Metadata Grid */}
-                            <div className="p-6 space-y-6 flex-1">
-                              <div className="grid grid-cols-2 gap-x-8 gap-y-6">
-                                <div className="space-y-1">
-                                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Emergency Contact</p>
-                                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{latestStudent.guardian_name}</p>
-                                </div>
-                                <div className="space-y-1">
-                                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Contact No.</p>
-                                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 font-sans">{latestStudent.guardian_contact}</p>
-                                </div>
-                                <div className="col-span-2 space-y-1">
-                                  <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Permanent Address</p>
-                                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
-                                    {latestStudent.address}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* Action Footer */}
-                              <div className="pt-4 border-t border-slate-50 dark:border-slate-800/50">
-                                <button 
-                                  onClick={() => handleExport(latestStudent.id)} 
-                                  disabled={loading}
-                                  className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white rounded-lg font-semibold text-sm transition-all shadow-sm shadow-indigo-200 dark:shadow-none active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
-                                >
-                                  {loading ? (
-                                    <RefreshCw size={16} className="animate-spin" />
-                                  ) : (
-                                    <Printer size={16} />
-                                  )}
-                                  {loading ? 'Processing...' : 'Confirm & Mark as Printed'}
-                                </button>
-                                <p className="text-[10px] text-center text-slate-400 mt-3 font-medium">
-                                  This will update the student status and trigger the print preview.
+                            <div className="space-y-1">
+                              <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                {latestStudent.last_name}, {latestStudent.first_name}
+                              </h2>
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-mono font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded">
+                                  {latestStudent.id_number}
+                                </span>
+                                <span className="text-slate-300 dark:text-slate-700">•</span>
+                                <p className={`text-sm font-semibold uppercase tracking-wide ${
+                                  Courses[latestStudent.course as keyof typeof Courses]?.color || 'text-slate-600 dark:text-slate-400'
+                                }`}>
+                                  {Courses[latestStudent.course as keyof typeof Courses]?.name || latestStudent.course}
                                 </p>
                               </div>
                             </div>
                           </div>
+
+                          {/* Metadata Grid */}
+                          <div className="p-6 space-y-6 flex-1">
+                            <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+                              <div className="space-y-1">
+                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Emergency Contact</p>
+                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{latestStudent.guardian_name}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Contact No.</p>
+                                <p className="text-sm font-medium text-slate-700 dark:text-slate-200 font-sans">{latestStudent.guardian_contact}</p>
+                              </div>
+                              <div className="col-span-2 space-y-1">
+                                <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Permanent Address</p>
+                                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                                  {latestStudent.address}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Action Footer */}
+                            <div className="pt-4 border-t border-slate-50 dark:border-slate-800/50">
+                              <button 
+                                onClick={() => handleExport(latestStudent.id)} 
+                                disabled={loading}
+                                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white rounded-lg font-semibold text-sm transition-all shadow-sm shadow-indigo-200 dark:shadow-none active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                              >
+                                {loading ? (
+                                  <RefreshCw size={16} className="animate-spin" />
+                                ) : (
+                                  <Printer size={16} />
+                                )}
+                                {loading ? 'Processing...' : 'Confirm & Mark as Printed'}
+                              </button>
+                              <p className="text-[10px] text-center text-slate-400 mt-3 font-medium">
+                                This will update the student status and trigger the print preview.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                         </div>
 
-                        <section className="bg-white dark:bg-slate-900 rounded-[0.5rem] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col flex-1">
-                          <div className="p-10 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-8 bg-slate-50/30 dark:bg-transparent">
-                            <div className="space-y-1">
-                              <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight italic">Records <span className="text-teal-500">Directory</span></h3>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total of {allStudents.length} entries stored</p>
+                        <section className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col flex-1">
+                          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div>
+                              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tighter">Directory</h3>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{allStudents.length} Students Logged</p>
                             </div>
-                            <div className="relative w-full md:w-[450px]">
-                              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                            <div className="relative w-full md:w-80">
+                              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                               <input 
                                 type="text"
-                                placeholder="Search by name, ID, or course..."
+                                placeholder="Search records..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-14 pr-6 py-5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] outline-none text-sm font-bold shadow-sm focus:border-teal-500/50 transition-all"
+                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs font-bold transition-all"
                               />
                             </div>
                           </div>
-
-                          <div className="overflow-y-auto max-h-[700px] scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-800 scrollbar-track-transparent">
-                            <table className="w-full text-left relative">
-                              <thead className="sticky top-0 z-10">
-                                <tr className="text-slate-400 text-[10px] font-black uppercase tracking-[0.25em] bg-slate-50 dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800">
-                                  <SortHeader label="Student ID" active={sortBy === 'id_number'} order={sortOrder} onClick={() => toggleSort('id_number')} />
-                                  <SortHeader label="Full Name" active={sortBy === 'name'} order={sortOrder} onClick={() => toggleSort('name')} />
-                                  <th className="px-10 py-6">Course / Dept</th>
-                                  <th className="px-10 py-6">Status</th>
-                                  <th className="px-10 py-6">Date Added</th>
-                                  <th className="px-10 py-6 text-right">Actions</th>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                              <thead>
+                                <tr className="text-slate-400 text-[9px] font-black uppercase tracking-widest bg-slate-50/50 dark:bg-zinc-950/50 border-b border-slate-100 dark:border-zinc-800">
+                                  <SortHeader label="ID Number" active={sortBy === 'id_number'} order={sortOrder} onClick={() => toggleSort('id_number')} />
+                                  <SortHeader label="Full Name" active={sortBy === 'first_name'} order={sortOrder} onClick={() => toggleSort('first_name')} />
+                                  <th className="px-10 py-4">Course</th>
+                                  <th className="px-10 py-4">Status</th>
+                                  <th className="px-10 py-4 text-right">Actions</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
                                 {filteredStudents.map(student => (
-                                  <tr key={student.id} className="hover:bg-teal-50/30 dark:hover:bg-teal-500/5 transition-all group">
-                                    <td className="px-10 py-7">
-                                      <span className="font-black text-teal-600 dark:text-teal-400 font-mono text-sm tracking-tighter">
-                                          {student.id_number}
-                                      </span>
+                                  <tr key={student.id} className="hover:bg-teal-500/5 transition-all group">
+                                    <td className="px-10 py-5">
+                                      <span className="font-bold text-teal-500 font-mono text-xs">{student.id_number}</span>
                                     </td>
-                                    <td className="px-10 py-7">
-                                      <p className="font-bold text-slate-900 dark:text-white text-sm uppercase">{student.last_name}, {student.first_name}</p>
+                                    <td className="px-10 py-5">
+                                      <p className="font-bold text-slate-900 dark:text-slate-200 text-xs uppercase">{student.last_name}, {student.first_name}</p>
                                     </td>
-                                    <td className="px-10 py-7">
-                                      <span className={`px-4 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider dark:text-slate-300
-                                        ${Courses[student.course as keyof typeof Courses]?.color || 'text-white'}
-                                        `}>
+                                    <td className="px-10 py-5">
+                                      <span className={`text-[10px] font-black uppercase ${Courses[student.course as keyof typeof Courses]?.color || 'text-slate-400'}`}>
                                           {student.course}
                                       </span>
                                     </td>
-                                    <td className="px-10 py-7">
+                                    <td className="px-10 py-5">
                                       {student.has_card ? (
-                                          <div className="flex items-center gap-2 text-teal-500 font-black text-[10px] uppercase tracking-widest">
-                                              <CheckCircle2 size={14} /> Printed
-                                          </div>
+                                          <div className="flex items-center gap-1.5 text-teal-500 font-black text-[9px] uppercase"><CheckCircle2 size={12} /> Printed</div>
                                       ) : (
-                                          <div className="flex items-center gap-2 text-amber-500 font-black text-[10px] uppercase tracking-widest">
-                                              <RefreshCw size={14} className="animate-spin-slow" /> Pending
-                                          </div>
+                                          <div className="flex items-center gap-1.5 text-amber-500 font-black text-[9px] uppercase"><RefreshCw size={12} className="animate-spin" /> In Queue</div>
                                       )}
                                     </td>
-                                    <td className="px-10 py-7 text-slate-400 font-bold text-xs uppercase tracking-tighter">
-                                      {new Date(student.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                                    </td>
-                                    <td className="px-10 py-7 text-right">
-                                      <div className="flex justify-end gap-2">
-                                          <TableAction icon={<Edit3 size={16} />} color="text-slate-400 hover:text-teal-500 hover:bg-teal-500/10" />
-                                          <TableAction onClick={() => handleDelete(student.id)} icon={<Trash2 size={16} />} color="text-slate-400 hover:text-red-500 hover:bg-red-500/10" />
+                                    <td className="px-10 py-5 text-right">
+                                      <div className="flex justify-end gap-1">
+                                          <TableAction icon={<Edit3 size={14} />} color="text-slate-400 hover:text-teal-500" />
+                                          <TableAction onClick={() => handleDelete(student.id)} icon={<Trash2 size={14} />} color="text-slate-400 hover:text-red-500" />
                                       </div>
                                     </td>
                                   </tr>
                                 ))}
                               </tbody>
                             </table>
-                            
-                            {filteredStudents.length === 0 && (
-                              <div className="p-20 text-center">
-                                  <Search size={40} className="mx-auto text-slate-200 dark:text-slate-800 mb-4" />
-                                  <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No records found matching your criteria</p>
-                              </div>
-                            )}
                           </div>
                         </section>
-
                       </div>
                     ) : (
-                      <div className="h-[450px] flex flex-col items-center justify-center border-4 border-dashed border-slate-200 dark:border-slate-800 rounded-[3rem] bg-slate-50/50 dark:bg-transparent">
-                        <div className="p-8 bg-white dark:bg-slate-900 rounded-full shadow-xl mb-6">
-                          <Users size={48} className="text-slate-300" />
-                        </div>
-                        <p className="text-slate-400 font-black uppercase tracking-[0.3em]">No Pending Applicants or Missing Templates</p>
+                      <div className="h-[500px] flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-[3rem]">
+                        <Users size={32} className="text-zinc-700 mb-4" />
+                        <p className="text-zinc-600 font-black uppercase tracking-widest text-xs">No Pending Records Found</p>
                       </div>
                     )}
                   </div>
@@ -491,14 +433,13 @@ const Dashboard: React.FC = () => {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </main>
     </div>
   );
 };
 
-
 const TableAction = ({ icon, color, onClick }: any) => (
-  <button onClick={onClick} className={`${color} p-3 rounded-xl transition-all border border-transparent active:scale-90`}>
+  <button onClick={onClick} className={`${color} p-2 rounded-lg transition-all hover:bg-slate-100 dark:hover:bg-zinc-800`}>
     {icon}
   </button>
 );

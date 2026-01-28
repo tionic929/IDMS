@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Cache;
 
 class Applicant extends Model
 {
@@ -28,6 +29,29 @@ class Applicant extends Model
         'id_picture',
         'signature_picture',
     ];
+
+    /**
+     * The "booted" method of the model.
+     * Handles automatic cache invalidation.
+     */
+    protected static function booted()
+    {
+        // Logic to clear cache whenever data changes
+        $clearStudentCache = function ($applicant) {
+            // 1. Clear the sidebar counts (global key)
+            Cache::forget('dept_counts');
+
+            // 2. Clear all student lists using Tags
+            // This works perfectly with Redis to clear all paginated/filtered results at once
+            if (config('cache.default') === 'redis') {
+                Cache::tags(['students_list'])->flush();
+            }
+        };
+
+        static::created($clearStudentCache);
+        static::updated($clearStudentCache);
+        static::deleted($clearStudentCache);
+    }
 
     public function getFullNameAttribute(): string
     {

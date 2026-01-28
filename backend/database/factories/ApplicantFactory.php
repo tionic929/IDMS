@@ -24,8 +24,8 @@ class ApplicantFactory extends Factory
             'guardian_name' => $this->faker->name('female'), // Usually mothers/guardians
             'guardian_contact' => $this->faker->phoneNumber(),
             'has_card' => false,
-            'created_at' => now(),
-            'updated_at' => now(),
+            // 'created_at' => now(),
+            // 'updated_at' => now(),
         ];
     }
 }

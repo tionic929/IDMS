@@ -59,9 +59,9 @@ const ApplicantsIndex: React.FC = () => {
         </header>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <MetricCard icon={BsPerson} title="Gross Applicants" value={report.total.toLocaleString()} color="bg-blue-600" />
-          <MetricCard icon={BsClock} title="Awaiting Review" value={report.pending} color="bg-amber-500" />
-          <MetricCard icon={BsCreditCard} title="Inventory Issued" value={report.issued} color="bg-indigo-600" />
+          <MetricCard icon={BsPerson} title="Total Applicants" value={report.total.toLocaleString()} color="bg-blue-600" />
+          <MetricCard icon={BsClock} title="Pending Reviews" value={report.pending} color="bg-amber-500" />
+          <MetricCard icon={BsCreditCard} title="Issued Cards" value={report.issued} color="bg-indigo-600" />
         </section>
 
         {isFilterOpen && (

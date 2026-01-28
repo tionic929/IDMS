@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Plus, CheckCircle2, Trash2, Edit3 } from 'lucide-react';
+import { Layout, Plus, CheckCircle2, Trash2, Edit3, Loader2, Layers } from 'lucide-react';
 import api from '../api/axios';
 import { toast } from 'react-toastify';
 import type { Template, TemplatesProps } from '../types/templates';
@@ -50,53 +50,74 @@ const Templates: React.FC<TemplatesProps> = ({ onSelect, activeId, refreshTrigge
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
-      <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+    <div className="w-46 flex flex-col h-full bg-zinc-900 border-r border-zinc-800">
+      {/* Header */}
+      <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/50">
         <div>
-          <h3 className="text-lg font-black uppercase tracking-tighter">Saved <span className="text-teal-500">Templates</span></h3>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Select or manage ID designs</p>
+          <h3 className="text-[11px] font-black uppercase text-zinc-100 tracking-wider">Library</h3>
+          <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-tight">Templates</p>
         </div>
         <button 
           onClick={handleCreateNew}
-          className="p-3 bg-teal-500 hover:bg-teal-600 text-white rounded-2xl transition-all shadow-lg shadow-teal-500/20"
+          className="p-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md transition-all shadow-lg shadow-indigo-500/20"
+          title="New Template"
         >
-          <Plus size={20} />
+          <Plus size={16} />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
-        {templates.map((template) => (
+      {/* List */}
+      <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 opacity-20">
+            <Loader2 size={24} className="animate-spin mb-2 text-zinc-400" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Loading...</span>
+          </div>
+        ) : templates.map((template) => (
           <div 
             key={template.id}
             onClick={() => onSelect(template)}
-            className={`group relative p-4 rounded-3xl border-2 transition-all cursor-pointer ${
+            className={`group relative p-3 rounded-lg border transition-all cursor-pointer ${
               activeId === template.id 
-                ? 'border-teal-500 bg-teal-50/50 dark:bg-teal-500/5' 
-                : 'border-slate-100 dark:border-slate-800 hover:border-slate-200'
+                ? 'bg-indigo-500/10 border-indigo-500/50' 
+                : 'bg-transparent border-transparent hover:bg-zinc-800'
             }`}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-xl ${activeId === template.id ? 'bg-teal-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
-                  <Layout size={18} />
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className={`p-2 rounded-md ${activeId === template.id ? 'bg-indigo-500 text-white' : 'bg-zinc-950 text-zinc-600 group-hover:text-zinc-400'}`}>
+                  <Layers size={14} />
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">{template.name}</h4>
-                  <p className="text-[9px] font-mono text-slate-400 uppercase">ID: {template.id}</p>
+                <div className="overflow-hidden">
+                  <h4 className={`text-[11px] font-bold truncate ${activeId === template.id ? 'text-indigo-400' : 'text-zinc-300'}`}>
+                    {template.name}
+                  </h4>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[8px] font-mono text-zinc-600 uppercase">ID: {template.id}</span>
+                    {template.is_active && (
+                       <span className="text-[7px] bg-emerald-500/10 text-emerald-500 px-1 rounded font-black uppercase">Active</span>
+                    )}
+                  </div>
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); handleSetActive(template.id); }}
-                  className={`p-2 rounded-lg transition-colors ${template.is_active ? 'text-teal-500' : 'text-slate-300 hover:text-teal-400'}`}
-                >
-                  <CheckCircle2 size={16} fill={template.is_active ? 'currentColor' : 'none'} className={template.is_active ? 'text-white' : ''}/>
-                </button>
-              </div>
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleSetActive(template.id); }}
+                className={`p-1.5 rounded-md transition-all ${template.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-700 hover:text-emerald-500 hover:bg-emerald-500/5'}`}
+                title={template.is_active ? "Active Template" : "Set as Active"}
+              >
+                <CheckCircle2 size={14} />
+              </button>
             </div>
           </div>
         ))}
+        
+        {!loading && templates.length === 0 && (
+          <div className="py-20 text-center opacity-20">
+            <Layout size={32} className="mx-auto mb-4" />
+            <p className="text-[10px] font-bold uppercase">No templates found</p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,6 @@
 import api from "./axios";
 import type { Students, PaginatedResponse } from "../types/students";
 
-
 export interface TotalApplicantsPayload{
     applicantsReport: number;
     pendingCount: number;
@@ -23,7 +22,7 @@ export const getApplicantsReport = async (): Promise<TotalApplicantsPayload> => 
     return request.data;
 }
     
-export const getStudents = async (): Promise< {queue: Students[], history: Students[] }> => {
+export const getStudents = async (): Promise< { queueList: Students[], totalQueue: number, history: Students[] }> => {
     const request = await api.get('/students');
     return request.data;
 }
