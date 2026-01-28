@@ -1,12 +1,13 @@
 export interface ApplicantCard {
-    idNumber: string;
-    fullName: string;
-    course: string;
-    guardian_name: string;
-    guardian_contact: string;
-    address: string;
-    photo: string | null;
-    signature: string | null;
+  id: number;
+  idNumber: string;
+  fullName: string;
+  course: string;
+  guardian_name: string;
+  guardian_contact: string;
+  address: string;
+  photo: string | null;
+  signature: string | null;
 }
 export interface ElementPos {
   x: number;
