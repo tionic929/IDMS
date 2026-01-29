@@ -8,8 +8,8 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
+    width: 1920,
+    height: 1080,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -44,44 +44,80 @@ function writeBase64ToTempFile(dataUrl, suffix) {
 
 /**
  * IPC: Print via Python service (CX-D80 safe path)
+ * 
+ * KEY CHANGES:
+ * 1. Both front and back images sent to Python in ONE call
+ * 2. Python handles duplex/back-to-back in single print job
+ * 3. Longer cleanup timeout (20s) for printer spooling
+ * 4. Better error handling with print status feedback
  */
 ipcMain.on('print-card-images', async (event, options) => {
   const { frontImage, backImage } = options;
 
   let frontPath, backPath;
+  const tempFiles = [];
 
   try {
     frontPath = writeBase64ToTempFile(frontImage, 'front');
     backPath = writeBase64ToTempFile(backImage, 'back');
+    
+    tempFiles.push(frontPath, backPath);
 
     const pythonExecutable = 'python'; // or absolute path if bundled
     const scriptPath = path.join(__dirname, 'print_card.py');
 
-    // FRONT
-    execFile(pythonExecutable, [scriptPath, frontPath], (err) => {
+    // IMPORTANT: Pass BOTH images in a SINGLE call
+    // Python will handle combining them into one duplex job
+    execFile(pythonExecutable, [scriptPath, frontPath, backPath], (err, stdout, stderr) => {
       if (err) {
-        event.reply('print-reply', { success: false, failureReason: err.message });
+        console.error('Print Error:', err.message);
+        console.error('Stderr:', stderr);
+        event.reply('print-reply', { 
+          success: false, 
+          failureReason: err.message,
+          stderr: stderr 
+        });
         return;
       }
 
-      // BACK (printed immediately after)
-      execFile(pythonExecutable, [scriptPath, backPath], (err2) => {
-        if (err2) {
-          event.reply('print-reply', { success: false, failureReason: err2.message });
-          return;
-        }
+      console.log('Print job submitted successfully');
+      console.log('Stdout:', stdout);
+      
+      event.reply('print-reply', { success: true });
 
-        event.reply('print-reply', { success: true });
-      });
+      // Clean up temp files after a longer delay
+      // This gives Windows printer driver time to spool
+      setTimeout(() => {
+        tempFiles.forEach(filePath => {
+          if (filePath && fs.existsSync(filePath)) {
+            try {
+              fs.unlinkSync(filePath);
+              console.log(`Deleted temp file: ${filePath}`);
+            } catch (cleanupErr) {
+              console.warn(`Failed to delete ${filePath}:`, cleanupErr.message);
+            }
+          }
+        });
+      }, 20000); // Increased from 5s to 20s
     });
 
   } catch (error) {
-    event.reply('print-reply', { success: false, failureReason: error.message });
-  } finally {
-    setTimeout(() => {
-      if (frontPath && fs.existsSync(frontPath)) fs.unlinkSync(frontPath);
-      if (backPath && fs.existsSync(backPath)) fs.unlinkSync(backPath);
-    }, 5000);
+    console.error('IPC Error:', error);
+    event.reply('print-reply', { 
+      success: false, 
+      failureReason: error.message 
+    });
+
+    // Cleanup on error
+    tempFiles.forEach(filePath => {
+      if (filePath && fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (e) {
+          console.warn(`Failed to cleanup ${filePath}`);
+        }
+      }
+    });
   }
 });
 

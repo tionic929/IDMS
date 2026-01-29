@@ -20,8 +20,8 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
 
   const DESIGN_WIDTH = 320;
   const DESIGN_HEIGHT = 500;
-  const PRINT_WIDTH = 640;
-  const PRINT_HEIGHT = 1000;
+  const PRINT_WIDTH = 654;
+  const PRINT_HEIGHT = 1032;
 
   useEffect(() => {
     const timer = setTimeout(() => {

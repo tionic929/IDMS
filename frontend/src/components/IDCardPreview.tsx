@@ -10,8 +10,8 @@ const VITE_API_URL = import.meta.env.VITE_API_URL;
 const DESIGN_WIDTH = 320;
 const DESIGN_HEIGHT = 500;
 
-const PRINT_WIDTH = 640; 
-const PRINT_HEIGHT = 1000; 
+const PRINT_WIDTH = 654; 
+const PRINT_HEIGHT = 1032; 
 
 interface Props {
   data: ApplicantCard;
