@@ -13,6 +13,7 @@ interface CanvasElementProps {
   image?: HTMLImageElement;
   onSelect: (id: string) => void;
   onUpdate: (id: string, attrs: any) => void;
+  onDragMove: (e: any, id: string, config: LayoutItemSchema) => void;
   onTransform: (e: any, id: string, config: LayoutItemSchema) => void;
   onTransformEnd: (e: any, id: string, config: LayoutItemSchema) => void;
   anyItemSelected: boolean; 

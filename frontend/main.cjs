@@ -8,8 +8,8 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1920,
-    height: 1080,
+    width: 1280,
+    height: 800,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -43,16 +43,17 @@ function writeBase64ToTempFile(dataUrl, suffix) {
 }
 
 /**
- * IPC: Print via Python service (CX-D80 safe path)
+ * IPC: Print via Python service with margin support
  * 
- * KEY CHANGES:
- * 1. Both front and back images sent to Python in ONE call
- * 2. Python handles duplex/back-to-back in single print job
- * 3. Longer cleanup timeout (20s) for printer spooling
- * 4. Better error handling with print status feedback
+ * Receives:
+ *   - frontImage: base64 PNG
+ *   - backImage: base64 PNG
+ *   - width: image width (px)
+ *   - height: image height (px)
+ *   - margins: { top, bottom, left, right } in pixels
  */
 ipcMain.on('print-card-images', async (event, options) => {
-  const { frontImage, backImage } = options;
+  const { frontImage, backImage, margins } = options;
 
   let frontPath, backPath;
   const tempFiles = [];
@@ -66,9 +67,21 @@ ipcMain.on('print-card-images', async (event, options) => {
     const pythonExecutable = 'python'; // or absolute path if bundled
     const scriptPath = path.join(__dirname, 'print_card.py');
 
-    // IMPORTANT: Pass BOTH images in a SINGLE call
-    // Python will handle combining them into one duplex job
-    execFile(pythonExecutable, [scriptPath, frontPath, backPath], (err, stdout, stderr) => {
+    // ============================================================
+    // Prepare arguments for Python script
+    // ============================================================
+    const args = [scriptPath, frontPath, backPath];
+    
+    // If margins are provided, add as JSON string
+    if (margins && (margins.top || margins.bottom || margins.left || margins.right)) {
+      args.push(JSON.stringify(margins));
+      console.log('[print-card-images] Margins:', margins);
+    }
+
+    console.log('[print-card-images] Calling Python with:', args.length, 'arguments');
+
+    // Execute print job
+    execFile(pythonExecutable, args, (err, stdout, stderr) => {
       if (err) {
         console.error('Print Error:', err.message);
         console.error('Stderr:', stderr);
@@ -81,11 +94,11 @@ ipcMain.on('print-card-images', async (event, options) => {
       }
 
       console.log('Print job submitted successfully');
-      console.log('Stdout:', stdout);
+      if (stdout) console.log('Stdout:', stdout);
       
       event.reply('print-reply', { success: true });
 
-      // Clean up temp files after a longer delay
+      // Clean up temp files after a delay
       // This gives Windows printer driver time to spool
       setTimeout(() => {
         tempFiles.forEach(filePath => {
@@ -98,7 +111,7 @@ ipcMain.on('print-card-images', async (event, options) => {
             }
           }
         });
-      }, 20000); // Increased from 5s to 20s
+      }, 20000); // 20 seconds
     });
 
   } catch (error) {

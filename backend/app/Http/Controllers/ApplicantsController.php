@@ -29,15 +29,15 @@ class ApplicantsController extends Controller
             ->limit(10)
             ->get();
 
-        $history = Student::where('has_card', true)
-            ->orderBy('updated_at', 'desc')
-            ->limit(10)
-            ->get();
+        // $history = Student::where('has_card', true)
+        //     ->orderBy('updated_at', 'desc')
+        //     ->limit(10)
+        //     ->get();
         
         return response()->json([
             'totalQueue' => $totalQueue,
             'queueList' => $this->formatStudents($queueList),
-            'history' => $this->formatStudents($history)
+            // 'history' => $this->formatStudents($history)
         ], 200);
     }   
 
