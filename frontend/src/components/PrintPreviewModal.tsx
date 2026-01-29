@@ -16,10 +16,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
   const [mirrorBack, setMirrorBack] = useState(false);
   const [frontImage, setFrontImage] = useState<string>('');
   const [backImage, setBackImage] = useState<string>('');
-  const componentRef = useRef<HTMLDivElement>(null);
-
-  const DESIGN_WIDTH = 320;
-  const DESIGN_HEIGHT = 500;
+  
   const PRINT_WIDTH = 654;
   const PRINT_HEIGHT = 1032;
 

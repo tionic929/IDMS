@@ -25,7 +25,7 @@ import PropertyPanel from './Designer/PropertyPanel';
 import CanvasElement from './Designer/CanvasElement';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
-const DESIGN_WIDTH = 320;
+const DESIGN_WIDTH = 317;
 const DESIGN_HEIGHT = 500;
 
 // --- UI SUBCOMPONENTS FROM REFERENCE ---  166, 167]
