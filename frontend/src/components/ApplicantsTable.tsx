@@ -3,8 +3,12 @@ import { getFullName, type Students } from "../types/students";
 import { getPaginatedApplicants } from "../api/students";
 import { CgDetailsMore } from "react-icons/cg";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import type { ApplicantCard } from "../types/card";
 
-interface ApplicantsTableProps { query: string; }
+interface ApplicantsTableProps { 
+  query: string;
+  onViewDetails: (applicant: ApplicantCard) => void;
+}
 
 const TableSkeleton: React.FC = () => (
   <tr className="border-b border-slate-50 last:border-0">
@@ -17,7 +21,7 @@ const TableSkeleton: React.FC = () => (
   </tr>
 );
 
-const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query }) => {
+const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, onViewDetails }) => {
   const [students, setStudents] = useState<Students[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -35,7 +39,18 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query }) => {
     } finally {
       setTimeout(() => setLoading(false), 300);
     }
-  }, [query]);
+  }, [query]);  
+
+  // This maps the Student record to the ApplicantCard type used by the modal
+  const handleDetailClick = (s: Students) => {
+    const applicantData: ApplicantCard = {
+      ...s,
+      id: s.id,
+      fullName: getFullName(s),
+      idNumber: s.id_number, // Ensuring field name consistency
+    };
+    onViewDetails(applicantData);
+  };
 
   useEffect(() => {
     const handler = setTimeout(() => fetchApplicants(1), 500);
@@ -88,7 +103,11 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query }) => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
+                        {/* FIXED: Attached the onClick handler */}
+                        <button 
+                          onClick={() => handleDetailClick(s)}
+                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all active:scale-90"
+                        >
                           <CgDetailsMore size={20} />
                         </button>
                       </td>
@@ -103,7 +122,6 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query }) => {
         </div>
       </div>
 
-      {/* Standalone Pagination Island */}
       <div className="flex items-center justify-between px-6 py-4 bg-white border border-slate-200 rounded-xl shadow-sm">
         <p className="text-xs font-medium text-slate-500">
           Viewing page <span className="text-slate-900 font-bold">{page}</span> of <span className="text-slate-400">{lastPage}</span>

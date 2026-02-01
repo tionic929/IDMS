@@ -1,75 +1,36 @@
-/**
- * Centralized dimension constants for ID card design and printing
- * 
- * DESIGN: 320×494px (CardDesigner working area)
- * PRINT:  650×1003px (Export/print output)
- * 
- * Scale factor: 2.0300x (uniform across X and Y axes)
- * Physical: 55×84.91mm @ 300 DPI
- */
 
-// ============================================================
-// DESIGN CANVAS DIMENSIONS
-// What the user sees and works with in CardDesigner
-// ============================================================
+
+
+// Card Designer Canvas Dimensions (Design Space)
 export const DESIGN_WIDTH = 320;
 export const DESIGN_HEIGHT = 500;
 
-// ============================================================
-// PRINT EXPORT DIMENSIONS
-// What gets rendered for export/printing
-// Calculated: Design scaled uniformly to fit 55mm × 86mm @ 300 DPI
-// Formula: 
-//   - X: 320px → (55mm / 25.4) * 300 DPI = 650px
-//   - Y: 494px × (650/320) = 1003px
-// ============================================================
-export const PRINT_WIDTH = 661;
-export const PRINT_HEIGHT = 1032;
+// Print Output Dimensions (High Resolution at 300 DPI)
+// Physical size: 3.67" × 5.67" (93.218mm × 144.018mm)
+export const PRINT_WIDTH = 1100;  // 3.67" × 300 DPI
+export const PRINT_HEIGHT = 1700; // 5.67" × 300 DPI
 
-// ============================================================
-// SCALE FACTORS (Design → Print Transformation)
-// Used to convert design-space coordinates to print-space
-// ============================================================
-export const SCALE_X = PRINT_WIDTH / DESIGN_WIDTH;      // 650 / 320 = 2.03125
-export const SCALE_Y = PRINT_HEIGHT / DESIGN_HEIGHT;    // 1003 / 494 = 2.02834...
+// Scale factors from design space to print space
+export const SCALE_X = PRINT_WIDTH / DESIGN_WIDTH;   // 3.4375
+export const SCALE_Y = PRINT_HEIGHT / DESIGN_HEIGHT; // 3.4
 
-// Verify that scales are nearly identical (prevents distortion)
-export const SCALES_MATCH = Math.abs(SCALE_X - SCALE_Y) < 0.01; // true
-export const SCALE_MATCH_DIFFERENCE = Math.abs(SCALE_X - SCALE_Y); // ~0.0029
+// Grid settings
+export const GRID_SIZE = 10; // pixels
+export const SNAP_THRESHOLD = 5; // pixels
 
-// ============================================================
-// PHYSICAL CARD SPECIFICATIONS
-// ============================================================
+export const SCALES_MATCH = Math.abs(SCALE_X - SCALE_Y) < 0.01;
+export const SCALE_MATCH_DIFFERENCE = Math.abs(SCALE_X - SCALE_Y);
+
 export const CARD_WIDTH_MM = 48;
 export const CARD_HEIGHT_MM = 86;
 export const DPI = 300;
 
-// ============================================================
-// EXPORT QUALITY SETTINGS
-// ============================================================
-// Pixel ratio for high-quality PNG export (for printing)
-// This ensures text and details are crisp when printed
-// 3.4375 ≈ 2.03 * 1.7 (scale * quality multiplier)
 export const EXPORT_PIXEL_RATIO = 3.4375;
 
-// ============================================================
-// UI SETTINGS
-// ============================================================
 export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 3;
 export const DEFAULT_ZOOM = 0.8;
 
-// ============================================================
-// HELPER FUNCTIONS
-// ============================================================
-
-/**
- * Converts a design-space coordinate to print-space coordinate
- * 
- * @example
- * const printCoord = scaleCoordinate(50, 100);
- * // { x: 102, y: 203 }
- */
 export function scaleCoordinate(
   x: number,
   y: number
@@ -80,13 +41,6 @@ export function scaleCoordinate(
   };
 }
 
-/**
- * Scales dimensions from design space to print space
- * 
- * @example
- * const printSize = scaleDimensions(200, 100);
- * // { width: 406, height: 203 }
- */
 export function scaleDimensions(
   width: number,
   height: number

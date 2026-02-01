@@ -1,11 +1,14 @@
-const VITE_API_URL = import.meta.env.VITE_API_URL;
-
-import React from 'react';
+import React, { memo } from 'react';
 import { Stage, Layer, Text, Rect, Image as KonvaImage, Group, Circle } from 'react-konva';
 import useImage from 'use-image';
 import { type ApplicantCard } from '../types/card';
+import FRONT_DEFAULT_BG from '../assets/ID/NEWFRONT.png';
+import BACK_DEFAULT_BG from '../assets/ID/BACK.png';
 import { resolveTextLayout } from '../utils/designerUtils';
 
+const VITE_API_URL = import.meta.env.VITE_API_URL;
+
+// Import dimensions - MUST match CardDesigner
 import { 
   DESIGN_WIDTH, 
   DESIGN_HEIGHT, 
@@ -23,17 +26,12 @@ interface Props {
   scale?: number;
   isPrinting?: boolean;
 }
-
-const DynamicImage = ({ src, common }: { src: string; common: any }) => {
+  
+const DynamicImage = memo(({ src, common }: { src: string; common: any }) => {
   const [img] = useImage(src, 'anonymous');
   if (!img) return null;
-  return (
-    <KonvaImage
-      {...common}
-      image={img}
-    />
-  );
-};
+  return <KonvaImage {...common} image={img} />;
+});
 
 const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrinting = false }) => {
   const isFront = side === 'FRONT';
@@ -43,42 +41,27 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     if (path.startsWith('data:') || path.startsWith('blob:')) return path;
     const storagePath = `${VITE_API_URL}/storage/`;
     let cleanPath = path;
-    if (path.startsWith(storagePath)) {
-      cleanPath = path.replace(storagePath, '');
-    }
+    if (path.startsWith(storagePath)) cleanPath = path.replace(storagePath, '');
     return `${VITE_API_URL}/api/proxy-image?path=${encodeURIComponent(cleanPath)}`;
   };
 
+  const [bgImage] = useImage(isFront ? FRONT_DEFAULT_BG : BACK_DEFAULT_BG, 'anonymous');  
   const [photoImage] = useImage(getProxyUrl(data.photo), 'anonymous');
   const [sigImage] = useImage(getProxyUrl(data.signature), 'anonymous');
 
-  const preRenderedImage = isFront ? layout?.previewImages?.front : layout?.previewImages?.back;
   const currentLayout = layout?.[side.toLowerCase()];
+  if (!currentLayout) return null;
 
-  // Use high-res dimensions for printing, design dimensions for preview
-  const canvasWidth = isPrinting ? PRINT_WIDTH : DESIGN_WIDTH;
-  const canvasHeight = isPrinting ? PRINT_HEIGHT : DESIGN_HEIGHT;
+  // Base internal dimensions
+  const internalWidth = isPrinting ? PRINT_WIDTH : DESIGN_WIDTH;
+  const internalHeight = isPrinting ? PRINT_HEIGHT : DESIGN_HEIGHT;
   
-  // Calculate scale factor from design space to print space
+  // Actual Stage dimensions (Visual size)
+  const stageWidth = isPrinting ? internalWidth : internalWidth * scale;
+  const stageHeight = isPrinting ? internalHeight : internalHeight * scale;
+
   const printScaleX = isPrinting ? SCALE_X : 1;
   const printScaleY = isPrinting ? SCALE_Y : 1;
-
-  if (preRenderedImage) {
-    return (
-      <div
-        className="id-card-preview-container overflow-hidden"
-        style={{ 
-          width: isPrinting ? '100%' : `${DESIGN_WIDTH * scale}px`, 
-          height: isPrinting ? '100%' : `${DESIGN_HEIGHT * scale}px`, 
-          backgroundColor: 'transparent' 
-        }}
-      >
-        <img src={preRenderedImage} className="w-full h-full object-contain" alt="Final Render" />
-      </div>
-    );
-  }
-
-  if (!currentLayout) return null;
 
   const renderElement = (key: string, config: any) => {
     const isPhoto = key === 'photo';
@@ -87,11 +70,11 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     const isCustomImage = key.startsWith('img_');
     const isShape = key.startsWith('rect') || key.startsWith('circle');
 
-    // For printing: scale all coordinates proportionally
     const scaledX = config.x * printScaleX;
     const scaledY = config.y * printScaleY;
     const scaledWidth = (config.width || 200) * printScaleX;
     const scaledHeight = (config.height || 180) * printScaleY;
+    const scaledRadius = (config.radius || 0) * Math.min(printScaleX, printScaleY);
     
     const textComponentHeight = (config.fit === 'none') ? undefined : scaledHeight;
 
@@ -108,25 +91,35 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
       const img = isPhoto ? photoImage : sigImage;
       return (
         <Group {...common} height={scaledHeight}>
-          {img && (
-            <KonvaImage
-              image={img}
-              width={scaledWidth}
-              height={scaledHeight}
-              sceneFunc={(context, shape) => {
-                const nodeW = shape.width();
-                const nodeH = shape.height();
-                const ratio = Math.min(nodeW / img.width, nodeH / img.height);
-                context.drawImage(
-                  img,
-                  (nodeW - img.width * ratio) / 2,
-                  (nodeH - img.height * ratio) / 2,
-                  img.width * ratio,
-                  img.height * ratio
-                );
-              }}
-            />
-          )}
+          <Group 
+            clipFunc={(ctx) => {
+              ctx.beginPath();
+              if (scaledRadius > 0 && (ctx as any).roundRect) {
+                (ctx as any).roundRect(0, 0, scaledWidth, scaledHeight, scaledRadius);
+              } else {
+                ctx.rect(0, 0, scaledWidth, scaledHeight);
+              }
+              ctx.closePath();
+            }}
+          >
+            {img ? (
+              <KonvaImage
+                image={img}
+                width={scaledWidth}
+                height={scaledHeight}
+                sceneFunc={(context, shape) => {
+                  const ratio = Math.min(scaledWidth / img.width, scaledHeight / img.height);
+                  const w = img.width * ratio;
+                  const h = img.height * ratio;
+                  const x = (scaledWidth - w) / 2;
+                  const y = (scaledHeight - h) / 2;
+                  context.drawImage(img, x, y, w, h);
+                }}
+              />
+            ) : (
+              <Rect width={scaledWidth} height={scaledHeight} fill="#f1f5f9" />
+            )}
+          </Group>
         </Group>
       );
     }
@@ -137,9 +130,9 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
 
     if (isShape) {
       if (config.type === 'circle') {
-        return <Circle {...common} width={scaledWidth} height={scaledHeight} radius={scaledWidth / 2} fill={config.fill || '#00ffe1ff'} />;
+        return <Circle {...common} height={scaledHeight} radius={scaledWidth / 2} fill={config.fill || '#00ffe1ff'} />;
       }
-      return <Rect {...common} width={scaledWidth} height={scaledHeight} fill={config.fill || '#00ffe1ff'} />;
+      return <Rect {...common} height={scaledHeight} fill={config.fill || '#00ffe1ff'} cornerRadius={scaledRadius} />;
     }
 
     const textMap: Record<string, any> = {
@@ -153,40 +146,24 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
 
     const displayText = textMap[key] || (data as any)[key] || config.text || "";
     
-    // For print, recalculate font size at the scaled dimensions
-    let fontSize: number;
-    let wrap: 'none' | 'word';
+    const configForLayout = isPrinting 
+      ? { ...config, width: scaledWidth, height: scaledHeight, fontSize: config.fontSize * printScaleX }
+      : config;
     
-    if (isPrinting) {
-      // Recalculate layout at print scale
-      const scaledConfig = {
-        ...config,
-        width: scaledWidth,
-        height: scaledHeight,
-        fontSize: config.fontSize * Math.max(printScaleX, printScaleY)
-      };
-      const resolved = resolveTextLayout(scaledConfig, displayText);
-      fontSize = resolved.fontSize;
-      wrap = resolved.wrap;
-    } else {
-      // Use normal resolution for preview
-      const resolved = resolveTextLayout(config, displayText);
-      fontSize = resolved.fontSize;
-      wrap = resolved.wrap;
-    }
+    const resolved = resolveTextLayout(configForLayout, displayText);
 
     return (
       <Text
         {...common}
         height={textComponentHeight}
         text={displayText}
-        fontSize={fontSize}
+        fontSize={resolved.fontSize}
         fontFamily={config.fontFamily || 'Arial'}
         fontStyle={config.fontStyle || 'bold'}
         fill={config.fill || '#1e293b'}
         align={config.align || 'center'}
         verticalAlign="middle"
-        wrap={wrap as any}
+        wrap={resolved.wrap as any}
         ellipsis={config.overflow === 'ellipsis'}
       />
     );
@@ -194,51 +171,42 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
 
   return (
     <div
-      className={`relative overflow-hidden ${isPrinting ? 'bg-white' : 'rounded-xl bg-white shadow-2xl'}`}
       style={{ 
-        // ============================================================
-        // FIX: Container dimensions must match Stage exactly
-        // ============================================================
-        // When exporting: Use exact print dimensions (not percentage)
-        // When previewing: Use scaled design dimensions
-        width: isPrinting ? `${PRINT_WIDTH}px` : `${DESIGN_WIDTH * scale}px`, 
-        height: isPrinting ? `${PRINT_HEIGHT}px` : `${DESIGN_HEIGHT * scale}px` 
+        width: `${stageWidth}px`, 
+        height: `${stageHeight}px`,
+        position: 'relative',
+        backgroundColor: 'white',
+        borderRadius: isPrinting ? '0' : '12px',
+        overflow: 'hidden',
+        boxShadow: isPrinting ? 'none' : '0 10px 15px -3px rgb(0 0 0 / 0.1)'
       }}
     >
       <Stage 
-        // ============================================================
-        // FIX: Don't multiply by scale for export
-        // ============================================================
-        // When exporting (isPrinting=true, scale=1):
-        //   width = PRINT_WIDTH (660) - exact, no multiplication
-        //   height = PRINT_HEIGHT (1032) - exact, no multiplication
-        // When previewing (isPrinting=false):
-        //   width = DESIGN_WIDTH * scale (320 * 0.67) - scaled for viewing
-        //   height = DESIGN_HEIGHT * scale (494 * 0.67) - scaled for viewing
-        width={isPrinting ? PRINT_WIDTH : DESIGN_WIDTH * scale}
-        height={isPrinting ? PRINT_HEIGHT : DESIGN_HEIGHT * scale}
-        // ============================================================
-        // FIX: No scale transform for export
-        // ============================================================
-        // When exporting: scaleX/Y = 1 (no transform, direct render)
-        // When previewing: scaleX/Y = scale (smooth zoom)
+        width={stageWidth} 
+        height={stageHeight}
         scaleX={isPrinting ? 1 : scale}
         scaleY={isPrinting ? 1 : scale}
-        style={{ display: 'block', width: '100%', height: '100%' }}
         pixelRatio={isPrinting ? EXPORT_PIXEL_RATIO : 1}
       >
         <Layer>
-          {/* Render photo and signature first (behind other elements) */}
+          {/* Step 1: Render photo/signature FIRST (FRONT only, behind background) */}
           {isFront && Object.entries(currentLayout).map(([key, config]) =>
             (key === 'photo' || key === 'signature') ? renderElement(key, config) : null
           )}
 
-          {/* Render all other elements */}
+          {/* Step 2: Render background image */}
+          <KonvaImage 
+            image={bgImage} 
+            width={internalWidth} 
+            height={internalHeight} 
+            listening={false} 
+          />
+
+          {/* Step 3: Render all other elements on top */}
           {Object.entries(currentLayout).map(([key, config]) => {
             const isAsset = ['photo', 'signature'].includes(key);
-            if (!isFront) return renderElement(key, config);
-            if (isFront && !isAsset) return renderElement(key, config);
-            return null;
+            if (isFront && isAsset) return null;
+            return renderElement(key, config);
           })}
         </Layer>
       </Stage>
@@ -246,4 +214,4 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
   );
 };
 
-export default IDCardPreview;
+export default memo(IDCardPreview);

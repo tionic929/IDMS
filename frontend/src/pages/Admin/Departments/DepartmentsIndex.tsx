@@ -1,14 +1,17 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getDepartmentsWithStudents } from '../../../api/departments';
 import { getFullName } from '../../../types/students';
 import { 
     Loader2, Users, GraduationCap, MapPin, Search, 
-    LayoutDashboard, CheckCircle2, AlertCircle,
+    CheckCircle2, AlertCircle,
     ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { BsPerson } from "react-icons/bs";
 import { CgDetailsMore } from "react-icons/cg";
 import type { DepartmentSidebarItem } from '../../../types/departments';
+
+// for tanstack
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 // --- LOGO IMPORTS ---
 import ncLogo from '../../../assets/nc_logo.png';
@@ -25,21 +28,11 @@ import colaLogo from '../../../assets/dept_logo/cola.webp';
 import masteralLogo from '../../../assets/dept_logo/masteral.webp';
 import midwiferyLogo from '../../../assets/dept_logo/midwifery.webp';
 
-// Mapping object to link department strings to imported images
 const LOGO_MAP: Record<string, string> = {
-    'AB': abLogo,
-    'BEC': becLogo,
-    'BSBA': bsbaLogo,
-    'BSCRIM': bscrimLogo,
-    'BSED': bsedLogo,
-    'BSGE': bsgeLogo,
-    'BSHM': bshmLogo,
-    'BSIT': bsitLogo,
-    'BSN': bsnLogo,
-    'JD': colaLogo,
-    'MASTERAL': masteralLogo,
-    'MIDWIFERY': midwiferyLogo,
-    'EMPLOYEE': ncLogo, // Fallback for Employee if no logo exists
+    'AB': abLogo, 'BEC': becLogo, 'BSBA': bsbaLogo, 'BSCRIM': bscrimLogo,
+    'BSED': bsedLogo, 'BSGE': bsgeLogo, 'BSHM': bshmLogo, 'BSIT': bsitLogo,
+    'BSN': bsnLogo, 'JD': colaLogo, 'MASTERAL': masteralLogo,
+    'MIDWIFERY': midwiferyLogo, 'EMPLOYEE': ncLogo,
 };
 
 // --- SKELETONS ---
@@ -86,54 +79,46 @@ const MetricCard: React.FC<{ title: string; value: string; icon: React.ElementTy
 );
 
 const DepartmentList: React.FC = () => {
-  const [sidebarDepts, setSidebarDepts] = useState<DepartmentSidebarItem[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [prevCursor, setPrevCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
   const [selectedDeptName, setSelectedDeptName] = useState<string>("EMPLOYEE");
-  const selectedDeptObj = sidebarDepts.find(d => d.department === selectedDeptName);
   const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [tableLoading, setTableLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const fetchData = useCallback(async (isInitial = false) => {
-    try {
-      if (isInitial) setLoading(true);
-      else setTableLoading(true);
-
-      const response = await getDepartmentsWithStudents(selectedDeptName, cursor || '', searchQuery);
-
-      if (response.success) {
-        const sidebarData = Array.isArray(response.sidebar) ? response.sidebar : [response.sidebar];
-        setSidebarDepts(sidebarData);
-        setStudents(response.students || []);
-        setNextCursor(response.pagination.next_cursor || null);
-        setPrevCursor(response.pagination.prev_cursor || null);
-        setHasMore(response.pagination.has_more || false);
-      }
-    } catch (err) {
-      setError('Failed to load department data.');
-    } finally {
-      setLoading(false);
-      setTableLoading(false);
-    }
-  }, [selectedDeptName, cursor, searchQuery]);
-
+  // Debounce search input to avoid spamming the API
   useEffect(() => {
-    const handler = setTimeout(() => {
-      fetchData(sidebarDepts.length === 0);
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [selectedDeptName, cursor, searchQuery, fetchData]);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCursor(null); // Reset pagination on new search
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isPlaceholderData,
+    error
+  } = useQuery({
+    queryKey: ['departments', selectedDeptName, cursor, debouncedSearch],
+    queryFn: () => getDepartmentsWithStudents(selectedDeptName, cursor || '', debouncedSearch),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // Derived Data
+  const sidebarDepts = (data?.sidebar ? (Array.isArray(data.sidebar) ? data.sidebar : [data.sidebar]) : []) as DepartmentSidebarItem[];
+  const students = data?.students || [];
+  const selectedDeptObj = sidebarDepts.find(d => d.department === selectedDeptName);
+  
+  // Pagination details from response
+  const nextCursor = data?.pagination?.next_cursor || null;
+  const prevCursor = data?.pagination?.prev_cursor || null;
+  const hasMore = data?.pagination?.has_more || false;
 
   const handleDeptChange = (name: string) => {
     setSelectedDeptName(name);
     setCursor(null);
-    setNextCursor(null);
-    setPrevCursor(null);
   };
 
   const handleNext = () => nextCursor && setCursor(nextCursor);
@@ -145,7 +130,7 @@ const DepartmentList: React.FC = () => {
         <div className="bg-white p-8 rounded-3xl shadow-xl text-center max-w-sm border border-rose-100">
           <AlertCircle className="text-rose-500 mx-auto mb-4" size={48} />
           <h3 className="text-xl font-black text-slate-800 uppercase">Error Occurred</h3>
-          <p className="text-slate-500 text-sm mt-2 font-medium">{error}</p>
+          <p className="text-slate-500 text-sm mt-2 font-medium">Failed to load department data.</p>
           <button onClick={() => window.location.reload()} className="mt-6 px-6 py-3 bg-rose-500 text-white rounded-2xl font-bold uppercase text-xs tracking-widest">Retry</button>
         </div>
       </div>
@@ -156,12 +141,11 @@ const DepartmentList: React.FC = () => {
     <div className="flex h-screen bg-slate-50/60 overflow-hidden">
       <aside className="w-[320px] bg-white border-r border-slate-200 flex flex-col h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10">
         <nav className="flex-1 overflow-y-auto px-4 space-y-1.5 pt-2 pb-8 custom-scrollbar">
-          {loading ? (
+          {isLoading ? (
              [...Array(8)].map((_, i) => <NavItemSkeleton key={i} />)
           ) : (
             sidebarDepts.map((dept) => {
                 const isActive = selectedDeptName === dept.department;
-                // Get logo from map or default to GraduationCap icon if not found
                 const deptLogo = LOGO_MAP[dept.department.toUpperCase()];
 
                 return (
@@ -209,14 +193,14 @@ const DepartmentList: React.FC = () => {
               type="text"
               placeholder="Filter by name or ID..."
               value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCursor(null); }}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-96 p-4 rounded-2xl border-none bg-white px-14 py-4.5 text-sm font-bold shadow-xl shadow-slate-200/50 focus:ring-2 focus:ring-indigo-500 outline-none placeholder:text-slate-300 transition-all"
             />
           </div>
         </header>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {loading ? (
+          {isLoading ? (
              <><MetricSkeleton /><MetricSkeleton /><div className="h-32 bg-slate-100 rounded-2xl animate-pulse" /></>
           ) : (
             <>
@@ -227,7 +211,6 @@ const DepartmentList: React.FC = () => {
                     <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Active Selection</span>
                     <p className="text-white font-black text-xl mt-1 tracking-tight">{selectedDeptName} Records</p>
                   </div>
-                  {/* Bottom Right Dynamic Logo */}
                   {LOGO_MAP[selectedDeptName.toUpperCase()] ? (
                      <img 
                         src={LOGO_MAP[selectedDeptName.toUpperCase()]} 
@@ -243,13 +226,17 @@ const DepartmentList: React.FC = () => {
         </section>
 
         <div className="relative overflow-hidden rounded-[2.5rem] border border-white bg-white/70 shadow-2xl shadow-slate-200/60">
-          {tableLoading && (
+          
+          {/* REPLACEMENT 1: Using isFetching & isPlaceholderData 
+              Show overlay loader when fetching new data (pagination/search) 
+          */}
+          {(isFetching && isPlaceholderData) && (
             <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] z-20 flex items-center justify-center">
                 <Loader2 className="animate-spin text-indigo-600" size={40} />
             </div>
           )}
           
-          <div className="overflow-x-auto custom-scrollbar">
+          <div className={`overflow-x-auto custom-scrollbar transition-opacity duration-300 ${isPlaceholderData ? 'opacity-50' : 'opacity-100'}`}>
             <table className="w-full border-separate border-spacing-0 text-left table-fixed">
               <thead>
                 <tr className="bg-slate-100/50 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
@@ -261,10 +248,10 @@ const DepartmentList: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {loading ? (
+                {isLoading ? (
                   [...Array(6)].map((_, i) => <TableRowSkeleton key={i} />)
                 ) : students.length > 0 ? (
-                  students.map((s) => (
+                  students.map((s: any) => (
                     <tr key={s.id} className="group transition-all hover:bg-white">
                       <td className="px-10 py-7 font-mono text-sm font-bold text-slate-500">{s.id_number}</td>
                       <td className="px-10 py-7">
@@ -303,17 +290,21 @@ const DepartmentList: React.FC = () => {
           </div>
           
           <div className="bg-slate-50/50 px-10 py-6 border-t border-slate-100 flex items-center justify-between">
-            <div></div>
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                {isFetching ? 'Syncing...' : 'All data up to date'}
+            </div>
             <div className="flex items-center gap-3">
                 <button 
-                    disabled={!prevCursor || tableLoading}
+                    // REPLACEMENT 2: Disable buttons while fetching
+                    disabled={!prevCursor || isFetching}
                     onClick={handlePrev}
                     className="p-3 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition-all"
                 >
                     <ChevronLeft size={20} />
                 </button>
                 <button 
-                    disabled={!hasMore || tableLoading}
+                    // REPLACEMENT 3: Disable buttons while fetching
+                    disabled={!hasMore || isFetching}
                     onClick={handleNext}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-widest hover:bg-indigo-700 disabled:opacity-30 transition-all shadow-lg shadow-indigo-100"
                 >

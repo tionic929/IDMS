@@ -11,9 +11,9 @@ export const createNewTemplate = async (name: string) => {
         name: name,
         front_config: { 
             photo: { x: 60, y: 80, width: 200, height: 180 },
-            fullName: { x: 20, y: 300, fontSize: 22, fill: '#1e293b', fontStyle: 'bold' },
-            course: { x: 20, y: 180, fontSize: 14, text: name.toUpperCase(), fontStyle: 'bold', },
-            idNumber: { x: 20, y: 330, fontSize: 16, fill: '#64748b' }
+            fullName: { x: 20, y: 300, fontSize: 22, fill: '#fffff', fontStyle: 'bold' },
+            course: { x: 20, y: 180, fontSize: 14, text: name.toUpperCase(), fontStyle: 'bold', fill: '#fffff' },
+            idNumber: { x: 20, y: 330, fontSize: 16, fill: '#fffff' }
         },
         back_config: { 
             signature: { x: 60, y: 50, width: 200, height: 100 },

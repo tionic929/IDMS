@@ -108,10 +108,8 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
 
   const getProxyUrl = (path: string | null | undefined) => {
     if (!path) return '';
-    // If it's already a full URL or data URL, return it
     if (path.startsWith('http') || path.startsWith('data:') || path.startsWith('blob:')) return path;
     
-    // Construct the proxy URL to avoid CORS issues with the storage folder
     const storagePath = `${VITE_API_URL}/storage/`;
     let cleanPath = path;
     if (path.startsWith(storagePath)) {
@@ -123,9 +121,8 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
   const activeStudent = useMemo(() => {
     if (!allStudents || !Array.isArray(allStudents) || allStudents.length === 0) return null;
     
-    // Sort by updated_at descending to get the student who was just modified in ProfileDetails
     const sorted = [...allStudents].sort((a, b) => {
-      return new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
+      return new Date(a.updated_at || a.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
     });
     
     return sorted[0];

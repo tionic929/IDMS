@@ -16,6 +16,8 @@ import {
   BookIcon,
   ArrowUpWideNarrow,
   ArrowBigDown,
+  DatabaseIcon,
+  Edit2Icon,
 } from "lucide-react";
 import { FaArrowRightFromBracket } from "react-icons/fa6";
 
@@ -27,16 +29,22 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { to: "/card-management", label: "Card Management", icon: CardSimIcon },
   { to: "/dashboard", label: "Dashboard", icon: HomeIcon },
-  { to: "/departments", label: "Departments", icon: BriefcaseIcon },
-  { to: "/applicants", label: "Applicants", icon: UserIcon },
+  {
+    label: "Card Management",
+    icon: CardSimIcon,
+    children: [
+      { label: "Records", to: "/card-management"},
+      { label: "Designer", to: "/history/activity" },
+    ],
+  },
   {
     label: "Reports",
     icon: BookIcon,
     children: [
+      { label: "Applicants", to: "/applicants" },
+      { label: "Departments", to: "/departments" },
       { label: "Import", to: "/reports/import" },
-      { label: "Export", to: "/reports/export" },
     ],
   },
   {
@@ -54,7 +62,7 @@ const navItems: NavItem[] = [
 const NavItemComponent: React.FC<{ item: NavItem; isCollapsed: boolean }> = ({ item, isCollapsed }) => {
   const location = useLocation();
   const isChildActive = item.children?.some((child) => location.pathname === child.to);
-  const [isOpen, setIsOpen] = useState(isChildActive || false);
+  const [isOpen, setIsOpen] = useState(isChildActive || true);
 
   const historyChildIcons: { [key: string]: React.ElementType } = {
     Logs: ListIcon,
@@ -62,6 +70,10 @@ const NavItemComponent: React.FC<{ item: NavItem; isCollapsed: boolean }> = ({ i
     Attendance: CheckSquareIcon,
     Import: ArrowBigDown,
     Export: ArrowUpWideNarrow,
+    Departments: BriefcaseIcon,
+    Applicants: UserIcon,
+    Records: DatabaseIcon,
+    Designer: Edit2Icon,
   };
 
   const Icon = item.icon;

@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.20",
     "axios": "^1.13.2",
     "browser-image-compression": "^2.0.2",
     "fabric": "^7.1.0",

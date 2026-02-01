@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   AlignLeft, ArrowUp, ArrowDown, Trash2, MousePointer2, 
   ArrowUpToLine, ArrowDownToLine, Unlock, Lock,
-  Move, Type, Layers, Maximize
+  Move, Type, Layers, Maximize, List
 } from 'lucide-react';
 import { type LayoutItemSchema } from '../../types/designer';
 
@@ -110,6 +110,30 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
               ))}
             </div>
           </InputGroup>
+
+          {/* Conditional Max Lines Input - Only relevant for shrink mode */}
+          {config.fit === 'shrink' && (
+            <InputGroup label={`Max Lines: ${config.maxLines || 1}`}>
+              <div className="flex items-center gap-3">
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="10" 
+                  value={config.maxLines || 1} 
+                  onChange={(e) => onUpdate(selectedId, { maxLines: parseInt(e.target.value) })} 
+                  className="flex-1 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" 
+                />
+                <input 
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={config.maxLines || 1}
+                  onChange={(e) => onUpdate(selectedId, { maxLines: parseInt(e.target.value) })}
+                  className="w-10 bg-zinc-950 border border-zinc-800 rounded p-1 text-[10px] text-center font-mono text-zinc-200 outline-none"
+                />
+              </div>
+            </InputGroup>
+          )}
         </>
       )}
 

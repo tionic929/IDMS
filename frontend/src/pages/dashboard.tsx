@@ -2,13 +2,14 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { echo } from '../echo';
 import { 
   Users, Search, Edit3, Trash2, ChevronUp, ChevronDown, 
-  Layout, Printer, RefreshCw, CheckCircle2
+  Layout, Printer, RefreshCw, CheckCircle2,
+  XIcon, Camera, Database, Filter, CheckSquare, Square
 } from 'lucide-react';
 
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
-import { getStudents } from '../api/students';
+import { confirmApplicant, getStudents } from '../api/students';
 
 // Types
 import type { Students } from '../types/students';
@@ -34,24 +35,15 @@ const Dashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
+  // NEW: Batch Selection State
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
-  const Courses: Record<string, {name: string; color: string}> = {
-    'BSGE': { name: 'BSGE', color: 'text-red-800' },
-    'BSN': { name: 'BSN', color: 'text-pink-400' },
-    'BSBA': { name: 'BSBA', color: 'text-amber-400' },
-    'BSHM': { name: 'BSHM', color: 'text-amber-400' },
-    'BSCRIM': { name: 'BSCRIM', color: 'text-amber-400' },
-    'BSIT': { name: 'BSIT', color: 'text-amber-400' },
-    'BSED': { name: 'BSED', color: 'text-amber-400' },
-    'MIDWIFERY': { name: 'MIDWIFERY', color: 'text-amber-400' },
-    'AB': { name: 'AB', color: 'text-amber-400' },
-    'JD': { name: 'JD', color: 'text-amber-400' },
-    'ABM': { name: 'ABM', color: 'text-amber-400' },
-    'ICT': { name: 'ICT', color: 'text-amber-400' },
-    'BEC': { name: 'BEC', color: 'text-amber-400' },
-    'HUMSS': { name: 'HUMSS', color: 'text-amber-400' },
-    'STEM': { name: 'STEM', color: 'text-amber-400' },
-    'HE': { name: 'HE', color: 'text-amber-400' },
+  const Courses: Record<string, {name: string; color: string; border: string}> = {
+    'BSGE': { name: 'BSGE', color: 'text-red-600', border: 'border-red-200' },
+    'BSN': { name: 'BSN', color: 'text-pink-500', border: 'border-pink-200' },
+    'BSIT': { name: 'BSIT', color: 'text-cyan-600', border: 'border-cyan-200' },
+    // ... rest of your courses
   };
 
   const fetchInitialData = useCallback(async () => {
@@ -65,11 +57,10 @@ const Dashboard: React.FC = () => {
       setAllStudents(combined);
       setAllTemplates(templateRes.data);
       setTotalQueueCount(studentRes.totalQueue);
-      console.log(studentRes.totalQueue);
     } catch (error) {
       toast.error("Failed to load records");
     } finally {
-      setTimeout(() => setLoading(false), 800);
+      setTimeout(() => setLoading(false), 500);
     }
   }, []);
 
@@ -87,21 +78,38 @@ const Dashboard: React.FC = () => {
     return () => { channel.stopListening('.new-submission'); };
   }, [saveCount, fetchInitialData]);
 
+  // NEW: Selection Handlers
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredStudents.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredStudents.map(s => s.id));
+    }
+  };
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
   const queueCount = useMemo(() => 
     allStudents.filter(s => !s.has_card).length, [allStudents]
   );
 
-  const latestStudent = useMemo(() => {
+  // CardExchange Logic: Automatically select the first record in the queue for the preview pane
+  const activeStudent = useMemo(() => {
+    if (selectedIds.length === 1) {
+        return allStudents.find(s => s.id === selectedIds[0]) || null;
+    }
     const pending = allStudents.filter(s => !s.has_card);
     return [...pending].sort((a, b) => 
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     )[0] || null;
-  }, [allStudents]);
+  }, [allStudents, selectedIds]);
 
   const currentAutoLayout = useMemo(() => {
-    if (!latestStudent || allTemplates.length === 0) return null;
+    if (!activeStudent || allTemplates.length === 0) return null;
     const matched = allTemplates.find(
-      (t) => t.name.trim().toUpperCase() === latestStudent.course.trim().toUpperCase()
+      (t) => t.name.trim().toUpperCase() === activeStudent.course.trim().toUpperCase()
     );
     const templateToUse = matched || allTemplates.find(t => t.is_active) || allTemplates[0];
     return {
@@ -109,25 +117,25 @@ const Dashboard: React.FC = () => {
       back: templateToUse.back_config,
       previewImages: templateToUse.previewImages || { front: '', back: '' }
     };
-  }, [latestStudent, allTemplates]);
+  }, [activeStudent, allTemplates]);
 
   const previewData = useMemo((): ApplicantCard | null => {
-    if (!latestStudent) return null;
+    if (!activeStudent) return null;
     const getUrl = (path: string | null) => 
       !path ? '' : (path.startsWith('http') ? path : `${VITE_API_URL}/storage/${path}`);
 
     return {
-      id: latestStudent.id,
-      fullName: `${latestStudent.first_name} ${latestStudent.last_name}`,
-      idNumber: latestStudent.id_number,
-      course: latestStudent.course,
-      photo: getUrl(latestStudent.id_picture),
-      signature: getUrl(latestStudent.signature_picture),
-      guardian_name: latestStudent.guardian_name,
-      guardian_contact: latestStudent.guardian_contact,
-      address: latestStudent.address
+      id: activeStudent.id,
+      fullName: `${activeStudent.first_name} ${activeStudent.last_name}`,
+      idNumber: activeStudent.id_number,
+      course: activeStudent.course,
+      photo: getUrl(activeStudent.id_picture),
+      signature: getUrl(activeStudent.signature_picture),
+      guardian_name: activeStudent.guardian_name,
+      guardian_contact: activeStudent.guardian_contact,
+      address: activeStudent.address
     };
-  }, [latestStudent]);
+  }, [activeStudent]);
 
   const filteredStudents = useMemo(() => {
     const query = searchTerm.toLowerCase().trim();
@@ -166,20 +174,14 @@ const Dashboard: React.FC = () => {
         const printUrl = (path: string | null) =>
           !path ? '' : (path.startsWith('http') ? path : `${VITE_API_URL}/storage/${path}`);
 
-        const printPreviewData: ApplicantCard = {
-          id: latestStudent.id,
-          fullName: `${targetStudent.first_name} ${targetStudent.last_name}`,
-          idNumber: targetStudent.id_number,
-          course: targetStudent.course,
-          photo: printUrl(targetStudent.id_picture),
-          signature: printUrl(targetStudent.signature_picture),
-          guardian_name: targetStudent.guardian_name,
-          guardian_contact: targetStudent.guardian_contact,
-          address: targetStudent.address
-         };
-
         setPrintData({
-          student: printPreviewData,
+          student: {
+            ...previewData!,
+            fullName: `${targetStudent.first_name} ${targetStudent.last_name}`,
+            idNumber: targetStudent.id_number,
+            photo: printUrl(targetStudent.id_picture),
+            signature: printUrl(targetStudent.signature_picture),
+          },
           layout: currentAutoLayout
         });
       }
@@ -202,51 +204,51 @@ const Dashboard: React.FC = () => {
   };
 
   const SortHeader = React.memo(({ label, active, order, onClick }: any) => (
-    <th className="px-10 py-6 cursor-pointer hover:text-teal-500 transition-colors group" onClick={onClick}>
+    <th className="px-4 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors group" onClick={onClick}>
       <div className="flex items-center gap-2">
         {label}
-        <div className="flex flex-col text-[8px] leading-[0.5] opacity-50 group-hover:opacity-100">
-          <ChevronUp size={10} className={active && order === 'asc' ? 'text-teal-500' : 'text-slate-600'} />
-          <ChevronDown size={10} className={active && order === 'desc' ? 'text-teal-500' : 'text-slate-600'} />
+        <div className="flex flex-col text-[8px] leading-[0.5] opacity-50">
+          <ChevronUp size={10} className={active && order === 'asc' ? 'text-teal-500' : ''} />
+          <ChevronDown size={10} className={active && order === 'desc' ? 'text-teal-500' : ''} />
         </div>
       </div>
     </th>
   ));
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 selection:bg-teal-500/30 overflow-hidden flex flex-col">
-      {/* COMPACT INTEGRATED HEADER */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-zinc-950 z-20">
-        <div className="flex items-center gap-6">
-          <h1 className="text-xl font-black tracking-tighter uppercase flex items-center gap-2">
+    <div className="h-screen bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 flex flex-col overflow-hidden">
+      
+      {/* 1. PROFESSIONAL TOOLBAR (CardExchange Style) */}
+      <header className="flex items-center justify-between px-4 py-2 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-zinc-950 z-20">
+        <div className="flex items-center gap-8">
+          <h1 className="text-sm font-black tracking-tighter uppercase flex items-center gap-2">
+            <Database size={16} className="text-teal-500" /> 
             Card <span className="text-teal-500">Management</span>
           </h1>
           
-          <nav className="flex items-center bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-inner">
-            <button 
-              onClick={() => setViewMode('queue')}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === 'queue' ? 'bg-white dark:bg-zinc-800 text-teal-500 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-            >
-              <Printer size={12} /> Records
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-900 p-1 rounded-lg border border-slate-200 dark:border-zinc-800">
+            <button onClick={() => setViewMode('queue')} className={`flex items-center gap-2 px-3 py-1 rounded md text-[10px] font-bold uppercase transition-all ${viewMode === 'queue' ? 'bg-white dark:bg-zinc-800 text-teal-500 shadow-sm' : 'text-slate-500'}`}>
+              <Users size={12} /> Home
             </button>
-            <button 
-              onClick={() => setViewMode('designer')}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === 'designer' ? 'bg-white dark:bg-zinc-800 text-teal-500 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-            >
+            <button onClick={() => setViewMode('designer')} className={`flex items-center gap-2 px-3 py-1 rounded md text-[10px] font-bold uppercase transition-all ${viewMode === 'designer' ? 'bg-white dark:bg-zinc-800 text-teal-500 shadow-sm' : 'text-slate-500'}`}>
               <Layout size={12} /> Designer
             </button>
-          </nav>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-3 py-1 bg-teal-500/10 border border-teal-500/20 rounded-lg">
-            <span className="text-[10px] font-black text-teal-500 uppercase tracking-widest">Queue: {queueCount}</span>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700"></div>
+          {selectedIds.length > 0 && (
+            <motion.button 
+                initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                className="flex items-center gap-2 px-4 py-1.5 bg-teal-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest"
+            >
+                <Printer size={12} /> Print Batch ({selectedIds.length})
+            </motion.button>
+          )}
         </div>
       </header>
 
-      <main className="flex-1 overflow-hidden relative">
+      <main className="flex-1 flex overflow-hidden">
         <AnimatePresence mode="wait">
           {printData && (
             <PrintPreviewModal 
@@ -257,13 +259,7 @@ const Dashboard: React.FC = () => {
           )}
 
           {viewMode === 'designer' ? (
-            <motion.div 
-              key="designer" 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              className="h-full"
-            >
+            <motion.div key="designer" className="w-full h-full">
                 <DesignerWorkspace 
                   selectedTemplate={selectedTemplate}
                   setSelectedTemplate={setSelectedTemplate}
@@ -273,50 +269,40 @@ const Dashboard: React.FC = () => {
                 />
             </motion.div>
           ) : (
-            <motion.div 
-              key="queue" 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }}
-              className="h-full overflow-y-auto p-4 space-y-4 custom-scrollbar"
-            >
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start max-w-[1600px] mx-auto">
-                  <div className="xl:col-span-4">
-                    {latestStudent && previewData && currentAutoLayout ? (
-                      <div className="flex flex-col lg:flex-row gap-4 items-stretch">
-                        <div className="w-full lg:w-fit bg-white dark:bg-slate-900 rounded-3xl p-4 border border-slate-200 dark:border-slate-800 shadow-xl flex flex-col gap-3">
-                          <div className="text-left px-2">
-                              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest italic">{latestStudent.course} Template</p>
-                          </div>
-                          <div className="flex flex-col sm:flex-row gap-4">
-                              <IDCardPreview data={previewData} layout={currentAutoLayout} side="FRONT" scale={.7} />
-                              <IDCardPreview data={previewData} layout={currentAutoLayout} side="BACK" scale={.7} />
-                          </div>
-                          <div className="flex-1 w-full bg-white dark:bg-slate-900 overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col rounded-xl">
-                          <div className="p-6 border-b border-slate-50 dark:border-slate-800/50">
-                            <div className="flex justify-between items-start mb-4">
-                              <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em]">
-                                Entry Received: {new Date(latestStudent.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              <div className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">
-                                Active Queue
-                              </div>
+            <div className="flex w-full h-full overflow-hidden">
+                
+                {/* 2. LEFT: DATA GRID (Condensed for high-volume) */}
+                <div className=" bg-slate-50 dark:bg-zinc-950 flex flex-col border-l border-slate-200 dark:border-zinc-900 shadow-2xl">
+                    {activeStudent && previewData && currentAutoLayout ? (
+                        <div className="flex flex-col h-full overflow-y-auto custom-scrollbar">
+                            
+                            {/* Visual Preview Section */}
+                            <div className="p-6 bg-white dark:bg-zinc-900/30 border-b border-slate-200 dark:border-zinc-900">
+                                <div className="flex flex-row gap-6 items-center">
+                                        <IDCardPreview data={previewData} layout={currentAutoLayout} side="FRONT" scale={0.8} />
+                                        <IDCardPreview data={previewData} layout={currentAutoLayout} side="BACK" scale={0.8}/>
+                                </div>
                             </div>
 
-                            <div className="space-y-1">
-                              <h2 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-                                {latestStudent.last_name}, {latestStudent.first_name}
-                              </h2>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-mono font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10 px-2 py-0.5 rounded">
-                                  {latestStudent.id_number}
+                            {/* Record Info Section */}
+                          <div className="flex-1 w-full bg-white overflow-hidden shadow-sm border-slate-200 dark:bg-zinc-950 flex flex-col rounded-xl">
+                          <div className="p-2 border-b px-6 border-slate-50 dark:border-slate-800/50">
+                            <div>
+                              <h2 className="flex justify-between text-4xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                <span>{activeStudent.id_number}</span>
+                                <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em]">
+                                  Entry Received: {new Date(activeStudent.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
-                                <span className="text-slate-300 dark:text-slate-700">•</span>
-                                <p className={`text-sm font-semibold uppercase tracking-wide ${
-                                  Courses[latestStudent.course as keyof typeof Courses]?.color || 'text-slate-600 dark:text-slate-400'
-                                }`}>
-                                  {Courses[latestStudent.course as keyof typeof Courses]?.name || latestStudent.course}
-                                </p>
+                              </h2>
+                              <div className="flex justify-between items-center">
+                                  <span className="text-2xl font-sans font-bold text-indigo-400 dark:text-indigo-300 rounded">
+                                    {activeStudent.last_name}, {activeStudent.first_name}
+                                  </span>
+                                  <p className={`text-2xl font-bold uppercase tracking-normal ${
+                                    Courses[activeStudent.course as keyof typeof Courses]?.color || 'text-slate-600 dark:text-slate-400'
+                                  }`}>
+                                    {Courses[activeStudent.course as keyof typeof Courses]?.name || activeStudent.course}
+                                  </p>
                               </div>
                             </div>
                           </div>
@@ -326,124 +312,141 @@ const Dashboard: React.FC = () => {
                             <div className="grid grid-cols-2 gap-x-8 gap-y-6">
                               <div className="space-y-1">
                                 <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Emergency Contact</p>
-                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{latestStudent.guardian_name}</p>
+                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{activeStudent.guardian_name}</p>
                               </div>
                               <div className="space-y-1">
                                 <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Contact No.</p>
-                                <p className="text-sm font-medium text-slate-700 dark:text-slate-200 font-sans">{latestStudent.guardian_contact}</p>
+                                <p className="text-sm font-medium text-slate-700 dark:text-slate-200 font-sans">{activeStudent.guardian_contact}</p>
                               </div>
                               <div className="col-span-2 space-y-1">
                                 <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Permanent Address</p>
                                 <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
-                                  {latestStudent.address}
+                                  {activeStudent.address}
                                 </p>
                               </div>
                             </div>
 
                             {/* Action Footer */}
-                            <div className="pt-4 border-t border-slate-50 dark:border-slate-800/50">
+                            <div className="flex gap-3 border-t border-slate-50 dark:border-slate-800/50">
                               <button 
-                                onClick={() => handleExport(latestStudent.id)} 
+                                onClick={() => handleExport(activeStudent.id)} 
                                 disabled={loading}
-                                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white rounded-lg font-semibold text-sm transition-all shadow-sm shadow-indigo-200 dark:shadow-none active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white rounded-md font-semibold text-sm transition-all shadow-sm shadow-indigo-200 dark:shadow-none active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                              >
+                                {loading ? (
+                                  <RefreshCw size={16} className="animate-spin" />
+                                ) : (
+                                  <XIcon size={16} />
+                                )}
+                                {loading ? 'Processing...' : 'Reject'}
+                              </button>
+                              <button 
+                                onClick={() => handleExport(activeStudent.id)} 
+                                disabled={loading}
+                                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400 text-white rounded-md font-semibold text-sm transition-all shadow-sm shadow-indigo-200 dark:shadow-none active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
                               >
                                 {loading ? (
                                   <RefreshCw size={16} className="animate-spin" />
                                 ) : (
                                   <Printer size={16} />
                                 )}
-                                {loading ? 'Processing...' : 'Confirm & Mark as Printed'}
+                                {loading ? 'Processing...' : 'Preview'}
                               </button>
-                              <p className="text-[10px] text-center text-slate-400 mt-3 font-medium">
-                                This will update the student status and trigger the print preview.
-                              </p>
                             </div>
                           </div>
                         </div>
                         </div>
+                    ) : (
+                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 p-10 text-center">
+                            <Database size={40} className="mb-4 opacity-10" />
+                            <p className="text-[10px] font-black uppercase tracking-widest leading-relaxed">Select a record from the database to view card properties</p>
+                        </div>
+                    )}
+                </div>
 
-                        <section className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col flex-1">
-                          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
-                            <div>
-                              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tighter">Directory</h3>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{allStudents.length} Students Logged</p>
-                            </div>
-                            <div className="relative w-full md:w-80">
-                              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                              <input 
+                <div className="flex-1 flex flex-col border-r border-slate-200 dark:border-zinc-900 overflow-hidden bg-white dark:bg-[#020617]">
+                    <div className="p-3 border-b border-slate-100 dark:border-zinc-900 flex items-center justify-between gap-4">
+                        <div className="relative flex-1 max-w-md">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                            <input 
                                 type="text"
-                                placeholder="Search records..."
+                                placeholder="Filter records..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none text-xs font-bold transition-all"
-                              />
-                            </div>
-                          </div>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                              <thead>
-                                <tr className="text-slate-400 text-[9px] font-black uppercase tracking-widest bg-slate-50/50 dark:bg-zinc-950/50 border-b border-slate-100 dark:border-zinc-800">
-                                  <SortHeader label="ID Number" active={sortBy === 'id_number'} order={sortOrder} onClick={() => toggleSort('id_number')} />
-                                  <SortHeader label="Full Name" active={sortBy === 'first_name'} order={sortOrder} onClick={() => toggleSort('first_name')} />
-                                  <th className="px-10 py-4">Course</th>
-                                  <th className="px-10 py-4">Status</th>
-                                  <th className="px-10 py-4 text-right">Actions</th>
+                                className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-zinc-800 rounded-lg outline-none text-[11px] font-medium"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-900 rounded-lg"><Filter size={14} /></button>
+                            <button className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-900 rounded-lg"><RefreshCw size={14} /></button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-auto custom-scrollbar">
+                        <table className="w-full text-left border-separate border-spacing-0">
+                            <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-zinc-950">
+                                <tr className="text-slate-400 text-[9px] font-black uppercase tracking-widest border-b border-slate-200">
+                                    <th className="w-10 pl-4 py-3">
+                                        <button onClick={toggleSelectAll}>
+                                            {selectedIds.length === filteredStudents.length ? <CheckSquare size={14} className="text-teal-500" /> : <Square size={14} />}
+                                        </button>
+                                    </th>
+                                    <SortHeader label="Identity" active={sortBy === 'first_name'} order={sortOrder} onClick={() => toggleSort('first_name')} />
+                                    <SortHeader label="ID Number" active={sortBy === 'id_number'} order={sortOrder} onClick={() => toggleSort('id_number')} />
+                                    <th className="px-4 py-3">Course</th>
+                                    <th className="px-4 py-3">Status</th>
+                                    <th className="px-4 py-3 text-right">Edit</th>
                                 </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-zinc-900">
                                 {filteredStudents.map(student => (
-                                  <tr key={student.id} className="hover:bg-teal-500/5 transition-all group">
-                                    <td className="px-10 py-5">
-                                      <span className="font-bold text-teal-500 font-mono text-xs">{student.id_number}</span>
-                                    </td>
-                                    <td className="px-10 py-5">
-                                      <p className="font-bold text-slate-900 dark:text-slate-200 text-xs uppercase">{student.last_name}, {student.first_name}</p>
-                                    </td>
-                                    <td className="px-10 py-5">
-                                      <span className={`text-[10px] font-black uppercase ${Courses[student.course as keyof typeof Courses]?.color || 'text-slate-400'}`}>
-                                          {student.course}
-                                      </span>
-                                    </td>
-                                    <td className="px-10 py-5">
-                                      {student.has_card ? (
-                                          <div className="flex items-center gap-1.5 text-teal-500 font-black text-[9px] uppercase"><CheckCircle2 size={12} /> Printed</div>
-                                      ) : (
-                                          <div className="flex items-center gap-1.5 text-amber-500 font-black text-[9px] uppercase"><RefreshCw size={12} className="animate-spin" /> In Queue</div>
-                                      )}
-                                    </td>
-                                    <td className="px-10 py-5 text-right">
-                                      <div className="flex justify-end gap-1">
-                                          <TableAction icon={<Edit3 size={14} />} color="text-slate-400 hover:text-teal-500" />
-                                          <TableAction onClick={() => handleDelete(student.id)} icon={<Trash2 size={14} />} color="text-slate-400 hover:text-red-500" />
-                                      </div>
-                                    </td>
-                                  </tr>
+                                    <tr 
+                                        key={student.id} 
+                                        onClick={() => toggleSelect(student.id)}
+                                        className={`hover:bg-teal-50/30 dark:hover:bg-teal-500/5 transition-colors cursor-pointer ${selectedIds.includes(student.id) ? 'bg-teal-50/50 dark:bg-teal-500/10' : ''}`}
+                                    >
+                                        <td className="pl-4 py-2">
+                                            {selectedIds.includes(student.id) ? <CheckSquare size={14} className="text-teal-500" /> : <Square size={14} className="opacity-20" />}
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 rounded bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-[9px] font-black">
+                                                    {student.first_name[0]}{student.last_name[0]}
+                                                </div>
+                                                <span className="text-[11px] font-bold uppercase truncate max-w-[120px]">
+                                                    {student.last_name}, {student.first_name}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-2 font-mono text-[10px] font-black text-slate-500">
+                                            {student.id_number}
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border ${Courses[student.course]?.border || 'border-slate-200'} ${Courses[student.course]?.color || 'text-slate-400'}`}>
+                                                {student.course}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            {student.has_card ? 
+                                                <div className="text-emerald-500 flex items-center gap-1 text-[9px] font-black uppercase"><CheckCircle2 size={10} /> Printed</div> : 
+                                                <div className="text-amber-500 flex items-center gap-1 text-[9px] font-black uppercase"><RefreshCw size={10} className="animate-spin-slow" /> Pending</div>
+                                            }
+                                        </td>
+                                        <td className="px-4 py-2 text-right">
+                                            <button className="p-1.5 text-slate-300 hover:text-teal-500 transition-colors"><Edit3 size={12} /></button>
+                                        </td>
+                                    </tr>
                                 ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </section>
-                      </div>
-                    ) : (
-                      <div className="h-[500px] flex flex-col items-center justify-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-[3rem]">
-                        <Users size={32} className="text-zinc-700 mb-4" />
-                        <p className="text-zinc-600 font-black uppercase tracking-widest text-xs">No Pending Records Found</p>
-                      </div>
-                    )}
-                  </div>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </motion.div>
+            </div>
           )}
         </AnimatePresence>
       </main>
     </div>
   );
 };
-
-const TableAction = ({ icon, color, onClick }: any) => (
-  <button onClick={onClick} className={`${color} p-2 rounded-lg transition-all hover:bg-slate-100 dark:hover:bg-zinc-800`}>
-    {icon}
-  </button>
-);
 
 export default Dashboard;
