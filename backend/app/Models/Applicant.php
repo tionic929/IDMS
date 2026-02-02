@@ -28,6 +28,7 @@ class Applicant extends Model
         'guardian_contact',
         'id_picture',
         'signature_picture',
+        'created_at',
     ];
 
     /**

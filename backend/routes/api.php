@@ -9,6 +9,7 @@ use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\DepartmentsController;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\CardLayoutController;
+use App\Http\Controllers\AnalyticsController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -43,6 +44,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/applicant/{student}/toggle', [ApplicantsController::class, 'toggleHasCard']);
     Route::post('/confirm-applicant/{studentId}', [ApplicantsController::class, 'updateApplicantsExcelFile']);
     Route::post('/confirm/{studentId}', [ApplicantsController::class, 'confirm']);
+
+    Route::get('/analytics/dashboard', [AnalyticsController::class, 'getDashboardStats']);
 
     // FOR ID CARD DESIGNER
 

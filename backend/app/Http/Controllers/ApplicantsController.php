@@ -23,16 +23,25 @@ class ApplicantsController extends Controller
     {
         $totalQueue = Student::where('has_card', false)->count();
 
-
         $queueList = Student::where('has_card', false)
-            ->orderBy('created_at', 'asc')
-            ->limit(10)
-            ->get();
+        ->select([
+            'id', 'id_number', 'first_name', 'middle_initial', 'last_name', 
+            'course', 'address', 'guardian_name', 'guardian_contact', 
+            'id_picture', 'signature_picture', 'has_card', 'created_at'
+        ])
+        ->orderBy('created_at', 'asc')
+        ->limit(10)
+        ->get();
 
         // $history = Student::where('has_card', true)
-        //     ->orderBy('updated_at', 'desc')
-        //     ->limit(10)
-        //     ->get();
+        // ->select([
+        //     'id', 'id_number', 'first_name', 'middle_initial', 'last_name', 
+        //     'course', 'address', 'guardian_name', 'guardian_contact', 
+        //     'id_picture', 'signature_picture', 'has_card', 'created_at'
+        // ])
+        // ->orderBy('updated_at', 'desc')
+        // ->limit(10)
+        // ->get();
         
         return response()->json([
             'totalQueue' => $totalQueue,
@@ -43,7 +52,6 @@ class ApplicantsController extends Controller
 
     public function confirm($studentId) {
     try {
-        // 1. Find the student or throw a ModelNotFoundException
         $student = Student::findOrFail($studentId);
 
         // 2. Perform the update
@@ -252,11 +260,11 @@ class ApplicantsController extends Controller
             'last_name',
             'course',
             'created_at',
-            // 'address',
-            // 'guardian_name',
-            // 'guardian_contact',
-            // 'id_picture',
-            // 'signature_picture'
+            'address',
+            'guardian_name',
+            'guardian_contact',
+            'id_picture',
+            'signature_picture'
         )
         ->orderBy('id', 'asc');
             

@@ -132,6 +132,8 @@ export const resolveTextLayout = (config: LayoutItemSchema, text: string) => {
 
 export const getEnabledAnchors = (config: LayoutItemSchema | null): string[] => {
     if (!config) return [];
+    if (config.type === 'circle') { return ['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right']; }
+    if (config.type === 'rect') { return ['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right']; }
     if (config.fit === 'none') return [];
     if (config.fit === 'wrap') return ['middle-left', 'middle-right'];
     // Shrink mode now cares about Height, so we enable corner anchors

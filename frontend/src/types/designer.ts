@@ -2,6 +2,7 @@ export type FitMode = 'none' | 'wrap' | 'shrink' | 'stretch';
 export type OverflowMode = 'clip' | 'ellipsis';
 
 export interface LayoutItemSchema {
+  radius: number;
   x: number;
   y: number;
   width: number;

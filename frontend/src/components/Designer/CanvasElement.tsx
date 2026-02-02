@@ -13,32 +13,31 @@ interface CanvasElementProps {
   image?: HTMLImageElement;
   onSelect: (id: string) => void;
   onUpdate: (id: string, attrs: any) => void;
-  onDragMove: (e: any, id: string, config: LayoutItemSchema) => void;
-  onTransform: (e: any, id: string, config: LayoutItemSchema) => void;
-  onTransformEnd: (e: any, id: string, config: LayoutItemSchema) => void;
+  onDragMove: (e: any) => void;
+  onDragEnd: (e: any) => void;
   anyItemSelected: boolean; 
 }
 
 const CanvasElement: React.FC<CanvasElementProps> = ({
   id, config, isSelected, zoom, previewText, image, anyItemSelected,
-  onSelect, onUpdate, onTransform, onTransformEnd
+  onDragMove, onDragEnd, onSelect, onUpdate
 }) => {
   
   const isPhoto = id === 'photo';
   const isSig = id === 'signature';
   const isCustomImage = id.startsWith('img') || config.type === 'image';
-  const isShape = id.startsWith('rect') || id.startsWith('circle');
+  // Standardized shape check
+  const isShape = id.startsWith('rect') || id.startsWith('circle') || config.type === 'rect' || config.type === 'circle';
   
   const [customImage] = useImage(isCustomImage && !isPhoto && !isSig ? (config.src || '') : '', 'anonymous');
   const activeImage = (isPhoto || isSig) ? image : customImage;
 
   const calculateListening = () => {
     if (config.locked) return false;
-    if (anyItemSelected) return isSelected;
     return true;
   };
 
-  const selectionColor = '#6366f1'; // Indigo 500
+  const selectionColor = '#6366f1'; 
 
   const commonProps = {
     name: id,
@@ -50,19 +49,17 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
     listening: calculateListening(), 
     onClick: (e: any) => { e.cancelBubble = true; onSelect(id); },
     onTap: (e: any) => { e.cancelBubble = true; onSelect(id); },
-    onDragEnd: (e: any) => onUpdate(id, { x: Math.round(e.target.x()), y: Math.round(e.target.y()) }),
-    onTransform: (e: any) => onTransform(e, id, config),
-    onTransformEnd: (e: any) => onTransformEnd(e, id, config)
+    onDragMove: onDragMove,
+    onDragEnd: onDragEnd,
   };
 
-  // --- IMAGES ---
-  if (isPhoto || isSig || isCustomImage) {
-    const w = config.width || 200; 
-    const h = config.height || 180;
+  // --- IMAGES & SHAPES (Standardized Group Logic) ---
+  if (isPhoto || isSig || isCustomImage || isShape) {
+    const w = config.width || 100; 
+    const h = config.height || 100;
 
     return (
       <Group {...commonProps} width={w} height={h}>
-        {/* Selection Border */}
         <Rect 
           name="Bounds" 
           width={w} 
@@ -70,8 +67,11 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
           stroke={selectionColor} 
           strokeWidth={1.5/zoom} 
           opacity={isSelected ? 1 : 0} 
+          listening={false}
         />
-        {activeImage && (
+        
+        {/* Render Image logic */}
+        {(isPhoto || isSig || isCustomImage) && activeImage && (
           <KonvaImage 
             name="Image" 
             image={activeImage} 
@@ -87,36 +87,39 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
             }}
           />
         )}
+
+        {/* Render Shape logic */}
+        {isShape && (
+          config.type === 'circle' ? (
+            <Circle 
+              name="Shape"
+              x={w / 2}
+              y={h / 2}
+              radius={w / 2}
+              fill={config.fill || '#6366f1'}
+            />
+          ) : (
+            <Rect 
+              name="Shape"
+              width={w}
+              height={h}
+              fill={config.fill || '#6366f1'}
+              cornerRadius={config.radius || 0}
+            />
+          )
+        )}
       </Group>
     );
   }
 
-  // --- SHAPES ---
-  if (isShape) {
-    const w = config.width || 200;
-    const h = config.height || 180;
-    const shapeProps = {
-      ...commonProps,
-      width: w,
-      height: h,
-      fill: config.fill,
-      stroke: selectionColor,
-      strokeWidth: isSelected ? 2/zoom : 0,
-    };
-
-    if (config.type === 'circle') return <Circle {...shapeProps} radius={w / 2} />;
-    return <Rect {...shapeProps} />;
-  }
-
   // --- TEXT ---
-  const finalStr = previewText || config.text || `LABEL: ${id}`;
+  const finalStr = previewText || config.text || `${id}`;
   const { fontSize, wrap } = resolveTextLayout(config, finalStr);
   const boxWidth = config.width || 200;
   const boxHeight = (config.fit === 'none') ? undefined : (config.height || 40);
 
   return (
     <Group {...commonProps} width={boxWidth} height={boxHeight}>
-      {/* Figma-style text box dash border */}
       <Rect 
         name="Bounds" 
         width={boxWidth} 
@@ -125,6 +128,7 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
         strokeWidth={1/zoom} 
         dash={[4, 2]} 
         opacity={isSelected ? 0.8 : 0} 
+        listening={false}
       />
       <Text 
         name="Text" 

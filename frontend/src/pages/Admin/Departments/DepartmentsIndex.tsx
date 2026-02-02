@@ -62,17 +62,17 @@ const TableRowSkeleton = () => (
     <td className="px-10 py-7"><div className="space-y-2"><div className="h-4 bg-slate-200 rounded w-40" /><div className="h-3 bg-slate-100 rounded w-20" /></div></td>
     <td className="px-10 py-7"><div className="h-7 bg-slate-100 rounded-xl w-20 mx-auto" /></td>
     <td className="px-10 py-7"><div className="space-y-2"><div className="h-3 bg-slate-200 rounded w-32" /><div className="h-2 bg-slate-100 rounded w-48" /></div></td>
-    <td className="px-10 py-7"><div className="h-11 w-11 bg-slate-100 rounded-2xl mx-auto" /></td>
+    <td className="px-10 py-7"><div className="h-11 w-11 bg-slate-100 rounded-lg mx-auto" /></td>
   </tr>
 );
 
 const MetricCard: React.FC<{ title: string; value: string; icon: React.ElementType; color: string }> = ({ title, value, icon: Icon, color }) => (
-  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:shadow-md hover:border-indigo-100">
+  <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:shadow-md hover:border-indigo-100">
     <div className="flex flex-col">
       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{title}</span>
       <span className="text-3xl font-black text-slate-900 mt-1">{value}</span>
     </div>
-    <div className={`p-3 rounded-2xl ${color} bg-opacity-10`}>
+    <div className={`p-3 rounded-lg ${color} bg-opacity-10`}>
       <Icon className={`w-6 h-6 ${color.replace("bg-", "text-")}`} />
     </div>
   </div>
@@ -140,7 +140,7 @@ const DepartmentList: React.FC = () => {
   return (
     <div className="flex h-screen bg-slate-50/60 overflow-hidden">
       <aside className="w-[320px] bg-white border-r border-slate-200 flex flex-col h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10">
-        <nav className="flex-1 overflow-y-auto px-4 space-y-1.5 pt-2 pb-8 custom-scrollbar">
+        <nav className="flex-1 overflow-y-auto px-2 space-y-1.5 pt-2 pb-8 custom-scrollbar">
           {isLoading ? (
              [...Array(8)].map((_, i) => <NavItemSkeleton key={i} />)
           ) : (
@@ -152,24 +152,23 @@ const DepartmentList: React.FC = () => {
                   <button
                     key={dept.department}
                     onClick={() => handleDeptChange(dept.department)}
-                    className={`w-full flex items-center justify-between px-4 py-4 rounded-2xl transition-all duration-300 relative group
+                    className={`w-full flex items-center justify-between px-3 py-4 rounded-md transition-all duration-300 relative group
                       ${isActive 
                         ? "bg-indigo-600 text-white shadow-xl shadow-indigo-100 scale-[1.02]" 
                         : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                       }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden transition-colors shadow-sm
-                        ${isActive ? "bg-white" : "bg-slate-100 group-hover:bg-white"}`}>
+                      <div className="w-9 h-9 rounded-md flex items-center justify-center overflow-hidden transition-colors">
                         {deptLogo ? (
-                            <img src={deptLogo} alt={dept.department} className="w-full h-full object-cover p-1.5" />
+                            <img src={deptLogo} alt={dept.department} className="w-full h-full object-cover" />
                         ) : (
                             <GraduationCap size={18} className={isActive ? "text-indigo-600" : "text-slate-400"} />
                         )}
                       </div>
                       <span className="text-sm font-black truncate w-36 text-left tracking-tight">{dept.department}</span>
                     </div>
-                    <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all
+                    <div className={`px-2.5 py-1 rounded-lg text-[1rem] font-bold transition-all
                       ${isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"}`}>
                       {dept.applicant_count}
                     </div>
@@ -206,7 +205,7 @@ const DepartmentList: React.FC = () => {
             <>
               <MetricCard icon={BsPerson} title="Total Applicants" value={selectedDeptObj?.applicant_count.toString() || "0"} color="bg-indigo-600" />
               <MetricCard icon={Users} title="Current Page" value={students.length.toString()} color="bg-emerald-500" />
-              <div className="bg-indigo-900 p-6 rounded-2xl shadow-xl flex flex-col justify-center relative overflow-hidden">
+              <div className="bg-indigo-900 p-6 rounded-lg shadow-xl flex flex-col justify-center relative overflow-hidden">
                   <div className="relative z-10">
                     <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Active Selection</span>
                     <p className="text-white font-black text-xl mt-1 tracking-tight">{selectedDeptName} Records</p>
@@ -225,11 +224,8 @@ const DepartmentList: React.FC = () => {
           )}
         </section>
 
-        <div className="relative overflow-hidden rounded-[2.5rem] border border-white bg-white/70 shadow-2xl shadow-slate-200/60">
-          
-          {/* REPLACEMENT 1: Using isFetching & isPlaceholderData 
-              Show overlay loader when fetching new data (pagination/search) 
-          */}
+        <div className="relative overflow-hidden rounded-lg border border-white bg-white/70 shadow-2xl shadow-slate-200/60">
+    
           {(isFetching && isPlaceholderData) && (
             <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] z-20 flex items-center justify-center">
                 <Loader2 className="animate-spin text-indigo-600" size={40} />

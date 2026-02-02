@@ -194,14 +194,6 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
             (key === 'photo' || key === 'signature') ? renderElement(key, config) : null
           )}
 
-          {/* Step 2: Render background image */}
-          <KonvaImage 
-            image={bgImage} 
-            width={internalWidth} 
-            height={internalHeight} 
-            listening={false} 
-          />
-
           {/* Step 3: Render all other elements on top */}
           {Object.entries(currentLayout).map(([key, config]) => {
             const isAsset = ['photo', 'signature'].includes(key);

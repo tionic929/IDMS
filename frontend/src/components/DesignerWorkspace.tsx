@@ -20,7 +20,7 @@ const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({
   allStudents
 }) => {
   return (
-    <div className="flex h-[90vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+    <div className="flex h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
       {/* LEFT SIDEBAR: Template Library */}
       <div className="w-46 border-r border-slate-100 dark:border-slate-800 shrink-0">
         <Templates 

@@ -30,12 +30,12 @@ export const handleActiveLayouts = async (id: number) => {
     return request.data;
 }
 
-export const saveLayout = async (templateId: number, name: string, config: any) => {
+export const saveLayout = async (templateId: number, name: string, config: any, previewImages: string[] = []) => {
     const request = await api.put(`/card-layouts/${templateId}`, {
         name: name,
         front_config: config.front,
         back_config: config.back,
-        // preview_images: previewImages
+        preview_images: previewImages
     });
     return request.data;
 }
