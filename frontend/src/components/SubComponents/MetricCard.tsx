@@ -6,86 +6,78 @@ interface MetricCardProps {
   value: string | number;
   icon: React.ElementType;
   color: string;
+  chartData?: any[];
+  trendLabel?: string;
 }
 
-const getRandomNum = (min: any, max: any) => {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return Math.floor(Math.random() * (max - min) + min);
-};
-
-const randomNum = getRandomNum(1, 30);
-const randomVal = getRandomNum(2400, 10000);
-
-// old dummy 
-// const dummyData = [
-//   { pv: {randomVal} }, { pv: {randomVal} }, { pv: {randomVal} }, 
-//   { pv: {randomVal} }, { pv: {randomVal} }, { pv: {randomVal} }, { pv: {randomVal} },
-// ];
-
-const dummyData = Array.from({ length: 7 }, () => ({
-  pv: getRandomNum(2400, 10000)
-}));
-
-const MetricCard: React.FC<MetricCardProps> = ({ title, value, icon: Icon, color }) => {
-  const textColor = color.replace("bg-", "text-");
-  
-  // Map Tailwind colors to Hex for the Chart
+const MetricCard: React.FC<MetricCardProps> = ({ 
+  title, 
+  value, 
+  icon: Icon, 
+  color, 
+  chartData, 
+  trendLabel 
+}) => {
   const getChartColor = () => {
     if (color.includes('indigo')) return '#6366f1';
     if (color.includes('emerald')) return '#10b981';
     if (color.includes('amber')) return '#f59e0b';
-    return '#64748b'; // default slate
+    if (color.includes('blue')) return '#3b82f6';
+    return '#64748b';
   };
-  
 
   const strokeColor = getChartColor();
 
   return (
-    <div className="bg-white p-5 rounded-lg bg-slate-200/20 border border-white shadow-md flex flex-col gap-2 transition-all hover:shadow-lg group">
-      <div className="flex items-start justify-between">
-        <div className="flex flex-col">
-          <span className="text-[10px] font-medium text-slate-400 uppercase">
+    <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col h-full transition-all hover:shadow-md hover:border-slate-300 group">
+      {/* Header Section */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1">
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
             {title}
-          </span>
-          <span className="text-3xl font-sans text-slate-800 mt-1 tracking-tighter">
-            {value}
-          </span>
+          </p>
+          <div className="text-3xl font-black text-slate-950 tracking-tighter">
+            {typeof value === 'number' ? value.toLocaleString() : value}
+          </div>
         </div>
         
-        <div className={`p-3 rounded-xl ${color} bg-opacity-10 flex items-center justify-center transition-transform group-hover:scale-110`}>
-          <Icon className={`w-5 h-5 ${textColor}`} />
+        {/* Icon Badge */}
+        <div className={`${color} bg-opacity-15 p-3 rounded-lg flex items-center justify-center transition-all group-hover:scale-105 flex-shrink-0 ml-3`}>
+          <Icon className="w-5 h-5" style={{ color: strokeColor }} />
         </div>
       </div>
 
-      {/* Sparkline Area Chart */}
-      <div className="h-12 w-full -mb-2 overflow-hidden">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={dummyData}>
-            <defs>
-              <linearGradient id={`gradient-${color}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={strokeColor} stopOpacity={0.3}/>
-                <stop offset="95%" stopColor={strokeColor} stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <YAxis hide domain={['dataMin', 'dataMax']} />
-            <Area 
-              type="monotone" 
-              dataKey="pv" 
-              stroke={strokeColor} 
-              strokeWidth={2}
-              fillOpacity={1} 
-              fill={`url(#gradient-${color})`} 
-              animationDuration={1000}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+      {/* Chart Section */}
+      {chartData && chartData.length > 0 && (
+        <div className="h-16 w-full mb-4 -mx-1">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id={`gradient-${color}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor={strokeColor} stopOpacity={0.25} />
+                  <stop offset="95%" stopColor={strokeColor} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <YAxis hide domain={['dataMin', 'dataMax']} />
+              <Area 
+                type="monotone" 
+                dataKey="count" 
+                stroke={strokeColor}
+                strokeWidth={2.5}
+                fill={`url(#gradient-${color})`}
+                isAnimationActive={true}
+                animationDuration={1000}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
-      <div className="flex items-center gap-1.5 border-t border-slate-50 pt-2">
-        <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${color}`} />
-        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-          +{randomNum}% since 01-{randomNum}-2026 
+      {/* Footer Trend Label */}
+      <div className="flex items-center gap-2 mt-auto pt-4 border-t border-slate-100/80">
+        <div className={`w-1.5 h-1.5 rounded-full ${color} animate-pulse`} />
+        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+          {trendLabel || 'Real-time'}
         </span>
       </div>
     </div>
