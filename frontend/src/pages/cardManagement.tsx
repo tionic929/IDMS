@@ -194,7 +194,7 @@ const Dashboard: React.FC = () => {
                         <IDCardPreview data={previewData} layout={currentAutoLayout} side="FRONT" scale={1} />
                         <IDCardPreview data={previewData} layout={currentAutoLayout} side="BACK" scale={1}/>
                     </div>
-                </div>
+              </div>
               </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar px-6 space-y-4">

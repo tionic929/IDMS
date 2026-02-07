@@ -55,7 +55,6 @@ const Dashboard = () => {
             <Calendar size={14} /> Jan 2026 - Feb 2026
           </button>
           <button className="flex items-center gap-2 bg-white hover:bg-slate-200 text-slate-950 px-4 py-2 rounded-md text-xs font-bold transition-colors">
-            <Download size={14} /> Export Data
           </button>
         </div>
       </div>
