@@ -104,57 +104,95 @@ class ApplicantsController extends Controller
         });
     }
 
-    public function store(Request $request)
-    {
-        try {
-            $validated = $request->validate([
-                'idNumber' => 'required|string|max:255',
-                'firstName' => 'required|string|max:255',
-                'middleInitial' => 'nullable|string|max:1',
-                'lastName' => 'required|string|max:255',
-                'course' => 'required|string|max:255',
-                'address' => 'required|string',
-                'guardianName' => 'required|string|max:255',
-                'guardianContact' => 'required|string|max:20',
-                'id_picture' => 'nullable|file|mimes:jpeg,png,jpg',
-                'signature_picture' => 'nullable|image|mimes:jpeg,png,jpg',
+public function store(Request $request)
+{
+    try {
+        // Log the incoming request to see what's being received
+        \Log::info('New ID Application Request received', [
+            'idNumber' => $request->idNumber,
+            'has_id_picture' => $request->hasFile('id_picture'),
+            'has_signature' => $request->hasFile('signature_picture')
+        ]);
+
+        $validated = $request->validate([
+            'idNumber' => 'required|string|max:255',
+            'firstName' => 'required|string|max:255',
+            'middleInitial' => 'nullable|string|max:1',
+            'lastName' => 'required|string|max:255',
+            'course' => 'required|string|max:255',
+            'address' => 'required|string',
+            'guardianName' => 'required|string|max:255',
+            'guardianContact' => 'required|string|max:20',
+            'id_picture' => 'nullable|file|mimes:jpeg,png,jpg',
+            'signature_picture' => 'nullable|image|mimes:jpeg,png,jpg',
+        ]);
+
+        // Process and Log ID Picture
+        $idPath = null;
+        if ($request->hasFile('id_picture')) {
+            $file = $request->file('id_picture');
+            $idPath = $file->store('students/id_pictures', 'public');
+            \Log::info('ID Photo stored successfully', [
+                'original_name' => $file->getClientOriginalName(),
+                'stored_path' => $idPath
             ]);
-
-            $idPath = $request->hasFile('id_picture')
-                ? $request->file('id_picture')->store('students/id_pictures', 'public')
-                : null;
-
-            $sigPath = $request->hasFile('signature_picture')
-                ? $request->file('signature_picture')->store('students/signatures', 'public')
-                : null;
-
-            $student = Student::create([
-                'id_number' => strtoupper($validated['idNumber']),
-                'first_name' => strtoupper($validated['firstName']),
-                'middle_initial' => strtoupper($validated['middleInitial'] ?? ''),
-                'last_name' => strtoupper($validated['lastName']),
-                'course' => strtoupper($validated['course']),
-                'address' => strtoupper($validated['address']),
-                'guardian_name' => strtoupper($validated['guardianName']),
-                'guardian_contact' => $validated['guardianContact'],
-                'id_picture' => $idPath,
-                'signature_picture' => $sigPath,
-            ]);
-
-            \Log::info('Attempting to broadcast ApplicationSubmitted for Student ID: ' . $student->id);
-        
-            broadcast(new ApplicationSubmitted($student))->toOthers();
-
-            return response()->json(['message' => 'Student saved successfully'], 201);
-
-        } catch (\Exception $e) {
-            \Log::error('Student upload failed', ['error' => $e->getMessage()]);
-            return response()->json([
-                'message' => 'Error saving student',
-                'error' => $e->getMessage(),
-            ], 500);
+        } else {
+            \Log::warning('ID Application received without id_picture');
         }
+
+        // Process and Log Signature
+        $sigPath = null;
+        if ($request->hasFile('signature_picture')) {
+            $file = $request->file('signature_picture');
+            $sigPath = $file->store('students/signatures', 'public');
+            \Log::info('Signature stored successfully', [
+                'original_name' => $file->getClientOriginalName(),
+                'stored_path' => $sigPath
+            ]);
+        } else {
+            \Log::warning('ID Application received without signature_picture');
+        }
+
+        $student = Student::create([
+            'id_number' => strtoupper($validated['idNumber']),
+            'first_name' => strtoupper($validated['firstName']),
+            'middle_initial' => strtoupper($validated['middleInitial'] ?? ''),
+            'last_name' => strtoupper($validated['lastName']),
+            'course' => strtoupper($validated['course']),
+            'address' => strtoupper($validated['address']),
+            'guardian_name' => strtoupper($validated['guardianName']),
+            'guardian_contact' => $validated['guardianContact'],
+            'id_picture' => $idPath,
+            'signature_picture' => $sigPath,
+        ]);
+
+        \Log::info('Student record created in database', [
+            'db_id' => $student->id,
+            'student_id' => $student->id_number,
+            'full_name' => $student->first_name . ' ' . $student->last_name
+        ]);
+
+        \Log::info('Attempting to broadcast ApplicationSubmitted for Student ID: ' . $student->id);
+    
+        broadcast(new ApplicationSubmitted($student))->toOthers();
+
+        return response()->json([
+            'message' => 'Student saved successfully',
+            'data' => $student
+        ], 201);
+
+    } catch (\Exception $e) {
+        \Log::error('Student upload failed', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'message' => 'Error saving student',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
 
     public function toggleHasCard(Request $request, Student $student)
     {

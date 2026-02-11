@@ -8,8 +8,13 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
+    icon: path.join(__dirname, 'icon.ico'), // Use your new vector here
     width: 1280,
     height: 800,
+    titleBarOverlay: {
+      symbolColor: '#ffffff', // Color of the Min/Max/Exit icons
+      height: 40
+    },
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,

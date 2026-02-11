@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { Stage, Layer, Text, Rect, Image as KonvaImage, Group, Circle } from 'react-konva';
 import useImage from 'use-image';
 import { type ApplicantCard } from '../types/card';
@@ -6,9 +6,7 @@ import FRONT_DEFAULT_BG from '../assets/ID/NEWFRONT.png';
 import BACK_DEFAULT_BG from '../assets/ID/BACK.png';
 import { resolveTextLayout } from '../utils/designerUtils';
 
-const VITE_API_URL = import.meta.env.VITE_API_URL;
-
-// Import dimensions - MUST match CardDesigner
+// Dimensions and Constants
 import { 
   DESIGN_WIDTH, 
   DESIGN_HEIGHT, 
@@ -18,6 +16,8 @@ import {
   SCALE_Y,
   EXPORT_PIXEL_RATIO
 } from '../constants/dimensions';
+
+const VITE_API_URL = import.meta.env.VITE_API_URL;
 
 interface Props {
   data: ApplicantCard;
@@ -36,6 +36,7 @@ const DynamicImage = memo(({ src, common }: { src: string; common: any }) => {
 const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrinting = false }) => {
   const isFront = side === 'FRONT';
 
+  // Improved URL generation: Ensure we get a valid path for the proxy
   const getProxyUrl = (path: string | null | undefined) => {
     if (!path) return '';
     if (path.startsWith('data:') || path.startsWith('blob:')) return path;
@@ -45,18 +46,14 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     return `${VITE_API_URL}/api/proxy-image?path=${encodeURIComponent(cleanPath)}`;
   };
 
-  const [bgImage] = useImage(isFront ? FRONT_DEFAULT_BG : BACK_DEFAULT_BG, 'anonymous');  
   const [photoImage] = useImage(getProxyUrl(data.photo), 'anonymous');
   const [sigImage] = useImage(getProxyUrl(data.signature), 'anonymous');
 
   const currentLayout = layout?.[side.toLowerCase()];
   if (!currentLayout) return null;
 
-  // Base internal dimensions
   const internalWidth = isPrinting ? PRINT_WIDTH : DESIGN_WIDTH;
   const internalHeight = isPrinting ? PRINT_HEIGHT : DESIGN_HEIGHT;
-  
-  // Actual Stage dimensions (Visual size)
   const stageWidth = isPrinting ? internalWidth : internalWidth * scale;
   const stageHeight = isPrinting ? internalHeight : internalHeight * scale;
 
@@ -90,7 +87,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     if (isAsset) {
       const img = isPhoto ? photoImage : sigImage;
       return (
-        <Group {...common} height={scaledHeight}>
+        <Group {...common} height={scaledHeight} key={key}>
           <Group 
             clipFunc={(ctx) => {
               ctx.beginPath();
@@ -107,6 +104,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
                 image={img}
                 width={scaledWidth}
                 height={scaledHeight}
+                // sceneFunc ensures the image fits within the defined box while maintaining aspect ratio
                 sceneFunc={(context, shape) => {
                   const ratio = Math.min(scaledWidth / img.width, scaledHeight / img.height);
                   const w = img.width * ratio;
@@ -130,9 +128,9 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
 
     if (isShape) {
       if (config.type === 'circle') {
-        return <Circle {...common} height={scaledHeight} radius={scaledWidth / 2} fill={config.fill || '#00ffe1ff'} />;
+        return <Circle {...common} height={scaledHeight} radius={scaledWidth / 2} fill={config.fill || '#00ffe1ff'} key={key} />;
       }
-      return <Rect {...common} height={scaledHeight} fill={config.fill || '#00ffe1ff'} cornerRadius={scaledRadius} />;
+      return <Rect {...common} height={scaledHeight} fill={config.fill || '#00ffe1ff'} cornerRadius={scaledRadius} key={key} />;
     }
 
     const textMap: Record<string, any> = {
@@ -155,6 +153,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     return (
       <Text
         {...common}
+        key={key}
         height={textComponentHeight}
         text={displayText}
         fontSize={resolved.fontSize}
@@ -189,17 +188,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
         pixelRatio={isPrinting ? EXPORT_PIXEL_RATIO : 1}
       >
         <Layer>
-          {/* Step 1: Render photo/signature FIRST (FRONT only, behind background) */}
-          {isFront && Object.entries(currentLayout).map(([key, config]) =>
-            (key === 'photo' || key === 'signature') ? renderElement(key, config) : null
-          )}
-
-          {/* Step 3: Render all other elements on top */}
-          {Object.entries(currentLayout).map(([key, config]) => {
-            const isAsset = ['photo', 'signature'].includes(key);
-            if (isFront && isAsset) return null;
-            return renderElement(key, config);
-          })}
+          {Object.entries(currentLayout).map(([key, config]) => renderElement(key, config))}
         </Layer>
       </Stage>
     </div>

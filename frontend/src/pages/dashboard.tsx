@@ -17,10 +17,6 @@ import { TallyChart } from '../components/Charts/TallyChart';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899'];
 
-// ============================================================================
-// REUSABLE COMPONENTS
-// ============================================================================
-
 const SkeletonLoader = ({ width = 'w-full', height = 'h-12', count = 1 }) => (
   <div className="space-y-3">
     {[...Array(count)].map((_, i) => (
