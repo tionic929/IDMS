@@ -18,6 +18,15 @@ interface PrintModalProps {
   onClose: () => void;
 }
 
+interface ExtendedWindow extends Window {
+  process?: {
+    type?: string;
+  };
+  versions?: {
+    electron?: string;
+  };
+}
+
 const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose }) => {
   const [zoom, setZoom] = useState(1.2);
   const [showCutLines, setShowCutLines] = useState(false);
@@ -94,7 +103,13 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
     }
 
     // Check for Electron IPC availability
-    const isElectron = window && window.process && (window.process as any).type;
+    const checkIsElectron = () => {
+    const win = window as ExtendedWindow;
+    // This is the safest way to check for Electron without triggering TS errors
+    return !!(win.process && win.process.type) || !!(win.navigator && win.navigator.userAgent.includes('Electron'));
+    };
+
+    const isElectron = checkIsElectron();
     const hasRequire = typeof window.require !== 'undefined';
 
     if (hasRequire || isElectron) {
