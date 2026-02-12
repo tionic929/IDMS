@@ -84,68 +84,74 @@ class ReportsController extends Controller
     public function import(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls|max:5120', // 5MB Limit
+            'file' => 'required|mimes:xlsx,xls|max:5120', 
         ]);
+
+        // 1. Increase execution time for this specific request
+        set_time_limit(300); // 5 minutes
 
         $file = $request->file('file');
 
         try {
             $spreadsheet = IOFactory::load($file->getRealPath());
             $sheet = $spreadsheet->getActiveSheet();
-            $rows = $sheet->toArray(); // Converts the entire sheet to a nested array
+            $rows = $sheet->toArray();
 
-            // Remove the header row
             $header = array_shift($rows);
-
             $importData = [];
 
-            DB::beginTransaction();
-
             foreach ($rows as $row) {
-                
-                if (empty($row[0])) continue; // Skip empty rows
+                if (empty($row[1])) continue; // Skip if ID Number (col 1) is empty
 
-                Items::updateOrCreate(
-                ['id_number' => (string)$row[1]],
-                [
-                    'has_card'         => false,
-                    'last_name'        => $row[2],
-                    'first_name'       => $row[3],
-                    'middle_name'      => $row[4], // Assuming middle_initial in DB
-                    'sex'              => $row[5],
-                    'course'           => $row[6],
-                    'year_level'       => $row[7],
-                    'units'            => $row[8],
-                    'section'          => $row[9],
-                    'email'            => $row[10],
-                    'contact_no' => $row[11], // Mapping 'contact_no' from excel to your DB field
-                    'birth_date'       => !empty($row[12]) ? date('Y-m-d', strtotime($row[12])) : null,
-                    'citizen'          => $row[13],
-                    'lrn'              => $row[14],
-                    'strand'           => $row[15],
-                    'validation_date'  => $row[16],
-                ]
-            );
-                // Student::updateOrCreate(
-                //     ['id_number' => (string)$row[0]], // Match by ID Number
-                //     [
-                //         'has_card'       => false,
-                //         'first_name'     => $row[1],
-                //         'middle_initial' => $row[2] ? substr($row[2], 0, 1) : null,
-                //         'last_name'      => $row[3],
-                //         'course'         => $row[4],
-                //         'address'        => $row[5],
-                //         'guardian_name'  => $row[6],
-                //         'guardian_contact'  => $row[7],
-                //     ]
-                // );
+                // 2. Prepare data for bulk upsert instead of calling the DB inside the loop
+                $importData[] = [
+                    'id_number'       => (string)$row[1],
+                    // 'has_card'        => false,
+                    'last_name'       => $row[2] ?? null,
+                    'first_name'      => $row[3] ?? null,
+                    'middle_name'     => $row[4] ?? null,
+                    'sex'             => $row[5] ?? null,
+                    'course'          => $row[6] ?? null,
+                    'year_level'      => $row[7] ?? null,
+                    'units'           => $row[8] ?? null,
+                    'section'         => $row[9] ?? null,
+                    'email'           => $row[10] ?? null,
+                    'contact_no'      => $row[11] ?? null,
+                    'birth_date'      => !empty($row[12]) ? date('Y-m-d', strtotime($row[12])) : null,
+                    'citizen'         => $row[13] ?? null,
+                    'lrn'             => $row[14] ?? null,
+                    'strand'          => $row[15] ?? null,
+                    'validation_date' => $row[16] ?? null,
+                    // 'created_at'      => now(),
+                    // 'updated_at'      => now(),
+                ];
             }
 
-            DB::commit();
+            // 3. Perform a Bulk Upsert
+            // First arg: The data
+            // Second arg: The unique column to check (id_number)
+            // Third arg: Columns to update if the id_number already exists
+            if (!empty($importData)) {
+                DB::beginTransaction();
+                
+                // Process in chunks of 500 to be safe with memory
+                foreach (array_chunk($importData, 500) as $chunk) {
+                    Items::upsert($chunk, ['id_number'], [
+                        'last_name', 'first_name', 'middle_name', 'sex', 'course', 
+                        'year_level', 'units', 'section', 'email', 'contact_no', 
+                        'birth_date', 'citizen', 'lrn', 'strand', 'validation_date'
+                    ]);
+                }
+                
+                DB::commit();
+            }
+
             return response()->json(['message' => 'Success'], 200);
 
         } catch (\Exception $e) {
             DB::rollBack();
+            // Log the error for debugging
+            \Log::error("Import Error: " . $e->getMessage());
             return response()->json(['error' => 'Import Error: ' . $e->getMessage()], 500);
         }
     }
