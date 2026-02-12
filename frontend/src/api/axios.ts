@@ -5,17 +5,20 @@ const apiBaseUrl = import.meta.env.VITE_API_URL || "";
 
 const api = axios.create({
   baseURL: `${apiBaseUrl}/api`,
-  withCredentials: true,
+  withCredentials: false,
   headers: {
     "X-Requested-With": "XMLHttpRequest",
     Accept: "application/json",
   },
 });
 
-export const getCsrfToken = async () => {
-  return await axios.get(`${apiBaseUrl}/sanctum/csrf-cookie`, {
-    withCredentials: true,
-  });
-};
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("auth_token");
+  if (token) {
+    config.headers = config.headers ?? {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 export default api;
