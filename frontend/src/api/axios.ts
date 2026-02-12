@@ -1,10 +1,13 @@
 import axios from "axios";
 
+const apiBaseUrl = import.meta.env.VITE_API_URL;
+
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: apiBaseUrl ? `${apiBaseUrl}/api` : "/api",
   withCredentials: true,
-  headers: { 
+  headers: {
     "X-Requested-With": "XMLHttpRequest",
-   },
+  },
 });
+
 export default api;
