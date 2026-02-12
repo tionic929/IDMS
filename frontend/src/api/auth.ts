@@ -1,7 +1,9 @@
 import api from "./axios";
 
+const apiBaseUrl = import.meta.env.VITE_API_URL || "";
+
 export const apiLogin = async (email: string, password: string) => {
-    await api.get("https://ncnian-id.svizcarra.online/sanctum/csrf-cookie");
+    await api.get(`${apiBaseUrl}/sanctum/csrf-cookie`);
 
     return await api.post("/login", {email, password});
 }
