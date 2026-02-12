@@ -12,6 +12,7 @@ import { verifyIdNumber } from '../api/reports';
 
 const REMOVE_BG_API_URL = import.meta.env.VITE_REMOVE_BG_API_URL;
 const SCAN_SIGNATURE_API_URL = import.meta.env.VITE_SCAN_SIGNATURE_API_URL;
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 interface FormState {
   idNumber: string;
@@ -125,7 +126,11 @@ const SubmitDetails: React.FC = () => {
     }
 
     const targetUrl = field === 'id_picture' ? REMOVE_BG_API_URL : SCAN_SIGNATURE_API_URL;
-    const finalUrl = targetUrl || (field === 'id_picture' ? '/remove-bg' : '/scan-signature');
+    const finalUrl =
+      targetUrl ||
+      (field === 'id_picture'
+        ? `${API_BASE_URL}/remove-bg`
+        : `${API_BASE_URL}/scan-signature`);
 
     if (field === 'id_picture') setIsProcessingId(true);
     else setIsProcessingSig(true);
@@ -175,7 +180,7 @@ const SubmitDetails: React.FC = () => {
         if (value) formData.append(key, value); 
       });
 
-      const response = await axios.post('/api/students', formData, { 
+      const response = await axios.post(`${API_BASE_URL}/api/students`, formData, { 
         headers: { 'Content-Type': 'multipart/form-data' } 
       });
 
