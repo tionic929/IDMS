@@ -28,9 +28,8 @@ interface FormState {
   signature_picture: File | null;
 }
 
-// Allowed MIME types
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/jpg'];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024; 
 
 const SubmitDetails: React.FC = () => {
   const navigate = useNavigate();
@@ -43,21 +42,14 @@ const SubmitDetails: React.FC = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProcessingId, setIsProcessingId] = useState(false);
   const [isProcessingSig, setIsProcessingSig] = useState(false);
   const [status, setStatus] = useState<'success' | 'error' | ''>('');
-  
-  // New: Specific file validation errors
   const [fileErrors, setFileErrors] = useState<{id?: string, sig?: string}>({});
 
   const isFormIncomplete = !form.idNumber || !form.firstName || !form.lastName || !form.id_picture || !form.signature_picture;
 
-  /**
-   * Validates file integrity using Magic Numbers (Binary Headers)
-   * This prevents users from uploading renamed non-image files.
-   */
   const validateFileIntegrity = (file: File): Promise<boolean> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -67,8 +59,6 @@ const SubmitDetails: React.FC = () => {
         for (let i = 0; i < arr.length; i++) {
           header += arr[i].toString(16);
         }
-        // JPEG: ffd8ffe0, ffd8ffe1, ffd8ffe2, ffd8ffee, ffd8ffdb
-        // PNG: 89504e47
         const isPng = header.startsWith("89504e47");
         const isJpeg = header.startsWith("ffd8ff");
         resolve(isPng || isJpeg);
@@ -77,6 +67,9 @@ const SubmitDetails: React.FC = () => {
     });
   };
 
+  /**
+   * REFINED: Applies white background to the transparent PNG returned by Render
+   */
   const applyWhiteBackground = (blob: Blob): Promise<File> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -100,68 +93,59 @@ const SubmitDetails: React.FC = () => {
     });
   };
 
+  /**
+   * UPDATED: Integrated with your Render Python AI Service
+   */
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>, field: 'id_picture' | 'signature_picture') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Reset errors
     setFileErrors(prev => ({ ...prev, [field === 'id_picture' ? 'id' : 'sig']: undefined }));
 
-    // 1. Basic Extension/MIME Validation
     if (!ALLOWED_TYPES.includes(file.type)) {
-        setFileErrors(prev => ({ ...prev, [field === 'id_picture' ? 'id' : 'sig']: "Invalid format. Please use JPG or PNG." }));
+        setFileErrors(prev => ({ ...prev, [field === 'id_picture' ? 'id' : 'sig']: "Invalid format. Use JPG or PNG." }));
         return;
     }
 
-    // 2. Size Validation
-    if (file.size > MAX_FILE_SIZE) {
-        setFileErrors(prev => ({ ...prev, [field === 'id_picture' ? 'id' : 'sig']: "File is too large (Max 5MB)." }));
-        return;
-    }
-
-    // 3. Binary Integrity Check (Deep Validation)
     const isValidImage = await validateFileIntegrity(file);
     if (!isValidImage) {
-        setFileErrors(prev => ({ ...prev, [field === 'id_picture' ? 'id' : 'sig']: "Corrupted or fake image file detected." }));
+        setFileErrors(prev => ({ ...prev, [field === 'id_picture' ? 'id' : 'sig']: "Corrupted file detected." }));
         return;
     }
 
-    const targetUrl = field === 'id_picture' ? REMOVE_BG_API_URL : SCAN_SIGNATURE_API_URL;
-    const finalUrl =
-      targetUrl ||
-      (field === 'id_picture'
-        ? `${API_BASE_URL}/remove-bg`
-        : `${API_BASE_URL}/scan-signature`);
+    // Determine target Render API URL
+    const finalUrl = field === 'id_picture' ? REMOVE_BG_API_URL : SCAN_SIGNATURE_API_URL;
 
     if (field === 'id_picture') setIsProcessingId(true);
     else setIsProcessingSig(true);
 
     try {
-      await getCsrfCookie();
-
-      const options = { maxSizeMB: 0.5, maxWidthOrHeight: 1200, useWebWorker: true };
+      // 1. Pre-process: Resize to save Render RAM (Max 1000px)
+      const options = { maxSizeMB: 0.4, maxWidthOrHeight: 1000, useWebWorker: true };
       const compressed = await imageCompression(file, options);
       
       const formData = new FormData();
-      formData.append('image', compressed, 'upload.png'); 
+      // Key must be 'image' to match your Python app.py
+      formData.append('image', compressed); 
 
-      const response = await api.post(finalUrl, formData, { 
+      // 2. Call Render AI
+      const response = await axios.post(finalUrl, formData, { 
           responseType: 'blob',
-          headers: {
-              'Content-Type': 'multipart/form-data',
-              'ngrok-skip-browser-warning': 'true',
-          }
-        });
+          headers: { 'Content-Type': 'multipart/form-data' }
+      });
 
-        if (field === 'id_picture') {
-            const finalFile = await applyWhiteBackground(response.data);
-            setForm(prev => ({ ...prev, id_picture: finalFile }));
-        } else {
-            const processedSig = new File([response.data], "signature_cleaned.png", { type: "image/png" });
-            setForm(prev => ({ ...prev, signature_picture: processedSig }));
-        }
+      if (field === 'id_picture') {
+          // Add white background for the ID photo
+          const finalFile = await applyWhiteBackground(response.data);
+          setForm(prev => ({ ...prev, id_picture: finalFile }));
+      } else {
+          // Keep signature transparent for printing
+          const processedSig = new File([response.data], "signature_cleaned.png", { type: "image/png" });
+          setForm(prev => ({ ...prev, signature_picture: processedSig }));
+      }
     } catch (err: any) {
-        setFileErrors(prev => ({ ...prev, [field === 'id_picture' ? 'id' : 'sig']: "Processing failed. Using original." }));
+        console.error("AI Error:", err);
+        setFileErrors(prev => ({ ...prev, [field === 'id_picture' ? 'id' : 'sig']: "AI Busy. Original kept." }));
         setForm(prev => ({ ...prev, [field]: file }));
     } finally {
         setIsProcessingId(false);
@@ -190,13 +174,11 @@ const SubmitDetails: React.FC = () => {
         headers: { 'Content-Type': 'multipart/form-data' } 
       });
 
-      // ADDED: Console log to confirm system save
-      console.log('✅ Application saved successfully into the system:', response.data);
-
+      console.log('✅ Application saved successfully:', response.data);
       setStatus('success');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) { 
-      console.error('❌ Failed to save into the system:', err.response?.data || err.message);
+      console.error('❌ Save failed:', err.response?.data || err.message);
       setStatus('error'); 
     } finally { 
       setIsSubmitting(false); 
@@ -257,7 +239,6 @@ const SubmitDetails: React.FC = () => {
 
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="max-w-7xl mx-auto mt-6 lg:mt-12 px-4 sm:px-8">
         
-        {/* Verification & General Status Overlay */}
         <AnimatePresence>
           {(verificationStatus !== 'idle' || status === 'success') && (
             <motion.div 
@@ -329,7 +310,6 @@ const SubmitDetails: React.FC = () => {
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-8">Biometric Uploads</h3>
                 <div className="grid grid-cols-2 lg:grid-cols-1 gap-8 lg:gap-10">
                   
-                  {/* Photo Upload Card */}
                   <div className="space-y-4">
                     <div className="relative mx-auto w-32 h-32 lg:w-48 lg:h-48">
                       <div className={`w-full h-full rounded-[2.5rem] bg-slate-50 border-2 border-dashed overflow-hidden flex flex-col items-center justify-center transition-all ${
@@ -338,7 +318,7 @@ const SubmitDetails: React.FC = () => {
                         {isProcessingId ? (
                             <div className="flex flex-col items-center gap-2">
                                 <RefreshCcw className="animate-spin text-teal-500" size={24} />
-                                <span className="text-[8px] font-black text-teal-600 uppercase">AI Processing</span>
+                                <span className="text-[8px] font-black text-teal-600 uppercase">AI Enhancing</span>
                             </div>
                         ) : idPreview ? (
                             <img src={idPreview} alt="Preview" className="w-full h-full object-cover animate-in fade-in duration-500" />
@@ -355,7 +335,6 @@ const SubmitDetails: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Signature Upload Card */}
                   <div className="space-y-4">
                     <div className="relative mx-auto w-full max-w-[200px] h-24 lg:h-32">
                       <div className={`w-full h-full rounded-[2.5rem] bg-slate-50 border-2 border-dashed overflow-hidden flex flex-col items-center justify-center transition-all ${
