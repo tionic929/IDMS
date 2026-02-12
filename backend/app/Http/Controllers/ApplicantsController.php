@@ -9,88 +9,190 @@ use App\Models\Applicant as Student;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+
+use App\Http\Resources\ApplicantCardResource;
 
 class ApplicantsController extends Controller
 {
     public function index()
     {
-        $queue = Student::where('has_card', false)
-            ->orderBy('created_at', 'asc')
-            ->get();
+        $totalQueue = Student::where('has_card', false)->count();
 
-        $history = Student::where('has_card', true)
-            ->orderBy('updated_at', 'desc')
-            ->take(10)
-            ->get();
+        $queueList = Student::where('has_card', false)
+        ->select([
+            'id', 'id_number', 'first_name', 'middle_initial', 'last_name', 
+            'course', 'address', 'guardian_name', 'guardian_contact', 
+            'id_picture', 'signature_picture', 'has_card', 'created_at'
+        ])
+        ->orderBy('created_at', 'asc')
+        ->limit(10)
+        ->get();
+
+        // $history = Student::where('has_card', true)
+        // ->select([
+        //     'id', 'id_number', 'first_name', 'middle_initial', 'last_name', 
+        //     'course', 'address', 'guardian_name', 'guardian_contact', 
+        //     'id_picture', 'signature_picture', 'has_card', 'created_at'
+        // ])
+        // ->orderBy('updated_at', 'desc')
+        // ->limit(10)
+        // ->get();
         
         return response()->json([
-            'queue' => $this->formatStudents($queue),
-            'history' => $this->formatStudents($history)
+            'totalQueue' => $totalQueue,
+            'queueList' => $this->formatStudents($queueList),
+            // 'history' => $this->formatStudents($history)
         ], 200);
     }   
 
-    private function formatStudents($collection){
-        return $collection->map(function ($student) {
-            $student->formatted_date = $student->created_at->format('M d, Y'); 
-            $student->formatted_time = $student->created_at->format('g:i A');  
+    public function confirm($studentId) {
+    try {
+        $student = Student::findOrFail($studentId);
+
+        // 2. Perform the update
+        $student->update(['has_card' => true]);
+
+        // 3. Log the successful card issuance for audit purposes
+        Log::info("ID Card issued successfully for Student ID: {$studentId}", [
+            'student_name' => $student->name, // Adjust based on your columns
+            'issued_at' => now()
+        ]);
+
+        return response()->json([
+            'message' => 'Student card status updated successfully',
+            'student' => $student
+        ], 200);
+
+    } catch (ModelNotFoundException $e) {
+        // Log that someone tried to update a non-existent ID
+        Log::warning("Attempted to issue card for non-existent Student ID: {$studentId}");
+
+        return response()->json([
+            'message' => 'Student not found.'
+        ], 404);
+
+    } catch (Exception $e) {
+        // Log any other unexpected errors (database down, etc.)
+        Log::error("Failed to update card status for Student ID: {$studentId}", [
+            'error' => $e->getMessage()
+        ]);
+
+        return response()->json([
+            'message' => 'An internal error occurred while updating the card status.'
+        ], 500);
+    }
+}
+
+    public function getPreview($id)
+    {
+        $student = Student::findOrFail($id);
+        return response()->json([
+            'data' => new ApplicantCardResource($student)
+        ]);
+    }
+
+    private function formatStudents($paginator){
+        return $paginator->map(function ($student) {
+            $student->formatted_date = $student->created_at ? $student->created_at->format('M d, Y') : null; 
+            $student->formatted_time = $student->created_at ? $student->created_at->format('g:i A') : null;  
             return $student;
         });
     }
 
-    public function store(Request $request)
-    {
-        try {
-            $validated = $request->validate([
-                'idNumber' => 'required|string|max:255',
-                'firstName' => 'required|string|max:255',
-                'middleInitial' => 'nullable|string|max:1',
-                'lastName' => 'required|string|max:255',
-                'course' => 'required|string|max:255',
-                'address' => 'required|string',
-                'guardianName' => 'required|string|max:255',
-                'guardianContact' => 'required|string|max:20',
-                'id_picture' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-                'signature_picture' => 'nullable|image|mimes:jpeg,png,jpg|max:8192',
+public function store(Request $request)
+{
+    try {
+        // Log the incoming request to see what's being received
+        \Log::info('New ID Application Request received', [
+            'idNumber' => $request->idNumber,
+            'has_id_picture' => $request->hasFile('id_picture'),
+            'has_signature' => $request->hasFile('signature_picture')
+        ]);
+
+        $validated = $request->validate([
+            'idNumber' => 'required|string|max:255',
+            'firstName' => 'required|string|max:255',
+            'middleInitial' => 'nullable|string|max:1',
+            'lastName' => 'required|string|max:255',
+            'course' => 'required|string|max:255',
+            'address' => 'required|string',
+            'guardianName' => 'required|string|max:255',
+            'guardianContact' => 'required|string|max:20',
+            'id_picture' => 'nullable|file|mimes:jpeg,png,jpg',
+            'signature_picture' => 'nullable|image|mimes:jpeg,png,jpg',
+        ]);
+
+        // Process and Log ID Picture
+        $idPath = null;
+        if ($request->hasFile('id_picture')) {
+            $file = $request->file('id_picture');
+            $idPath = $file->store('students/id_pictures', 'public');
+            \Log::info('ID Photo stored successfully', [
+                'original_name' => $file->getClientOriginalName(),
+                'stored_path' => $idPath
             ]);
-
-            $idPath = $request->hasFile('id_picture')
-                ? $request->file('id_picture')->store('students/id_pictures', 'public')
-                : null;
-
-            $sigPath = $request->hasFile('signature_picture')
-                ? $request->file('signature_picture')->store('students/signatures', 'public')
-                : null;
-
-            $student = Student::create([
-                'id_number' => strtoupper($validated['idNumber']),
-                'first_name' => strtoupper($validated['firstName']),
-                'middle_initial' => strtoupper($validated['middleInitial'] ?? ''),
-                'last_name' => strtoupper($validated['lastName']),
-                'course' => strtoupper($validated['course']),
-                'address' => strtoupper($validated['address']),
-                'guardian_name' => strtoupper($validated['guardianName']),
-                'guardian_contact' => $validated['guardianContact'],
-                'id_picture' => $idPath,
-                'signature_picture' => $sigPath,
-            ]);
-
-            \Log::info('Attempting to broadcast ApplicationSubmitted for Student ID: ' . $student->id);
-        
-            broadcast(new ApplicationSubmitted($student))->toOthers();
-
-            return response()->json(['message' => 'Student saved successfully'], 201);
-
-        } catch (\Exception $e) {
-            \Log::error('Student upload failed', ['error' => $e->getMessage()]);
-            return response()->json([
-                'message' => 'Error saving student',
-                'error' => $e->getMessage(),
-            ], 500);
+        } else {
+            \Log::warning('ID Application received without id_picture');
         }
+
+        // Process and Log Signature
+        $sigPath = null;
+        if ($request->hasFile('signature_picture')) {
+            $file = $request->file('signature_picture');
+            $sigPath = $file->store('students/signatures', 'public');
+            \Log::info('Signature stored successfully', [
+                'original_name' => $file->getClientOriginalName(),
+                'stored_path' => $sigPath
+            ]);
+        } else {
+            \Log::warning('ID Application received without signature_picture');
+        }
+
+        $student = Student::create([
+            'id_number' => strtoupper($validated['idNumber']),
+            'first_name' => strtoupper($validated['firstName']),
+            'middle_initial' => strtoupper($validated['middleInitial'] ?? ''),
+            'last_name' => strtoupper($validated['lastName']),
+            'course' => strtoupper($validated['course']),
+            'address' => strtoupper($validated['address']),
+            'guardian_name' => strtoupper($validated['guardianName']),
+            'guardian_contact' => $validated['guardianContact'],
+            'id_picture' => $idPath,
+            'signature_picture' => $sigPath,
+        ]);
+
+        \Log::info('Student record created in database', [
+            'db_id' => $student->id,
+            'student_id' => $student->id_number,
+            'full_name' => $student->first_name . ' ' . $student->last_name
+        ]);
+
+        \Log::info('Attempting to broadcast ApplicationSubmitted for Student ID: ' . $student->id);
+    
+        broadcast(new ApplicationSubmitted($student))->toOthers();
+
+        return response()->json([
+            'message' => 'Student saved successfully',
+            'data' => $student
+        ], 201);
+
+    } catch (\Exception $e) {
+        \Log::error('Student upload failed', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'message' => 'Error saving student',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
 
     public function toggleHasCard(Request $request, Student $student)
     {
@@ -118,7 +220,7 @@ class ApplicantsController extends Controller
             mkdir($directory, 0755, true);
         }
 
-        $path = $directory . '/' . $courseName . '.xlsx';
+        $path = $directory . '/' . $courseName . '/' . $courseName . '.xlsx';
 
         if (file_exists($path)) {
             $spreadsheet = IOFactory::load($path);
@@ -196,11 +298,11 @@ class ApplicantsController extends Controller
             'last_name',
             'course',
             'created_at',
-            // 'address',
-            // 'guardian_name',
-            // 'guardian_contact',
-            // 'id_picture',
-            // 'signature_picture'
+            'address',
+            'guardian_name',
+            'guardian_contact',
+            'id_picture',
+            'signature_picture'
         )
         ->orderBy('id', 'asc');
             
@@ -216,7 +318,7 @@ class ApplicantsController extends Controller
             });
         }
 
-        $paginated = $query->paginate(5);
+        $paginated = $query->paginate(20);
 
         $paginated->getCollection()->transform(function ($student){
             $student->formatted_date = $student->created_at ? $student->created_at->format('M d, Y') : 'N/A'; 
@@ -228,9 +330,18 @@ class ApplicantsController extends Controller
     }
 
     public function applicantsReport(){
-        $totalApplicants = Student::count();
+        $stats = DB::table('students')
+        ->select(DB::raw("
+            COUNT(*) as total,
+            SUM(CASE WHEN has_card = 0 THEN 0 ELSE 1 END) as pending,
+            SUM(CASE WHEN has_card = 1 THEN 1 ELSE 0 END) as issued
+        "))
+        ->first();
+
         return response()->json([
-            'applicantsReport' => $totalApplicants,
+            'applicantsReport' => (int) $stats->total,
+            'pendingCount'     => (int) $stats->pending,
+            'issuedCount'      => (int) $stats->issued,
         ]);
     }
 

@@ -1,9 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
 
-.scroll-hidden {
-	scrollbar-width: none; /* Firefox */
-}
-.scroll-hidden::-webkit-scrollbar {
-	display: none; /* Chrome, Edge, Safari */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities{
+  .scroll-hidden {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  .scroll-hidden::-webkit-scrollbar {
+    display: none; /* Chrome, Edge, Safari */
+  }
 }
 
 /* Custom Scrollbar Design */
@@ -27,7 +35,3 @@
   background: #6366f1; /* indigo-500 */
   background-clip: content-box;
 }
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;

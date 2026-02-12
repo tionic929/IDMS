@@ -6,12 +6,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Loader2, User, BookOpen, 
   Camera, FileCheck, CheckCircle2, ShieldCheck, ChevronDown,
-  AlertCircle
+  AlertCircle, UploadCloud, RefreshCcw
 } from 'lucide-react';
 import { verifyIdNumber } from '../api/reports';
+import api, { getCsrfCookie } from '../api/axios';
 
 const REMOVE_BG_API_URL = import.meta.env.VITE_REMOVE_BG_API_URL;
 const SCAN_SIGNATURE_API_URL = import.meta.env.VITE_SCAN_SIGNATURE_API_URL;
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 interface FormState {
   idNumber: string;
@@ -25,6 +27,10 @@ interface FormState {
   id_picture: File | null;
   signature_picture: File | null;
 }
+
+// Allowed MIME types
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/jpg'];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const SubmitDetails: React.FC = () => {
   const navigate = useNavigate();
@@ -42,8 +48,35 @@ const SubmitDetails: React.FC = () => {
   const [isProcessingId, setIsProcessingId] = useState(false);
   const [isProcessingSig, setIsProcessingSig] = useState(false);
   const [status, setStatus] = useState<'success' | 'error' | ''>('');
+  
+  // New: Specific file validation errors
+  const [fileErrors, setFileErrors] = useState<{id?: string, sig?: string}>({});
 
-  // Composites the transparent ID PNG onto a solid white background
+  const isFormIncomplete = !form.idNumber || !form.firstName || !form.lastName || !form.id_picture || !form.signature_picture;
+
+  /**
+   * Validates file integrity using Magic Numbers (Binary Headers)
+   * This prevents users from uploading renamed non-image files.
+   */
+  const validateFileIntegrity = (file: File): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = (e) => {
+        const arr = (new Uint8Array(e.target?.result as ArrayBuffer)).subarray(0, 4);
+        let header = "";
+        for (let i = 0; i < arr.length; i++) {
+          header += arr[i].toString(16);
+        }
+        // JPEG: ffd8ffe0, ffd8ffe1, ffd8ffe2, ffd8ffee, ffd8ffdb
+        // PNG: 89504e47
+        const isPng = header.startsWith("89504e47");
+        const isJpeg = header.startsWith("ffd8ff");
+        resolve(isPng || isJpeg);
+      };
+      reader.readAsArrayBuffer(file.slice(0, 4));
+    });
+  };
+
   const applyWhiteBackground = (blob: Blob): Promise<File> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -71,6 +104,35 @@ const SubmitDetails: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Reset errors
+    setFileErrors(prev => ({ ...prev, [field === 'id_picture' ? 'id' : 'sig']: undefined }));
+
+    // 1. Basic Extension/MIME Validation
+    if (!ALLOWED_TYPES.includes(file.type)) {
+        setFileErrors(prev => ({ ...prev, [field === 'id_picture' ? 'id' : 'sig']: "Invalid format. Please use JPG or PNG." }));
+        return;
+    }
+
+    // 2. Size Validation
+    if (file.size > MAX_FILE_SIZE) {
+        setFileErrors(prev => ({ ...prev, [field === 'id_picture' ? 'id' : 'sig']: "File is too large (Max 5MB)." }));
+        return;
+    }
+
+    // 3. Binary Integrity Check (Deep Validation)
+    const isValidImage = await validateFileIntegrity(file);
+    if (!isValidImage) {
+        setFileErrors(prev => ({ ...prev, [field === 'id_picture' ? 'id' : 'sig']: "Corrupted or fake image file detected." }));
+        return;
+    }
+
+    const targetUrl = field === 'id_picture' ? REMOVE_BG_API_URL : SCAN_SIGNATURE_API_URL;
+    const finalUrl =
+      targetUrl ||
+      (field === 'id_picture'
+        ? `${API_BASE_URL}/remove-bg`
+        : `${API_BASE_URL}/scan-signature`);
+
     if (field === 'id_picture') setIsProcessingId(true);
     else setIsProcessingSig(true);
 
@@ -78,19 +140,14 @@ const SubmitDetails: React.FC = () => {
         const options = { maxSizeMB: 0.5, maxWidthOrHeight: 1200, useWebWorker: true };
         const compressed = await imageCompression(file, options);
         
-        // Ensure we are sending a proper File object in the FormData
         const formData = new FormData();
         formData.append('image', compressed, 'upload.png'); 
 
-        // Choose the endpoint based on the field
-        const targetUrl = field === 'id_picture' ? REMOVE_BG_API_URL : SCAN_SIGNATURE_API_URL;
-
-        console.log(`Sending to: ${targetUrl}`); // Debugging line
-
-        const response = await axios.post(targetUrl, formData, { 
+        const response = await axios.post(finalUrl, formData, { 
             responseType: 'blob',
             headers: {
                 'Content-Type': 'multipart/form-data',
+                'ngrok-skip-browser-warning': 'true',
             }
         });
 
@@ -101,8 +158,8 @@ const SubmitDetails: React.FC = () => {
             const processedSig = new File([response.data], "signature_cleaned.png", { type: "image/png" });
             setForm(prev => ({ ...prev, signature_picture: processedSig }));
         }
-    } catch (err) {
-        console.error(`${field} processing failed:`, err);
+    } catch (err: any) {
+        setFileErrors(prev => ({ ...prev, [field === 'id_picture' ? 'id' : 'sig']: "Processing failed. Using original." }));
         setForm(prev => ({ ...prev, [field]: file }));
     } finally {
         setIsProcessingId(false);
@@ -115,18 +172,29 @@ const SubmitDetails: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isFormIncomplete) return;
+    
     setIsSubmitting(true);
     try {
+      await getCsrfCookie();
       const formData = new FormData();
       Object.entries(form).forEach(([key, value]) => { 
-        if (value) formData.append(key, value); 
+        if (value !== null && value !== undefined) {
+          formData.append(key, value as string | Blob);
+        }
       });
-      await axios.post('/api/students', formData, { 
+
+      const response = await api.post("/students", formData, { 
         headers: { 'Content-Type': 'multipart/form-data' } 
       });
+
+      // ADDED: Console log to confirm system save
+      console.log('✅ Application saved successfully into the system:', response.data);
+
       setStatus('success');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err) { 
+    } catch (err: any) { 
+      console.error('❌ Failed to save into the system:', err.response?.data || err.message);
       setStatus('error'); 
     } finally { 
       setIsSubmitting(false); 
@@ -140,11 +208,9 @@ const SubmitDetails: React.FC = () => {
         setErrorMessage('');
         try {
           const response = await verifyIdNumber(form.idNumber);
-
           if (response.valid) {
             setVerificationStatus('valid');
             const student = response.data;
-
             setForm(prev => ({
               ...prev,
               firstName: student.firstName || '',
@@ -159,8 +225,7 @@ const SubmitDetails: React.FC = () => {
         } finally {
           setIsVerifying(false);
         }
-      }, 800); // 800ms debounce
-
+      }, 800);
       return () => clearTimeout(delayDebounceFn);
     } else {
       setVerificationStatus('idle');
@@ -190,21 +255,31 @@ const SubmitDetails: React.FC = () => {
 
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="max-w-7xl mx-auto mt-6 lg:mt-12 px-4 sm:px-8">
         
-        {/* Verification Status Overlay */}
+        {/* Verification & General Status Overlay */}
         <AnimatePresence>
-          {verificationStatus !== 'idle' && (
+          {(verificationStatus !== 'idle' || status === 'success') && (
             <motion.div 
-              initial={{ opacity: 0, y: -20 }} 
-              animate={{ opacity: 1, y: 0 }} 
+              initial={{ opacity: 0, scale: 0.95 }} 
+              animate={{ opacity: 1, scale: 1 }} 
               exit={{ opacity: 0 }}
-              className={`mb-6 p-4 rounded-2xl flex items-center gap-3 border ${
-                verificationStatus === 'valid' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700'
+              className={`mb-6 p-6 rounded-[2rem] flex items-center justify-between gap-4 border shadow-sm ${
+                status === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
+                verificationStatus === 'valid' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 
+                'bg-rose-50 border-rose-200 text-rose-700'
               }`}
             >
-              {isVerifying ? <Loader2 className="animate-spin" size={18}/> : verificationStatus === 'valid' ? <CheckCircle2 size={18}/> : <AlertCircle size={18}/>}
-              <span className="text-xs font-black uppercase tracking-widest">
-                {isVerifying ? 'Checking master list...' : verificationStatus === 'valid' ? 'Records Verified' : errorMessage}
-              </span>
+              <div className="flex items-center gap-3">
+                {isVerifying ? <Loader2 className="animate-spin" size={20}/> : 
+                 (verificationStatus === 'valid' || status === 'success') ? <CheckCircle2 size={20}/> : <AlertCircle size={20}/>}
+                <span className="text-xs font-black uppercase tracking-widest">
+                  {status === 'success' ? 'Application Submitted Successfully!' :
+                   isVerifying ? 'Verifying with Registrar...' : 
+                   verificationStatus === 'valid' ? 'Records Verified' : errorMessage}
+                </span>
+              </div>
+              {status === 'success' && (
+                  <button onClick={() => navigate('/')} className="bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold text-xs">Return Home</button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -219,8 +294,9 @@ const SubmitDetails: React.FC = () => {
                   onChange={(v: string) => setForm({...form, idNumber: v})} 
                   placeholder="type your id number here" 
                   status={verificationStatus}
+                  isLoading={isVerifying}
                 />
-                <ScalingInput label="Course" value={form.course} onChange={(v: string) => setForm({...form, firstName: v})}/>
+                <ScalingInput label="Course" value={form.course} onChange={(v: string) => setForm({...form, course: v})}/>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mt-4">
@@ -234,7 +310,6 @@ const SubmitDetails: React.FC = () => {
                   <ScalingInput label="Surname" value={form.lastName} onChange={(v: string) => setForm({...form, lastName: v})} />
                 </div>
               </div>
-              
             </FormSection>
 
             <FormSection icon={<User />} title="Additional Information" subtitle="Personal Data">
@@ -251,40 +326,79 @@ const SubmitDetails: React.FC = () => {
               <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 text-center">
                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-8">Biometric Uploads</h3>
                 <div className="grid grid-cols-2 lg:grid-cols-1 gap-8 lg:gap-10">
-                  {/* Biometric UI remains same */}
+                  
+                  {/* Photo Upload Card */}
                   <div className="space-y-4">
                     <div className="relative mx-auto w-32 h-32 lg:w-48 lg:h-48">
-                      <div className="w-full h-full rounded-[2.5rem] bg-slate-50 border-2 border-dashed border-slate-200 overflow-hidden flex items-center justify-center">
-                        {isProcessingId ? <Loader2 className="animate-spin text-teal-500" size={30} /> : idPreview ? <img src={idPreview} alt="Preview" className="w-full h-full object-cover" /> : <Camera size={40} className="text-slate-300" />}
+                      <div className={`w-full h-full rounded-[2.5rem] bg-slate-50 border-2 border-dashed overflow-hidden flex flex-col items-center justify-center transition-all ${
+                          fileErrors.id ? 'border-rose-300 bg-rose-50' : 'border-slate-200'
+                      }`}>
+                        {isProcessingId ? (
+                            <div className="flex flex-col items-center gap-2">
+                                <RefreshCcw className="animate-spin text-teal-500" size={24} />
+                                <span className="text-[8px] font-black text-teal-600 uppercase">AI Processing</span>
+                            </div>
+                        ) : idPreview ? (
+                            <img src={idPreview} alt="Preview" className="w-full h-full object-cover animate-in fade-in duration-500" />
+                        ) : (
+                            <UploadCloud size={40} className="text-slate-300" />
+                        )}
                       </div>
-                      <input type="file" accept="image/*" onChange={e => handleFile(e, 'id_picture')} className="hidden" id="id-p" />
-                      <label htmlFor="id-p" className="absolute -bottom-2 -right-2 bg-[#00928a] text-white p-3 rounded-2xl shadow-xl cursor-pointer hover:scale-110 transition-transform"><Camera size={20} /></label>
+                      <input type="file" accept="image/png, image/jpeg" onChange={e => handleFile(e, 'id_picture')} className="hidden" id="id-p" />
+                      <label htmlFor="id-p" className="absolute -bottom-2 -right-2 bg-[#00928a] text-white p-3 rounded-2xl shadow-xl cursor-pointer hover:scale-110 transition-transform active:scale-95"><Camera size={20} /></label>
                     </div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID Photo (2x2)</p>
+                    <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID Photo (2x2)</p>
+                        {fileErrors.id && <p className="text-[9px] text-rose-500 font-bold mt-1 uppercase">{fileErrors.id}</p>}
+                    </div>
                   </div>
+
+                  {/* Signature Upload Card */}
                   <div className="space-y-4">
                     <div className="relative mx-auto w-full max-w-[200px] h-24 lg:h-32">
-                      <div className="w-full h-full rounded-[2.5rem] bg-slate-50 border-2 border-dashed border-slate-200 overflow-hidden flex items-center justify-center">
-                        {isProcessingSig ? <Loader2 className="animate-spin text-slate-500" size={30} /> : sigPreview ? <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/gray-paper.png')] bg-repeat"><img src={sigPreview} alt="Signature" className="w-full h-full object-contain p-4" /></div> : <FileCheck size={40} className="text-slate-300" />}
+                      <div className={`w-full h-full rounded-[2.5rem] bg-slate-50 border-2 border-dashed overflow-hidden flex flex-col items-center justify-center transition-all ${
+                          fileErrors.sig ? 'border-rose-300 bg-rose-50' : 'border-slate-200'
+                      }`}>
+                        {isProcessingSig ? (
+                             <div className="flex flex-col items-center gap-2">
+                                <Loader2 className="animate-spin text-slate-500" size={24} />
+                                <span className="text-[8px] font-black text-slate-600 uppercase">Cleaning...</span>
+                             </div>
+                        ) : sigPreview ? (
+                            <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/gray-paper.png')] bg-repeat flex items-center justify-center">
+                                <img src={sigPreview} alt="Signature" className="w-full h-full object-contain p-4 animate-in zoom-in-95 duration-500" />
+                            </div>
+                        ) : (
+                            <FileCheck size={40} className="text-slate-300" />
+                        )}
                       </div>
-                      <input type="file" accept="image/*" onChange={e => handleFile(e, 'signature_picture')} className="hidden" id="sig-p" />
-                      <label htmlFor="sig-p" className="absolute -bottom-2 -right-2 bg-slate-800 text-white p-3 rounded-2xl cursor-pointer hover:scale-110 transition-transform"><FileCheck size={20} /></label>
+                      <input type="file" accept="image/png, image/jpeg" onChange={e => handleFile(e, 'signature_picture')} className="hidden" id="sig-p" required/>
+                      <label htmlFor="sig-p" className="absolute -bottom-2 -right-2 bg-slate-800 text-white p-3 rounded-2xl cursor-pointer hover:scale-110 transition-transform active:scale-95"><FileCheck size={20} /></label>
                     </div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Digital Signature</p>
+                    <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Digital Signature</p>
+                        {fileErrors.sig && <p className="text-[9px] text-rose-500 font-bold mt-1 uppercase">{fileErrors.sig}</p>}
+                    </div>
                   </div>
+
                 </div>
               </div>
 
               <motion.button 
-                whileHover={{ scale: 1.02 }} 
-                whileTap={{ scale: 0.98 }} 
+                whileHover={!isSubmitting && verificationStatus === 'valid' ? { scale: 1.02 } : {}} 
+                whileTap={!isSubmitting && verificationStatus === 'valid' ? { scale: 0.98 } : {}} 
                 type="submit" 
-                disabled={isSubmitting || isProcessingId || isProcessingSig || verificationStatus !== 'valid'}
+                disabled={isSubmitting || isProcessingId || isProcessingSig || verificationStatus !== 'valid' || isFormIncomplete}
                 className={`w-full py-6 lg:py-8 rounded-[2.5rem] font-black text-sm lg:text-base tracking-[0.3em] shadow-2xl flex items-center justify-center gap-4 transition-all ${
-                    verificationStatus === 'valid' ? 'bg-[#00928a] hover:bg-[#007a73] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+                    verificationStatus === 'valid' && !isFormIncomplete ? 'bg-[#00928a] hover:bg-[#007a73] text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                 }`}
               >
-                {isSubmitting ? <Loader2 className="animate-spin" size={24} /> : 'SUBMIT'}
+                {isSubmitting ? (
+                    <>
+                        <Loader2 className="animate-spin" size={24} />
+                        <span>SUBMITTING...</span>
+                    </>
+                ) : 'SUBMIT'}
               </motion.button>
             </div>
           </div>
@@ -294,7 +408,6 @@ const SubmitDetails: React.FC = () => {
   );
 };
 
-// Internal Layout Components
 const FormSection = ({ icon, title, subtitle, children }: any) => (
   <div className="bg-white p-8 lg:p-12 rounded-[3.5rem] shadow-sm border border-slate-200/60">
     <div className="flex items-center gap-4 mb-10">
@@ -310,16 +423,17 @@ const FormSection = ({ icon, title, subtitle, children }: any) => (
   </div>
 );
 
-const ScalingInput = ({ label, value, onChange, placeholder = "", isTextArea = false, status = 'idle' }: any) => (
+const ScalingInput = ({ label, value, onChange, placeholder = "", isTextArea = false, status = 'idle', isLoading = false, required = false }: any) => (
   <div className="w-full">
     <label className="block text-[10px] lg:text-xs font-black text-slate-400 uppercase mb-3 ml-2 tracking-[0.1em]">{label}</label>
     {isTextArea ? (
-      <textarea value={value} onChange={e => onChange(e.target.value)} rows={4} className="w-full bg-slate-50 border border-slate-200 rounded-[1.8rem] p-5 lg:p-6 text-sm lg:text-base focus:bg-white focus:ring-[6px] focus:ring-teal-50 focus:border-teal-500 outline-none transition-all placeholder:text-slate-300" placeholder="Input full details..." />
+      <textarea value={value} onChange={e => onChange(e.target.value)} rows={4} required={required} className="w-full bg-slate-50 border border-slate-200 rounded-[1.8rem] p-5 lg:p-6 text-sm lg:text-base focus:bg-white focus:ring-[6px] focus:ring-teal-50 focus:border-teal-500 outline-none transition-all placeholder:text-slate-300" placeholder="Input full details..." />
     ) : (
       <div className="relative">
           <input 
             type="text" 
             value={value} 
+            required={required}
             onChange={e => onChange(e.target.value)} 
             placeholder={placeholder} 
             className={`w-full bg-slate-50 border rounded-[1.8rem] p-5 lg:p-6 text-sm lg:text-base focus:bg-white focus:ring-[6px] outline-none transition-all placeholder:text-slate-300 ${
@@ -327,45 +441,15 @@ const ScalingInput = ({ label, value, onChange, placeholder = "", isTextArea = f
                 status === 'invalid' ? 'border-rose-500 focus:ring-rose-50' : 
                 'border-slate-200 focus:ring-teal-50 focus:border-teal-500'
             }`} 
-            disabled
           />
-          {status === 'valid' && <CheckCircle2 className="absolute right-6 top-1/2 -translate-y-1/2 text-emerald-500" size={20} />}
-          {status === 'invalid' && <AlertCircle className="absolute right-6 top-1/2 -translate-y-1/2 text-rose-500" size={20} />}
+          <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              {isLoading && <Loader2 className="animate-spin text-teal-500" size={20} />}
+              {status === 'valid' && !isLoading && <CheckCircle2 className="text-emerald-500" size={20} />}
+              {status === 'invalid' && !isLoading && <AlertCircle className="text-rose-500" size={20} />}
+          </div>
       </div>
     )}
   </div>
 );
-
-const ScalingSelect = ({ label, value, onChange, options }: any) => {
-  const [isOpen, setIsOpen] = useState(false);
-  return (
-    <div className="w-full relative">
-      <label className="block text-[10px] lg:text-xs font-black text-slate-400 uppercase mb-3 ml-2 tracking-[0.1em]">{label}</label>
-      <div className="relative">
-        <button type="button" onClick={() => setIsOpen(!isOpen)} className={`w-full flex items-center justify-between bg-slate-50 border border-slate-200 rounded-[1.8rem] p-5 lg:p-6 text-sm lg:text-base text-left transition-all outline-none ${isOpen ? 'bg-white ring-[6px] ring-teal-50 border-teal-500 shadow-lg' : 'hover:border-slate-300'}`}>
-          <span className={value ? "text-slate-900 font-bold" : "text-slate-400"}>{value || "Select Department"}</span>
-          <motion.div animate={{ rotate: isOpen ? 180 : 0 }}><ChevronDown size={22} strokeWidth={3} className={isOpen ? "text-teal-600" : "text-slate-400"} /></motion.div>
-        </button>
-        <AnimatePresence>
-          {isOpen && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-              <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className="absolute z-50 left-0 right-0 mt-3 bg-white border border-slate-100 rounded-[2rem] shadow-2xl max-h-72 overflow-y-auto custom-scrollbar">
-                <div className="p-2 grid grid-cols-1 gap-1">
-                  {options.map((opt: string) => (
-                    <button key={opt} type="button" onClick={() => { onChange(opt); setIsOpen(false); }} className={`flex items-center justify-between px-6 py-4 rounded-2xl text-sm font-bold transition-all ${value === opt ? 'bg-[#00928a] text-white shadow-lg' : 'text-slate-600 hover:bg-teal-50 hover:text-teal-700'}`}>
-                      <span>{opt}</span>
-                      {value === opt && <CheckCircle2 size={18} className="text-white" />}
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-};
 
 export default SubmitDetails;

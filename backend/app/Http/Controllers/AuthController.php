@@ -68,9 +68,11 @@ class AuthController extends Controller
         }
 
         $user = Auth::user();
+        $token = $user->createToken('spa-token')->plainTextToken;
 
         return response()->json([
             'message' => 'Logged in successfully.',
+            'token' => $token,
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -83,7 +85,7 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         if ($request->user()) {
-            $request->user()->tokens()->delete(); 
+            $request->user()->currentAccessToken()?->delete();
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
