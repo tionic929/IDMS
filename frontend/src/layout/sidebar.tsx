@@ -63,7 +63,7 @@ const navItems: NavItem[] = [
 const NavItemComponent: React.FC<{ item: NavItem; isCollapsed: boolean }> = ({ item, isCollapsed }) => {
   const location = useLocation();
   const isChildActive = item.children?.some((child) => location.pathname === child.to);
-  const [isOpen, setIsOpen] = useState(isChildActive || true);
+  const [isOpen, setIsOpen] = useState<boolean>(!!isChildActive);
 
   const historyChildIcons: { [key: string]: React.ElementType } = {
     Logs: ListIcon,

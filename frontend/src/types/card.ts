@@ -6,8 +6,8 @@ export interface ApplicantCard {
   guardian_name: string;
   guardian_contact: string;
   address: string;
-  photo: string | null;
-  signature: string | null;
+  photo?: string | null;
+  signature?: string | null;
 }
 export interface ElementPos {
   x: number;

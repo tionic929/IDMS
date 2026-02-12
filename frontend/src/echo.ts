@@ -5,6 +5,8 @@ import axios from 'axios';
 
 (window as any).Pusher = Pusher;
 
+const apiBaseUrl = import.meta.env.VITE_API_URL || '';
+
 export const echo = new Echo({
     broadcaster: 'pusher',
     key: '401ae79568ea4d18c74f',
@@ -15,7 +17,7 @@ export const echo = new Echo({
     authorizer: (channel: any, options: any) => {
         return {
             authorize: (socketId: string, callback: Function) => {
-                axios.post('/broadcasting/auth', {
+                axios.post(`${apiBaseUrl}/broadcasting/auth`, {
                     socket_id: socketId,
                     channel_name: channel.name
                 })
