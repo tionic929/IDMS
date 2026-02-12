@@ -17,6 +17,7 @@ return [
         'http://192.168.68.106:5173',
         'http://10.0.31.10:5173',
         'http://192.168.68.64:5173',
+        'https://dashboard-ncnian-id.svizcarra.online',
         'https://ncnian-id.svizcarra.online',
     ],
 
