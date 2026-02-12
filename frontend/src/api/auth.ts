@@ -1,7 +1,7 @@
 import api from "./axios";
 
 export const apiLogin = async (email: string, password: string) => {
-    await api.get("http://localhost:8000/sanctum/csrf-cookie");
+    await api.get("https://ncnian-id.svizcarra.online/sanctum/csrf-cookie");
 
     return await api.post("/login", {email, password});
 }
