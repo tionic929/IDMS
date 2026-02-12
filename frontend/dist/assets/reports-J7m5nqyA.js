@@ -1,1 +1,0 @@
-import{a as e}from"./index-BoX2M4z0.js";const o=async t=>(await e.post("/reports/verify",{id_number:t})).data,p=async t=>(await e.post("/import",t,{headers:{"Content-Type":"multipart/form-data"}})).data,n=async(t=1,r="")=>(await e.get("/all-imported-reports",{params:{search:r,page:t}})).data;export{n as g,p as i,o as v};

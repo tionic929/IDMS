@@ -137,18 +137,20 @@ const SubmitDetails: React.FC = () => {
     else setIsProcessingSig(true);
 
     try {
-        const options = { maxSizeMB: 0.5, maxWidthOrHeight: 1200, useWebWorker: true };
-        const compressed = await imageCompression(file, options);
-        
-        const formData = new FormData();
-        formData.append('image', compressed, 'upload.png'); 
+      await getCsrfCookie();
 
-        const response = await axios.post(finalUrl, formData, { 
-            responseType: 'blob',
-            headers: {
-                'Content-Type': 'multipart/form-data',
-                'ngrok-skip-browser-warning': 'true',
-            }
+      const options = { maxSizeMB: 0.5, maxWidthOrHeight: 1200, useWebWorker: true };
+      const compressed = await imageCompression(file, options);
+      
+      const formData = new FormData();
+      formData.append('image', compressed, 'upload.png'); 
+
+      const response = await api.post(finalUrl, formData, { 
+          responseType: 'blob',
+          headers: {
+              'Content-Type': 'multipart/form-data',
+              'ngrok-skip-browser-warning': 'true',
+          }
         });
 
         if (field === 'id_picture') {
