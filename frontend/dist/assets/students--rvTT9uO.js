@@ -1,1 +1,0 @@
-import{a}from"./index-YLVgsvnJ.js";const r=async(t="",s=1)=>(await a.get("/paginated-applicants",{params:{search:t,page:s}})).data,c=async()=>(await a.get("/total-applicants")).data,p=async()=>(await a.get("/students")).data,o=async t=>{const{data:s}=await a.post(`/confirm/${t}`);return s};export{r as a,c as b,o as c,p as g};
