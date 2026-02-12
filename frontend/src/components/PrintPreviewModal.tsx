@@ -93,11 +93,19 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
       return;
     }
 
-    if (window.require) {
+    // Check for Electron IPC availability
+    const isElectron = window && window.process && (window.process as any).type;
+    const hasRequire = typeof window.require !== 'undefined';
+
+    if (hasRequire || isElectron) {
       try {
         await confirmApplicant(data.id);
-        const { ipcRenderer } = window.require('electron');
-        toast.info('Sending to printer...');
+        
+        // Use window.require to get the Electron IPC
+        const electron = window.require('electron');
+        const ipcRenderer = electron.ipcRenderer;
+
+        toast.info('Sending to local printer service...');
         
         ipcRenderer.send('print-card-images', {
           frontImage,
@@ -112,9 +120,10 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
           },
         });
 
-        ipcRenderer.once('print-reply', (_event, arg) => {
+        // Listen for the response from main.cjs
+        ipcRenderer.once('print-reply', (_event: any, arg: any) => {
           if (arg.success) {
-            toast.success('Print job completed!');
+            toast.success('Print job completed successfully!');
             setTimeout(onClose, 1500);
           } else {
             toast.error(`Print failed: ${arg.failureReason}`);
@@ -123,9 +132,11 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
 
       } catch (err) {
         console.error('Print error:', err);
-        toast.error('Printing failed. Try downloading instead.');
+        toast.error('Local printing failed. The Python service might be busy.');
       }
     } else {
+      // Fallback for regular web browsers
+      toast.warn("Silent printing requires the Desktop App. Opening browser print...");
       window.print();
     }
   };
@@ -198,7 +209,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
           pointer-events: none;
         }
 
-        /* Custom scrollbar */
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
           height: 6px;
@@ -281,8 +291,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 Display Options
               </p>
-              <span className="flex flex-row gap-4">
-                
+              <div className="flex flex-row gap-4">
                 <button
                   onClick={() => setShowCutLines(!showCutLines)}
                   className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
@@ -311,56 +320,52 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                   </div>
                   <div className={`w-2 h-2 rounded-full ${mirrorBack ? 'bg-teal-400' : 'bg-slate-600'}`} />
                 </button>
-              </span>
+              </div>
             </div>
 
             {/* Margin Settings */}
             <div className="space-y-3">
-              <span className='flex flex-row justify-between items-center '>
-                Settings
-                <Settings
-                  size={14}
-                  className=
-                  'text-slate-500'
-                  />
+              <span className='flex flex-row justify-between items-center text-xs font-semibold text-slate-400 uppercase tracking-wider'>
+                Margin Settings
+                <Settings size={14} className='text-slate-500' />
               </span>
-                <div className="p-1 bg-slate-950/50 rounded-lg border border-slate-800 space-y-4">
-                  {/* Quick Presets */}
-                  <div className="grid grid-cols-2 gap-1">
-                    {marginPresets.map((preset) => (
-                      <button
-                        key={preset.label}
-                        onClick={() => applyMarginPreset(preset)}
-                        className="py-2 px-3 text-xs font-medium bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Individual Controls */}
-                  {[
-                    { label: 'Top', value: marginTop, setter: setMarginTop },
-                    { label: 'Right', value: marginRight, setter: setMarginRight },
-                    { label: 'Bottom', value: marginBottom, setter: setMarginBottom },
-                    { label: 'Left', value: marginLeft, setter: setMarginLeft }
-                  ].map(({ label, value, setter }) => (
-                    <div key={label}>
-                      <div className="flex justify-between text-xs mb-1.5">
-                        <span className="font-medium text-slate-400">{label}</span>
-                        <span className="font-semibold text-teal-400">{value}px</span>
-                      </div>
-                      <input 
-                        type="range" 
-                        min="0" 
-                        max="50" 
-                        value={value} 
-                        onChange={(e) => setter(Number(e.target.value))}
-                        className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-500"
-                      />
-                    </div>
+              <div className="p-3 bg-slate-950/50 rounded-lg border border-slate-800 space-y-4">
+                {/* Quick Presets */}
+                <div className="grid grid-cols-2 gap-2">
+                  {marginPresets.map((preset) => (
+                    <button
+                      key={preset.label}
+                      onClick={() => applyMarginPreset(preset)}
+                      className="py-2 px-3 text-xs font-medium bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
+                    >
+                      {preset.label}
+                    </button>
                   ))}
                 </div>
+
+                {/* Individual Controls */}
+                {[
+                  { label: 'Top', value: marginTop, setter: setMarginTop },
+                  { label: 'Right', value: marginRight, setter: setMarginRight },
+                  { label: 'Bottom', value: marginBottom, setter: setMarginBottom },
+                  { label: 'Left', value: marginLeft, setter: setMarginLeft }
+                ].map(({ label, value, setter }) => (
+                  <div key={label}>
+                    <div className="flex justify-between text-xs mb-1.5">
+                      <span className="font-medium text-slate-400">{label}</span>
+                      <span className="font-semibold text-teal-400">{value}px</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="50" 
+                      value={value} 
+                      onChange={(e) => setter(Number(e.target.value))}
+                      className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
             
             {/* Output Info */}
