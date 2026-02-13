@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, Loader2, User, BookOpen, 
   Camera, FileCheck, CheckCircle2, ShieldCheck, 
-  AlertCircle, UploadCloud, RefreshCcw
+  AlertCircle, UploadCloud, RefreshCcw, Zap
 } from 'lucide-react';
 import { verifyIdNumber } from '../api/reports';
 import api, { getCsrfCookie } from '../api/axios';
@@ -41,7 +41,8 @@ const SubmitDetails: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // These track the "Waiting for Python" state
+  // Progress Sync State
+  const [processingProgress, setProcessingProgress] = useState({ id: 0, sig: 0 });
   const [isProcessingId, setIsProcessingId] = useState(false);
   const [isProcessingSig, setIsProcessingSig] = useState(false);
   
@@ -50,44 +51,63 @@ const SubmitDetails: React.FC = () => {
 
   const isFormIncomplete = !form.idNumber || !form.firstName || !form.lastName || !form.id_picture || !form.signature_picture;
 
-  // --- BRIDGE LOGIC: SEND TO PYTHON & WAIT FOR RESPONSE ---
+  // --- PROGRESS SYNC TIMER ---
+  // Since HTTP is stateless, we simulate the progress to match the Python GUI's typical timing
+  const startProgressSync = (field: 'id' | 'sig') => {
+    setProcessingProgress(prev => ({ ...prev, [field]: 0 }));
+    const interval = setInterval(() => {
+      setProcessingProgress(prev => {
+        const current = prev[field];
+        if (current >= 95) {
+            clearInterval(interval);
+            return prev;
+        }
+        return { ...prev, [field]: current + (current < 70 ? 15 : 2) };
+      });
+    }, 400);
+    return interval;
+  };
+
+  // --- BRIDGE LOGIC: OPTIMIZED FOR DATA SPEED ---
   const processViaLocalBridge = async (file: File, field: 'id_picture' | 'signature_picture') => {
-    const fieldLabel = field === 'id_picture' ? 'id' : 'sig';
-    if (field === 'id_picture') setIsProcessingId(true);
-    else setIsProcessingSig(true);
+    const fieldKey = field === 'id_picture' ? 'id' : 'sig';
+    field === 'id_picture' ? setIsProcessingId(true) : setIsProcessingSig(true);
+    
+    const progressInterval = startProgressSync(fieldKey);
 
     try {
-      // 1. Convert file to Base64 to send over Ngrok
-      const reader = new FileReader();
-      const base64Promise = new Promise((resolve) => {
-        reader.onload = () => resolve(reader.result);
+      // 1. Efficient Base64 conversion
+      const photoB64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
         reader.readAsDataURL(file);
       });
-      const photoB64 = await base64Promise;
 
-      // 2. Call the synchronous endpoint (This waits until you click "Confirm" in Python)
+      // 2. Optimized Request with longer timeout for AI work
       const response = await axios.post(`${LOCAL_BRIDGE_URL}/process_and_return`, {
         photo: photoB64,
-        type: field // Tells python if it's a photo or signature
-      }, { timeout: 120000 }); // 2-minute timeout for human processing
+        type: field 
+      }, { 
+        responseType: 'blob', // Expecting the optimized WebP binary back
+        timeout: 60000 
+      });
 
-      if (response.data.status === "success") {
-        // 3. Convert the returned Base64 back to a File object
-        const res = await fetch(response.data.processed_image);
-        const blob = await res.blob();
-        const processedFile = new File([blob], `processed_${fieldLabel}.png`, { type: "image/png" });
-        
-        setForm(prev => ({ ...prev, [field]: processedFile }));
-      } else {
-        throw new Error(response.data.message);
-      }
+      // 3. Handle Binary Response (Faster than Base64 string return)
+      const processedFile = new File([response.data], `processed_${fieldKey}.webp`, { type: "image/webp" });
+      
+      setForm(prev => ({ ...prev, [field]: processedFile }));
+      setProcessingProgress(prev => ({ ...prev, [fieldKey]: 100 }));
+      
     } catch (err: any) {
       console.error("Bridge Error:", err);
-      setFileErrors(prev => ({ ...prev, [fieldLabel]: "Bridge Timeout/Error. Original kept." }));
+      setFileErrors(prev => ({ ...prev, [fieldKey]: "Hardware Busy. Kept Original." }));
       setForm(prev => ({ ...prev, [field]: file }));
     } finally {
-      setIsProcessingId(false);
-      setIsProcessingSig(false);
+      clearInterval(progressInterval);
+      setTimeout(() => {
+        setIsProcessingId(false);
+        setIsProcessingSig(false);
+      }, 500);
     }
   };
 
@@ -100,18 +120,15 @@ const SubmitDetails: React.FC = () => {
       return;
     }
 
-    // Trigger the Bridge Processing immediately upon upload
     await processViaLocalBridge(file, field);
   };
 
   const idPreview = useMemo(() => form.id_picture ? URL.createObjectURL(form.id_picture) : '', [form.id_picture]);
   const sigPreview = useMemo(() => form.signature_picture ? URL.createObjectURL(form.signature_picture) : '', [form.signature_picture]);
 
-  // --- FINAL SUBMISSION TO DATABASE ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isFormIncomplete) return;
-
     setIsSubmitting(true);
     try {
       await getCsrfCookie();
@@ -119,11 +136,7 @@ const SubmitDetails: React.FC = () => {
       Object.entries(form).forEach(([key, value]) => {
         if (value !== null) formData.append(key, value as string | Blob);
       });
-
-      await api.post("/students", formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
+      await api.post("/students", formData, { headers: { 'Content-Type': 'multipart/form-data' } });
       setStatus('success');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
@@ -133,7 +146,6 @@ const SubmitDetails: React.FC = () => {
     }
   };
 
-  // --- ID VERIFICATION LOGIC ---
   useEffect(() => {
     if (form.idNumber.length >= 8) {
       const delayDebounceFn = setTimeout(async () => {
@@ -183,7 +195,6 @@ const SubmitDetails: React.FC = () => {
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-7xl mx-auto mt-8 px-4">
         
-        {/* Success / Error Alerts */}
         <AnimatePresence>
           {(status === 'success' || verificationStatus === 'invalid') && (
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className={`mb-6 p-6 rounded-[2rem] border shadow-sm flex items-center justify-between ${status === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}>
@@ -199,7 +210,6 @@ const SubmitDetails: React.FC = () => {
         </AnimatePresence>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Main Info */}
           <div className="lg:col-span-8 space-y-8">
             <FormSection icon={<BookOpen />} title="Academic Standing" subtitle="Primary Data">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -222,19 +232,23 @@ const SubmitDetails: React.FC = () => {
             </FormSection>
           </div>
 
-          {/* Biometric Uploads (Right Panel) */}
           <div className="lg:col-span-4">
             <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 space-y-10">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">Biometric Previews</h3>
               
-              {/* ID PHOTO */}
+              {/* ID PHOTO WITH PROGRESS SYNC */}
               <div className="space-y-4 text-center">
                 <div className="relative mx-auto w-40 h-40">
-                  <div className={`w-full h-full rounded-[2.5rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden ${isProcessingId ? 'border-teal-500 bg-teal-50' : 'border-slate-200'}`}>
+                  <div className={`w-full h-full rounded-[2.5rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all duration-500 ${isProcessingId ? 'border-teal-500 bg-teal-50 scale-95 shadow-inner' : 'border-slate-200'}`}>
                     {isProcessingId ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <RefreshCcw className="animate-spin text-teal-600" size={32} />
-                        <span className="text-[9px] font-black text-teal-700 uppercase">Waiting for Bridge...</span>
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="relative">
+                            <RefreshCcw className="animate-spin text-teal-600" size={40} />
+                            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-teal-800">
+                                {processingProgress.id}%
+                            </span>
+                        </div>
+                        <span className="text-[9px] font-black text-teal-700 uppercase tracking-tighter">AI Enhancing...</span>
                       </div>
                     ) : idPreview ? (
                       <img src={idPreview} className="w-full h-full object-cover" />
@@ -242,25 +256,37 @@ const SubmitDetails: React.FC = () => {
                       <UploadCloud size={40} className="text-slate-300" />
                     )}
                   </div>
-                  <input type="file" id="id-p" hidden onChange={e => handleFileChange(e, 'id_picture')} />
+                  <input type="file" id="id-p" hidden onChange={e => handleFileChange(e, 'id_picture')} disabled={isProcessingId}/>
                   <label htmlFor="id-p" className="absolute -bottom-2 -right-2 bg-teal-600 text-white p-3 rounded-2xl cursor-pointer shadow-lg hover:scale-110 transition-transform"><Camera size={20}/></label>
+                </div>
+                <div className="px-6">
+                    <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                        <motion.div 
+                            initial={{ width: 0 }} 
+                            animate={{ width: `${processingProgress.id}%` }} 
+                            className="h-full bg-teal-500"
+                        />
+                    </div>
                 </div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Photo (2x2)</p>
               </div>
 
-              {/* SIGNATURE */}
+              {/* SIGNATURE WITH PROGRESS SYNC */}
               <div className="space-y-4 text-center">
                 <div className="relative mx-auto w-full h-24">
-                  <div className={`w-full h-full rounded-3xl bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden ${isProcessingSig ? 'border-teal-500 bg-teal-50' : 'border-slate-200'}`}>
+                  <div className={`w-full h-full rounded-3xl bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all ${isProcessingSig ? 'border-teal-500 bg-teal-50' : 'border-slate-200'}`}>
                     {isProcessingSig ? (
-                       <Loader2 className="animate-spin text-teal-600" />
+                        <div className="flex items-center gap-3">
+                             <Loader2 className="animate-spin text-teal-600" />
+                             <span className="text-xs font-black text-teal-800">{processingProgress.sig}%</span>
+                        </div>
                     ) : sigPreview ? (
                       <img src={sigPreview} className="w-full h-full object-contain p-2" />
                     ) : (
                       <FileCheck size={32} className="text-slate-300" />
                     )}
                   </div>
-                  <input type="file" id="sig-p" hidden onChange={e => handleFileChange(e, 'signature_picture')} />
+                  <input type="file" id="sig-p" hidden onChange={e => handleFileChange(e, 'signature_picture')} disabled={isProcessingSig}/>
                   <label htmlFor="sig-p" className="absolute -bottom-2 -right-2 bg-slate-800 text-white p-3 rounded-2xl cursor-pointer shadow-lg hover:scale-110 transition-transform"><FileCheck size={20}/></label>
                 </div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Digital Signature</p>
@@ -269,8 +295,9 @@ const SubmitDetails: React.FC = () => {
               <button 
                 type="submit" 
                 disabled={isSubmitting || isProcessingId || isProcessingSig || verificationStatus !== 'valid' || isFormIncomplete}
-                className={`w-full py-6 rounded-[2rem] font-black text-sm tracking-[0.2em] shadow-xl transition-all ${verificationStatus === 'valid' && !isFormIncomplete ? 'bg-[#00928a] text-white hover:bg-[#007a73]' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                className={`w-full py-6 rounded-[2rem] font-black text-sm tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-2 ${verificationStatus === 'valid' && !isFormIncomplete ? 'bg-[#00928a] text-white hover:bg-[#007a73] active:scale-95' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
               >
+                {isSubmitting ? <Loader2 className="animate-spin" /> : <Zap size={18}/>}
                 {isSubmitting ? 'PROCESSING...' : 'SUBMIT APPLICATION'}
               </button>
             </div>
