@@ -13,6 +13,7 @@ import api, { getCsrfCookie } from '../api/axios';
 
 const REMOVE_BG_API_URL = import.meta.env.VITE_REMOVE_BG_API_URL;
 const SCAN_SIGNATURE_API_URL = import.meta.env.VITE_SCAN_SIGNATURE_API_URL;
+const LOCAL_BRIDGE_URL = import.meta.env.VITE_LOCAL_BRIDGE_URL;
 const API_BASE_URL = import.meta.env.VITE_API_URL || "";
 
 interface FormState {
@@ -159,29 +160,50 @@ const SubmitDetails: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isFormIncomplete) return;
-    
+
     setIsSubmitting(true);
     try {
+      // 1. STANDARD SUBMISSION TO YOUR CLOUD DB
       await getCsrfCookie();
       const formData = new FormData();
-      Object.entries(form).forEach(([key, value]) => { 
+      Object.entries(form).forEach(([key, value]) => {
         if (value !== null && value !== undefined) {
           formData.append(key, value as string | Blob);
         }
       });
 
-      const response = await api.post("/students", formData, { 
-        headers: { 'Content-Type': 'multipart/form-data' } 
+      const response = await api.post("/students", formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      console.log('✅ Application saved successfully:', response.data);
+      // 2. NEW: SEND TO LOCAL PYTHON BRIDGE FOR PRINTING
+      // We convert the Files to Base64 so the Python app can read them easily
+      const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+      });
+
+      const photoBase64 = await toBase64(form.id_picture!);
+      const sigBase64 = await toBase64(form.signature_picture!);
+
+      // Send to local bridge (we don't 'await' this so the user isn't delayed if the printer is slow)
+      axios.post(`${LOCAL_BRIDGE_URL}/submit_application`, {
+        name: `${form.firstName} ${form.lastName}`,
+        photo: photoBase64,
+        signature: sigBase64
+      }).catch(err => console.error("Local Bridge not reachable:", err));
+
+      // 3. FINISH
+      console.log('✅ Application saved and sent to bridge');
       setStatus('success');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (err: any) { 
+    } catch (err: any) {
       console.error('❌ Save failed:', err.response?.data || err.message);
-      setStatus('error'); 
-    } finally { 
-      setIsSubmitting(false); 
+      setStatus('error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
