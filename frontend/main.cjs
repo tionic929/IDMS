@@ -1,18 +1,18 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { execFile } = require('child_process');
+const http = require('http'); // Using native http to avoid extra dependencies
 
 let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    icon: path.join(__dirname, 'icon.ico'), // Use your new vector here
+    icon: path.join(__dirname, 'icon.ico'),
     width: 1280,
     height: 800,
     titleBarOverlay: {
-      symbolColor: '#ffffff', // Color of the Min/Max/Exit icons
+      symbolColor: '#ffffff',
       height: 40
     },
     webPreferences: {
@@ -23,14 +23,11 @@ function createWindow() {
     autoHideMenuBar: true,
   });
 
-  const isDev = false; // Toggle this when testing locally
-  const url = isDev 
-    ? 'http://localhost:5173' 
-    : 'https://ncnian-id.svizcarra.online';
+  const isDev = false; 
+  const url = isDev ? 'http://localhost:5173' : 'https://ncnian-id.svizcarra.online';
 
   mainWindow.loadURL(url);
 
-  // 💡 IMPORTANT: Update the Origin header for your production URL
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     details.requestHeaders['Origin'] = url;
     callback({ requestHeaders: details.requestHeaders });
@@ -40,108 +37,59 @@ function createWindow() {
 app.whenReady().then(createWindow);
 
 /**
- * Convert base64 dataURL → temp PNG file
- */
-function writeBase64ToTempFile(dataUrl, suffix) {
-  const matches = dataUrl.match(/^data:image\/png;base64,(.+)$/);
-  if (!matches) throw new Error('Invalid PNG base64 data');
-
-  const buffer = Buffer.from(matches[1], 'base64');
-  const filePath = path.join(os.tmpdir(), `card_${suffix}_${Date.now()}.png`);
-  fs.writeFileSync(filePath, buffer);
-  return filePath;
-}
-
-/**
- * IPC: Print via Python service with margin support
- * 
- * Receives:
- *   - frontImage: base64 PNG
- *   - backImage: base64 PNG
- *   - width: image width (px)
- *   - height: image height (px)
- *   - margins: { top, bottom, left, right } in pixels
+ * IPC: Print via Python API Service
  */
 ipcMain.on('print-card-images', async (event, options) => {
   const { frontImage, backImage, margins } = options;
 
-  let frontPath, backPath;
-  const tempFiles = [];
+  console.log('[main.cjs] Forwarding print request to Python API...');
 
-  try {
-    frontPath = writeBase64ToTempFile(frontImage, 'front');
-    backPath = writeBase64ToTempFile(backImage, 'back');
-    
-    tempFiles.push(frontPath, backPath);
+  const postData = JSON.stringify({
+    frontImage,
+    backImage,
+    margins: margins || { top: 0, bottom: 0, left: 0, right: 0 }
+  });
 
-    const pythonExecutable = 'python'; // or absolute path if bundled
-    const scriptPath = path.join(__dirname, 'print_card.py');
-
-    // ============================================================
-    // Prepare arguments for Python script
-    // ============================================================
-    const args = [scriptPath, frontPath, backPath];
-    
-    // If margins are provided, add as JSON string
-    if (margins && (margins.top || margins.bottom || margins.left || margins.right)) {
-      args.push(JSON.stringify(margins));
-      console.log('[print-card-images] Margins:', margins);
+  const requestOptions = {
+    hostname: 'localhost',
+    port: 5000,
+    path: '/print_card',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(postData)
     }
+  };
 
-    console.log('[print-card-images] Calling Python with:', args.length, 'arguments');
-
-    // Execute print job
-    execFile(pythonExecutable, args, (err, stdout, stderr) => {
-      if (err) {
-        console.error('Print Error:', err.message);
-        console.error('Stderr:', stderr);
-        event.reply('print-reply', { 
-          success: false, 
-          failureReason: err.message,
-          stderr: stderr 
-        });
-        return;
+  const req = http.request(requestOptions, (res) => {
+    let data = '';
+    res.on('data', (chunk) => { data += chunk; });
+    res.on('end', () => {
+      try {
+        const response = JSON.parse(data);
+        if (response.success) {
+          console.log('[main.cjs] Print API Success');
+          event.reply('print-reply', { success: true });
+        } else {
+          console.error('[main.cjs] Print API Error:', response.error);
+          event.reply('print-reply', { success: false, failureReason: response.error });
+        }
+      } catch (e) {
+        event.reply('print-reply', { success: false, failureReason: 'Invalid API response' });
       }
-
-      console.log('Print job submitted successfully');
-      if (stdout) console.log('Stdout:', stdout);
-      
-      event.reply('print-reply', { success: true });
-
-      // Clean up temp files after a delay
-      // This gives Windows printer driver time to spool
-      setTimeout(() => {
-        tempFiles.forEach(filePath => {
-          if (filePath && fs.existsSync(filePath)) {
-            try {
-              fs.unlinkSync(filePath);
-              console.log(`Deleted temp file: ${filePath}`);
-            } catch (cleanupErr) {
-              console.warn(`Failed to delete ${filePath}:`, cleanupErr.message);
-            }
-          }
-        });
-      }, 20000); // 20 seconds
     });
+  });
 
-  } catch (error) {
-    console.error('IPC Error:', error);
+  req.on('error', (error) => {
+    console.error('[main.cjs] Connection to Python Service failed:', error.message);
     event.reply('print-reply', { 
       success: false, 
-      failureReason: error.message 
+      failureReason: 'Python Service not running (Connection Refused)' 
     });
+  });
 
-    // Cleanup on error
-    tempFiles.forEach(filePath => {
-      if (filePath && fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-        } catch (e) {
-          console.warn(`Failed to cleanup ${filePath}`);
-        }
-      }
-    });
-  }
+  req.write(postData);
+  req.end();
 });
 
 app.on('window-all-closed', () => {
