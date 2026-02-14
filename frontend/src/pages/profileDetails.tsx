@@ -7,13 +7,14 @@ import {
   Camera, FileCheck, CheckCircle2, ShieldCheck, 
   AlertCircle, UploadCloud, RefreshCcw, Zap
 } from 'lucide-react';
-// Library Import
-import removeBackground from '@imgly/background-removal';
+
+// --- FIXED IMPORT ---
+// We import the specific named function 'removeBackground'
+import { removeBackground } from '@imgly/background-removal';
 
 import { verifyIdNumber } from '../api/reports';
 import api, { getCsrfCookie } from '../api/axios';
 
-// --- CONFIG ---
 const LOCAL_BRIDGE_URL = "https://glacial-samiyah-presutural.ngrok-free.dev";
 
 interface FormState {
@@ -43,11 +44,7 @@ const SubmitDetails: React.FC = () => {
   const [verificationStatus, setVerificationStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // UI Preview Only (The "fast" version)
   const [clientSidePreview, setClientSidePreview] = useState<string | null>(null);
-
-  // Progress Sync States
   const [processingProgress, setProcessingProgress] = useState({ id: 0, sig: 0 });
   const [isProcessingId, setIsProcessingId] = useState(false);
   const [isProcessingSig, setIsProcessingSig] = useState(false);
@@ -70,7 +67,6 @@ const SubmitDetails: React.FC = () => {
     return interval;
   };
 
-  // --- HYBRID PROCESSING LOGIC ---
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: 'id_picture' | 'signature_picture') => {
     const file = e.target.files?.[0];
     if (!file || !ALLOWED_TYPES.includes(file.type)) return;
@@ -80,18 +76,19 @@ const SubmitDetails: React.FC = () => {
     const progressInterval = startProgressSync(fieldKey);
 
     try {
-      // 1. IF ID PICTURE: DO INSTANT CLIENT-SIDE BG REMOVAL FOR PREVIEW
+      // 1. CLIENT-SIDE BG REMOVAL (ID PICTURE ONLY)
       if (field === 'id_picture') {
-        const bgRemovedBlob = await removeBackground(file, {
-          progress: (item, progress) => {
-            // Mapping internal library progress to our 0-100 UI
-            console.log(`Removing BG: ${progress}`);
-          }
-        });
-        setClientSidePreview(URL.createObjectURL(bgRemovedBlob));
+        try {
+          // Now calling the named export correctly
+          const bgRemovedBlob = await removeBackground(file);
+          setClientSidePreview(URL.createObjectURL(bgRemovedBlob));
+        } catch (bgErr) {
+          console.warn("Client-side BG removal failed", bgErr);
+          setClientSidePreview(URL.createObjectURL(file));
+        }
       }
 
-      // 2. SEND RAW IMAGE TO PYTHON BRIDGE FOR HEAVY AI (GFPGAN / RESTORATION)
+      // 2. SEND RAW PHOTO TO PYTHON BRIDGE
       const photoB64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
@@ -106,14 +103,12 @@ const SubmitDetails: React.FC = () => {
         timeout: 90000 
       });
 
-      // 3. STORE THE "HIGH QUALITY" VERSION FROM BRIDGE
-      const processedFile = new File([response.data], `ai_enhanced_${fieldKey}.webp`, { type: "image/webp" });
+      const processedFile = new File([response.data], `processed_${fieldKey}.webp`, { type: "image/webp" });
       setForm(prev => ({ ...prev, [field]: processedFile }));
       setProcessingProgress(prev => ({ ...prev, [fieldKey]: 100 }));
       
     } catch (err: any) {
-      console.error("Processing Error:", err);
-      // Fallback: keep original if AI fails
+      console.error("Bridge Error:", err);
       setForm(prev => ({ ...prev, [field]: file }));
     } finally {
       clearInterval(progressInterval);
@@ -139,7 +134,6 @@ const SubmitDetails: React.FC = () => {
         if (value !== null) formData.append(key, value as string | Blob);
       });
 
-      // Send the AI-Enhanced images to your main Dashboard API
       await api.post("/students", formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -247,8 +241,11 @@ const SubmitDetails: React.FC = () => {
                   <div className={`w-full h-full rounded-[2.5rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all duration-300 ${isProcessingId ? 'border-teal-500 bg-teal-50 shadow-inner' : 'border-slate-200'}`}>
                     {isProcessingId ? (
                       <div className="flex flex-col items-center gap-2">
-                        <RefreshCcw className="animate-spin text-teal-600" size={40} />
-                        <span className="text-[9px] font-black text-teal-700 uppercase">{processingProgress.id}% Enhancing...</span>
+                        <div className="relative flex items-center justify-center">
+                           <RefreshCcw className="animate-spin text-teal-600" size={40} />
+                           <span className="absolute text-[10px] font-black text-teal-800">{processingProgress.id}%</span>
+                        </div>
+                        <span className="text-[9px] font-black text-teal-700 uppercase">Enhancing...</span>
                       </div>
                     ) : clientSidePreview || idPreview ? (
                       <img src={clientSidePreview || idPreview} className="w-full h-full object-cover" />
@@ -285,7 +282,7 @@ const SubmitDetails: React.FC = () => {
               <button 
                 type="submit" 
                 disabled={isSubmitting || isProcessingId || isProcessingSig || verificationStatus !== 'valid' || isFormIncomplete}
-                className={`w-full py-6 rounded-[2rem] font-black text-sm tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-2 ${verificationStatus === 'valid' && !isFormIncomplete ? 'bg-[#00928a] text-white hover:bg-[#007a73]' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                className={`w-full py-6 rounded-[2rem] font-black text-sm tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-2 ${verificationStatus === 'valid' && !isFormIncomplete ? 'bg-[#00928a] text-white hover:bg-[#007a73] active:scale-95' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
               >
                 {isSubmitting ? <Loader2 className="animate-spin" /> : <Zap size={18}/>}
                 {isSubmitting ? 'PROCESSING...' : 'SUBMIT APPLICATION'}
@@ -298,7 +295,7 @@ const SubmitDetails: React.FC = () => {
   );
 };
 
-// ... (Keep existing Helper Components: FormSection, ScalingInput)
+// --- HELPER COMPONENTS ---
 const FormSection = ({ icon, title, subtitle, children }: any) => (
   <div className="bg-white p-10 rounded-[3.5rem] shadow-sm border border-slate-200">
     <div className="flex items-center gap-4 mb-8">

@@ -16,5 +16,8 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
   },
+  optimizeDeps: {
+    exclude: ['@imgly/background-removal']
+  },
   base: '/',
 })
