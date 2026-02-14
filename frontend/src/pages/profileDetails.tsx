@@ -112,7 +112,7 @@ const SubmitDetails: React.FC = () => {
         type: 'id_picture' 
       }, { 
         responseType: 'blob', // Important: Receive as binary
-        timeout: 180000 
+        timeout: 300000 
       });
 
       // 3. IMPORTANT: Re-wrap the blob as a File object with a proper name and mime type
