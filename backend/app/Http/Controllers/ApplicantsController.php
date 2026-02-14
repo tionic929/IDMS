@@ -123,8 +123,8 @@ public function store(Request $request)
             'address' => 'required|string',
             'guardianName' => 'required|string|max:255',
             'guardianContact' => 'required|string|max:20',
-            'id_picture' => 'nullable|file|mimes:jpeg,png,jpg',
-            'signature_picture' => 'nullable|image|mimes:jpeg,png,jpg',
+            'id_picture' => 'nullable|file|mimes:jpeg,png,jpg,webp',
+            'signature_picture' => 'nullable|image|mimes:jpeg,png,jpg,webp',
         ]);
 
         // Process and Log ID Picture
