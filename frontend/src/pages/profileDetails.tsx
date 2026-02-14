@@ -8,9 +8,7 @@ import {
   AlertCircle, UploadCloud, RefreshCcw, Zap
 } from 'lucide-react';
 
-// --- FIXED IMPORT ---
 import { removeBackground, type Config } from '@imgly/background-removal';
-
 import { verifyIdNumber } from '../api/reports';
 import api, { getCsrfCookie } from '../api/axios';
 
@@ -49,7 +47,6 @@ const SubmitDetails: React.FC = () => {
   const [idPreviewUrl, setIdPreviewUrl] = useState<string | null>(null);
   const [sigPreviewUrl, setSigPreviewUrl] = useState<string | null>(null);
   
-  // Progress States for Local BG Removal
   const [isRemovingBg, setIsRemovingBg] = useState(false);
   const [removalProgress, setRemovalProgress] = useState(0);
   
@@ -57,10 +54,6 @@ const SubmitDetails: React.FC = () => {
 
   const isFormIncomplete = !form.idNumber || !form.firstName || !form.lastName || !form.id_picture || !form.signature_picture;
 
-  /**
-   * STEP 1: UPLOAD & PREVIEW (Local Only)
-   * Includes custom progress tracking for Imgly
-   */
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: 'id_picture' | 'signature_picture') => {
     const file = e.target.files?.[0];
     if (!file || !ALLOWED_TYPES.includes(file.type)) return;
@@ -70,23 +63,22 @@ const SubmitDetails: React.FC = () => {
     if (field === 'id_picture') {
       setIsRemovingBg(true);
       setRemovalProgress(0);
-      console.log("🚀 Starting Imgly Background Removal...");
-
       try {
         const config: Config = {
           debug: true,
           model: 'isnet_fp16',
           proxyToWorker: true,
-          // Tracking the browser's local processing progress
           progress: (step, current, total) => {
             const percentage = Math.round((current / total) * 100);
             setRemovalProgress(percentage);
-            console.log(`[Imgly] ${step}: ${percentage}%`);
           }
         };
 
         const bgRemovedBlob = await removeBackground(file, config);
         setIdPreviewUrl(URL.createObjectURL(bgRemovedBlob));
+        // We update the form with the BG removed version immediately as the reference
+        const bgRemovedFile = new File([bgRemovedBlob], file.name, { type: 'image/png' });
+        setForm(prev => ({ ...prev, id_picture: bgRemovedFile }));
       } catch (err) {
         console.error("❌ Local BG removal failed:", err);
         setIdPreviewUrl(URL.createObjectURL(file));
@@ -99,10 +91,6 @@ const SubmitDetails: React.FC = () => {
     }
   };
 
-  /**
-   * STEP 2: SUBMISSION FLOW
-   * Python Bridge -> Hosted Database
-   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isFormIncomplete || !form.id_picture || !form.signature_picture) return;
@@ -111,39 +99,54 @@ const SubmitDetails: React.FC = () => {
     setSubmitPhase('enhancing');
 
     try {
+      // 1. Convert File to Base64 for the Python Bridge
       const photoB64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
         reader.readAsDataURL(form.id_picture!);
       });
 
+      // 2. Send to Python Bridge (GFPGAN Restoration)
       const bridgeResponse = await axios.post(`${LOCAL_BRIDGE_URL}/process_and_return`, {
         photo: photoB64,
         type: 'id_picture' 
       }, { 
-        responseType: 'blob', 
+        responseType: 'blob', // Important: Receive as binary
         timeout: 180000 
       });
 
-      const enhancedFile = new File([bridgeResponse.data], "enhanced_id.webp", { type: "image/webp" });
+      // 3. IMPORTANT: Re-wrap the blob as a File object with a proper name and mime type
+      // Laravel/Backends often fail to detect 'id_picture' if it's just a raw blob
+      const enhancedFile = new File([bridgeResponse.data], `${form.idNumber}_photo.webp`, { 
+        type: "image/webp" 
+      });
 
       setSubmitPhase('saving');
       await getCsrfCookie();
       
+      // 4. Create FormData for the Final Database Submission
       const finalData = new FormData();
-      Object.entries(form).forEach(([key, value]) => {
-        if (key !== 'id_picture' && key !== 'signature_picture' && value !== null) {
-          finalData.append(key, value as string);
-        }
-      });
+      
+      // Append text fields
+      finalData.append('idNumber', form.idNumber);
+      finalData.append('firstName', form.firstName);
+      finalData.append('middleInitial', form.middleInitial);
+      finalData.append('lastName', form.lastName);
+      finalData.append('course', form.course);
+      finalData.append('address', form.address);
+      finalData.append('guardianName', form.guardianName);
+      finalData.append('guardianContact', form.guardianContact);
 
+      // Append files (Enhanced Photo + Signature)
       finalData.append('id_picture', enhancedFile);
       finalData.append('signature_picture', form.signature_picture);
 
-      await api.post("/students", finalData, {
+      // 5. Final Save to Main Backend
+      const response = await api.post("/students", finalData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
+      console.log("✅ Server Response:", response.data);
       setStatus('success');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
