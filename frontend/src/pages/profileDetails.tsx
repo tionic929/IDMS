@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 // --- FIXED IMPORT ---
-import { removeBackground } from '@imgly/background-removal';
+import { removeBackground, type Config } from '@imgly/background-removal';
 
 import { verifyIdNumber } from '../api/reports';
 import api, { getCsrfCookie } from '../api/axios';
@@ -43,14 +43,15 @@ const SubmitDetails: React.FC = () => {
   const [verificationStatus, setVerificationStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   
-  // Submission States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitPhase, setSubmitPhase] = useState<'idle' | 'enhancing' | 'saving'>('idle');
   
-  // Local UI Previews (Imgly-processed)
   const [idPreviewUrl, setIdPreviewUrl] = useState<string | null>(null);
   const [sigPreviewUrl, setSigPreviewUrl] = useState<string | null>(null);
+  
+  // Progress States for Local BG Removal
   const [isRemovingBg, setIsRemovingBg] = useState(false);
+  const [removalProgress, setRemovalProgress] = useState(0);
   
   const [status, setStatus] = useState<'success' | 'error' | ''>('');
 
@@ -58,26 +59,40 @@ const SubmitDetails: React.FC = () => {
 
   /**
    * STEP 1: UPLOAD & PREVIEW (Local Only)
-   * No network calls here. Just Imgly and state updates.
+   * Includes custom progress tracking for Imgly
    */
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: 'id_picture' | 'signature_picture') => {
     const file = e.target.files?.[0];
     if (!file || !ALLOWED_TYPES.includes(file.type)) return;
 
-    // Store the RAW file for the Python Bridge later
     setForm(prev => ({ ...prev, [field]: file }));
 
     if (field === 'id_picture') {
       setIsRemovingBg(true);
+      setRemovalProgress(0);
+      console.log("🚀 Starting Imgly Background Removal...");
+
       try {
-        // Run Imgly locally - fast and instant feedback
-        const bgRemovedBlob = await removeBackground(file);
+        const config: Config = {
+          debug: true,
+          model: 'isnet_fp16',
+          proxyToWorker: true,
+          // Tracking the browser's local processing progress
+          progress: (step, current, total) => {
+            const percentage = Math.round((current / total) * 100);
+            setRemovalProgress(percentage);
+            console.log(`[Imgly] ${step}: ${percentage}%`);
+          }
+        };
+
+        const bgRemovedBlob = await removeBackground(file, config);
         setIdPreviewUrl(URL.createObjectURL(bgRemovedBlob));
       } catch (err) {
-        console.warn("Local BG removal failed, showing raw", err);
+        console.error("❌ Local BG removal failed:", err);
         setIdPreviewUrl(URL.createObjectURL(file));
       } finally {
         setIsRemovingBg(false);
+        setRemovalProgress(0);
       }
     } else {
       setSigPreviewUrl(URL.createObjectURL(file));
@@ -86,7 +101,7 @@ const SubmitDetails: React.FC = () => {
 
   /**
    * STEP 2: SUBMISSION FLOW
-   * This is where the heavy lifting happens.
+   * Python Bridge -> Hosted Database
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +111,6 @@ const SubmitDetails: React.FC = () => {
     setSubmitPhase('enhancing');
 
     try {
-      // 1. SEND RAW IMAGE TO PYTHON BRIDGE (Enhancement)
       const photoB64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
@@ -108,24 +122,21 @@ const SubmitDetails: React.FC = () => {
         type: 'id_picture' 
       }, { 
         responseType: 'blob', 
-        timeout: 120000 
+        timeout: 180000 
       });
 
       const enhancedFile = new File([bridgeResponse.data], "enhanced_id.webp", { type: "image/webp" });
 
-      // 2. SAVE TO HOSTED DATABASE (ncnian-id.svizcarra.online)
       setSubmitPhase('saving');
       await getCsrfCookie();
       
       const finalData = new FormData();
-      // Append text data
       Object.entries(form).forEach(([key, value]) => {
         if (key !== 'id_picture' && key !== 'signature_picture' && value !== null) {
           finalData.append(key, value as string);
         }
       });
 
-      // Append the ENHANCED photo and the raw signature
       finalData.append('id_picture', enhancedFile);
       finalData.append('signature_picture', form.signature_picture);
 
@@ -136,7 +147,7 @@ const SubmitDetails: React.FC = () => {
       setStatus('success');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
-      console.error("Critical Failure:", err);
+      console.error("❌ Critical Submission Failure:", err);
       setStatus('error');
     } finally {
       setIsSubmitting(false);
@@ -186,7 +197,7 @@ const SubmitDetails: React.FC = () => {
           </div>
           <div className="hidden lg:flex items-center gap-2 text-slate-400 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
             <ShieldCheck size={16} />
-            <span className="text-[10px] font-black uppercase">Encrypted</span>
+            <span className="text-[10px] font-black uppercase tracking-tighter">Verified</span>
           </div>
         </div>
       </header>
@@ -198,21 +209,21 @@ const SubmitDetails: React.FC = () => {
               <div className="flex items-center gap-4">
                 <CheckCircle2 size={32}/>
                 <div>
-                  <h4 className="font-black uppercase text-sm tracking-widest">Registration Complete</h4>
-                  <p className="text-xs text-emerald-100 font-bold">Your ID is being prepared for printing.</p>
+                  <h4 className="font-black uppercase text-sm tracking-widest">Submitted Successfully</h4>
+                  <p className="text-xs text-emerald-100 font-bold">Your ID data is now being saved.</p>
                 </div>
               </div>
-              <button onClick={() => navigate('/')} className="bg-white text-emerald-700 px-8 py-3 rounded-2xl text-xs font-black hover:bg-emerald-50 transition-colors">BACK TO DASHBOARD</button>
+              <button onClick={() => navigate('/')} className="bg-white text-emerald-700 px-8 py-3 rounded-2xl text-xs font-black hover:bg-emerald-50 transition-colors">RETURN</button>
             </motion.div>
           )}
         </AnimatePresence>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-8">
-            <FormSection icon={<BookOpen />} title="School Credentials" subtitle="Validated Academic Data">
+            <FormSection icon={<BookOpen />} title="School Credentials" subtitle="Academic Verification">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <ScalingInput label="Student ID Number" value={form.idNumber} onChange={(v: string) => setForm({...form, idNumber: v})} status={verificationStatus} isLoading={isVerifying}/>
-                <ScalingInput label="Department / Course" value={form.course} onChange={(v: string) => setForm({...form, course: v})}/>
+                <ScalingInput label="Course/Year" value={form.course} onChange={(v: string) => setForm({...form, course: v})}/>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mt-6">
                 <div className="md:col-span-2"><ScalingInput label="First Name" value={form.firstName} onChange={(v: string) => setForm({...form, firstName: v})} /></div>
@@ -221,10 +232,10 @@ const SubmitDetails: React.FC = () => {
               </div>
             </FormSection>
 
-            <FormSection icon={<User />} title="Emergency Contact" subtitle="Residential & Guardian Details">
-              <ScalingInput label="Permanent Home Address" value={form.address} onChange={(v: string) => setForm({...form, address: v})} isTextArea />
+            <FormSection icon={<User />} title="Emergency Contact" subtitle="Contact Information">
+              <ScalingInput label="Home Address" value={form.address} onChange={(v: string) => setForm({...form, address: v})} isTextArea />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <ScalingInput label="Guardian Full Name" value={form.guardianName} onChange={(v: string) => setForm({...form, guardianName: v})} />
+                <ScalingInput label="Guardian Name" value={form.guardianName} onChange={(v: string) => setForm({...form, guardianName: v})} />
                 <ScalingInput label="Guardian Phone" value={form.guardianContact} onChange={(v: string) => setForm({...form, guardianContact: v})} />
               </div>
             </FormSection>
@@ -232,14 +243,28 @@ const SubmitDetails: React.FC = () => {
 
           <div className="lg:col-span-4">
             <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 space-y-10 sticky top-28">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">Identity Assets</h3>
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">Capture Photo</h3>
               
-              {/* Photo Box */}
               <div className="space-y-4 text-center">
                 <div className="relative mx-auto w-44 h-44">
-                  <div className={`w-full h-full rounded-[3rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all ${isRemovingBg ? 'border-teal-500 bg-teal-50' : 'border-slate-200 hover:border-teal-300'}`}>
+                  <div className={`w-full h-full rounded-[3rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all duration-300 ${isRemovingBg ? 'border-teal-500 bg-teal-50 shadow-inner' : 'border-slate-200 hover:border-teal-300'}`}>
                     {isRemovingBg ? (
-                       <RefreshCcw className="animate-spin text-teal-600" size={32} />
+                       <div className="flex flex-col items-center gap-3 px-4">
+                         <div className="relative">
+                            <RefreshCcw className="animate-spin text-teal-600" size={32} />
+                            <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-teal-600">
+                                {removalProgress}%
+                            </span>
+                         </div>
+                         <div className="w-full bg-teal-200 h-1 rounded-full overflow-hidden">
+                            <motion.div 
+                                className="bg-teal-600 h-full" 
+                                initial={{ width: 0 }} 
+                                animate={{ width: `${removalProgress}%` }}
+                            />
+                         </div>
+                         <span className="text-[9px] font-black text-teal-700 uppercase">GPU Background Removal</span>
+                       </div>
                     ) : idPreviewUrl ? (
                       <img src={idPreviewUrl} className="w-full h-full object-cover" />
                     ) : (
@@ -254,7 +279,6 @@ const SubmitDetails: React.FC = () => {
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Student Photo (2x2)</p>
               </div>
 
-              {/* Signature Box */}
               <div className="space-y-4 text-center">
                 <div className="relative mx-auto w-full h-28 group">
                   <div className="w-full h-full rounded-[2rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden border-slate-200 hover:border-teal-300 transition-all">
@@ -270,7 +294,6 @@ const SubmitDetails: React.FC = () => {
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">E-Signature</p>
               </div>
 
-              {/* ACTION BUTTON */}
               <div className="pt-4">
                 <button 
                   type="submit" 
@@ -279,11 +302,11 @@ const SubmitDetails: React.FC = () => {
                 >
                   <div className="flex items-center gap-3">
                     {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18}/>}
-                    {isSubmitting ? 'PROCESSING...' : 'CONFIRM & SUBMIT'}
+                    {isSubmitting ? 'WORKING...' : 'CONFIRM & SUBMIT'}
                   </div>
                   {isSubmitting && (
                     <span className="text-[8px] opacity-70 animate-pulse uppercase tracking-widest mt-1 font-bold">
-                      {submitPhase === 'enhancing' ? 'AI Enhancement (GFPGAN)...' : 'Writing to Database...'}
+                      {submitPhase === 'enhancing' ? 'Python Bridge: GFPGAN Restoration...' : 'Finalizing Database Record...'}
                     </span>
                   )}
                 </button>
