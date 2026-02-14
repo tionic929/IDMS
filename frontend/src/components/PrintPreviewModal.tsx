@@ -12,6 +12,8 @@ import {
   PRINT_HEIGHT 
 } from '../constants/dimensions';
 
+const VITE_LOCAL_BRIDGE_URL=import.meta.env.VITE_LOCAL_BRIDGE_URL
+
 interface PrintModalProps {
   data: ApplicantCard;
   layout: any;
@@ -102,56 +104,51 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
       return;
     }
 
-    // Check for Electron IPC availability [cite: 1]
-    const checkIsElectron = () => {
-      const win = window as ExtendedWindow;
-      return !!(win.process && win.process.type) || !!(win.navigator && win.navigator.userAgent.includes('Electron'));
-    };
-
-    const isElectron = checkIsElectron();
-    const hasRequire = typeof (window as any).require !== 'undefined';
-
-    if (hasRequire || isElectron) {
-      try {
-        await confirmApplicant(data.id);
-        
-        // Use window.require to get the Electron IPC [cite: 1]
-        const electron = (window as any).require('electron');
-        const ipcRenderer = electron.ipcRenderer;
-
-        toast.info('Sending to local printer service...');
-        
-        ipcRenderer.send('print-card-images', {
-          frontImage,
-          backImage,
-          width: PRINT_WIDTH,
-          height: PRINT_HEIGHT,
+    try {
+      toast.info('Sending to Python Print Service...');
+      
+      // 1. Confirm applicant in database
+      await confirmApplicant(data.id);
+      
+      // 2. Send request to your Flask Python Service
+      // Assuming it runs on localhost:5000 as per your main.py
+      const response = await fetch(`${VITE_LOCAL_BRIDGE_URL}/print_card`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          frontImage: frontImage,
+          backImage: backImage,
           margins: {
             top: marginTop,
             bottom: marginBottom,
             left: marginLeft,
             right: marginRight,
-          },
-        });
-
-        // Listen for the response from main.cjs [cite: 1, 3]
-        ipcRenderer.once('print-reply', (_event: any, arg: any) => {
-          if (arg.success) {
-            toast.success('Print job completed successfully!');
-            setTimeout(onClose, 1500);
-          } else {
-            toast.error(`Print failed: ${arg.failureReason}`);
           }
-        });
+        }),
+      });
 
-      } catch (err) {
-        console.error('Print error:', err);
-        toast.error('Local printing failed. The Python service might be busy.');
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('Print job submitted to CX-D80 U1!');
+        
+        // Optional: Inform Electron to handle any OS-level UI updates
+        const win = window as any;
+        if (win.require) {
+            const ipcRenderer = win.require('electron').ipcRenderer;
+            ipcRenderer.send('print-started', { id: data.idNumber });
+        }
+
+        setTimeout(onClose, 2000);
+      } else {
+        toast.error(`Print Error: ${result.error || 'Unknown error'}`);
       }
-    } else {
-      // Fallback for regular web browsers
-      toast.warn("Silent printing requires the Desktop App. Opening browser print...");
-      window.print();
+
+    } catch (err) {
+      console.error('Print service error:', err);
+      toast.error('Could not connect to Python Print Service. Is it running?');
     }
   };
 
@@ -164,7 +161,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
       <style>{`
         @media print {
           @page { 
-            margin: 0; 
+            margin: 0;
           }
           body, html {
             margin: 0 !important;
