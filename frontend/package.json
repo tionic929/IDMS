@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@imgly/background-removal": "^1.7.0",
     "@tanstack/react-query": "^5.90.20",
     "axios": "^1.13.2",
     "browser-image-compression": "^2.0.2",
