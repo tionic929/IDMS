@@ -18,15 +18,8 @@ interface PrintModalProps {
   onClose: () => void;
 }
 
-interface ExtendedWindow extends Window {
-  process?: {
-    type?: string;
-  };
-  navigator: Navigator & {
-    userAgent: string;
-  };
-  require: any;
-}
+// Your Ngrok Endpoint
+const NGROK_ENDPOINT = "https://glacial-samiyah-presutural.ngrok-free.dev";
 
 const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose }) => {
   const [zoom, setZoom] = useState(1.2);
@@ -35,6 +28,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
   const [frontImage, setFrontImage] = useState<string>('');
   const [backImage, setBackImage] = useState<string>('');
   const [isGeneratingImages, setIsGeneratingImages] = useState(true);
+  const [isPrinting, setIsPrinting] = useState(false);
   
   // Margin Settings
   const [marginTop, setMarginTop] = useState(0);
@@ -97,58 +91,73 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
     toast.success('High-resolution images downloaded!');
   };
 
+  /**
+   * SILENT PRINT VIA NGROK TUNNEL
+   */
   const handleSilentPrint = async () => {
     if (!frontImage || !backImage) {
       toast.error('Images still processing...');
       return;
     }
 
-    const checkIsElectron = () => {
-      const win = window as unknown as ExtendedWindow;
-      return !!(win.process && win.process.type) || !!(win.navigator && win.navigator.userAgent.includes('Electron'));
-    };
+    setIsPrinting(true);
+    const loadingToastId = toast.loading("Sending job to local Python printer...");
 
-    const isElectron = checkIsElectron();
-    const win = window as unknown as ExtendedWindow;
+    try {
+      // 1. Mark as confirmed in the central database
+      await confirmApplicant(data.id);
+      
+      // 2. Prepare the payload
+      const payload = {
+        frontImage, // Base64
+        backImage,  // Base64
+        margins: {
+          top: marginTop,
+          bottom: marginBottom,
+          left: marginLeft,
+          right: marginRight,
+        },
+      };
 
-    if (isElectron && typeof win.require !== 'undefined') {
-      try {
-        await confirmApplicant(data.id);
-        
-        const electron = win.require('electron');
-        const ipcRenderer = electron.ipcRenderer;
+      // 3. Send to Ngrok Endpoint
+      const response = await fetch(`${NGROK_ENDPOINT}/print_card`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Important: This skips the ngrok warning page for API calls
+          'ngrok-skip-browser-warning': 'true' 
+        },
+        body: JSON.stringify(payload),
+      });
 
-        toast.info('Sending to local printer service...');
-        
-        ipcRenderer.send('print-card-images', {
-          frontImage,
-          backImage,
-          width: PRINT_WIDTH,
-          height: PRINT_HEIGHT,
-          margins: {
-            top: marginTop,
-            bottom: marginBottom,
-            left: marginLeft,
-            right: marginRight,
-          },
-        });
-
-        ipcRenderer.once('print-reply', (_event: any, arg: any) => {
-          if (arg.success) {
-            toast.success('Print job completed successfully!');
-            setTimeout(onClose, 1500);
-          } else {
-            toast.error(`Print failed: ${arg.failureReason}`);
-          }
-        });
-
-      } catch (err) {
-        console.error('Print error:', err);
-        toast.error('Local printing failed. The Python service might be offline.');
+      if (!response.ok) {
+        throw new Error(`Server responded with ${response.status}`);
       }
-    } else {
-      toast.warn("Silent printing requires the Desktop App. Opening browser print...");
-      window.print();
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.update(loadingToastId, {
+          render: "Print job completed successfully!",
+          type: "success",
+          isLoading: false,
+          autoClose: 3000
+        });
+        setTimeout(onClose, 1500);
+      } else {
+        throw new Error(result.error || "Python service returned an error");
+      }
+
+    } catch (err: any) {
+      console.error('Print error:', err);
+      toast.update(loadingToastId, {
+        render: `Printing failed: ${err.message}. Ensure Python/Ngrok is running.`,
+        type: "error",
+        isLoading: false,
+        autoClose: 5000
+      });
+    } finally {
+      setIsPrinting(false);
     }
   };
 
@@ -195,7 +204,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
           <div className="p-6 border-b border-slate-800 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-white">Print Settings</h2>
-              <p className="text-xs text-slate-400 mt-0.5">{data.idNumber}</p>
+              <p className="text-xs text-teal-400 mt-0.5 font-mono">Tunnel: Ngrok Active</p>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
               <X size={18} className="text-slate-400" />
@@ -209,13 +218,9 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                 <span className="text-sm font-mono font-semibold text-teal-400">{Math.round(zoom * 100)}%</span>
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={() => setZoom(Math.max(0.3, zoom - 0.1))} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
-                  <ZoomOut size={14} className="text-slate-400" />
-                </button>
+                <button onClick={() => setZoom(Math.max(0.3, zoom - 0.1))} className="p-2 hover:bg-slate-800 rounded-lg"><ZoomOut size={14} /></button>
                 <input type="range" min="0.3" max="1.5" step="0.1" value={zoom} onChange={(e) => setZoom(parseFloat(e.target.value))} className="flex-1 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-500" />
-                <button onClick={() => setZoom(Math.min(1.5, zoom + 0.1))} className="p-2 hover:bg-slate-800 rounded-lg transition-colors">
-                  <ZoomIn size={14} className="text-slate-400" />
-                </button>
+                <button onClick={() => setZoom(Math.min(1.5, zoom + 0.1))} className="p-2 hover:bg-slate-800 rounded-lg"><ZoomIn size={14} /></button>
               </div>
             </div>
 
@@ -223,28 +228,20 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Display Options</p>
               <div className="flex flex-row gap-4">
                 <button onClick={() => setShowCutLines(!showCutLines)} className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${showCutLines ? 'border-teal-500 bg-teal-500/10' : 'border-slate-700 hover:border-slate-600'}`}>
-                  <div className="flex items-center gap-3">
-                    <Scissors size={16} className={showCutLines ? 'text-teal-400' : 'text-slate-400'} />
-                    <span className="text-sm font-medium">Cut Guides</span>
-                  </div>
+                  <div className="flex items-center gap-3"><Scissors size={16} /> <span className="text-sm font-medium">Cut Guides</span></div>
                 </button>
                 <button onClick={() => setMirrorBack(!mirrorBack)} className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${mirrorBack ? 'border-teal-500 bg-teal-500/10' : 'border-slate-700 hover:border-slate-600'}`}>
-                  <div className="flex items-center gap-3">
-                    <FlipHorizontal size={16} className={mirrorBack ? 'text-teal-400' : 'text-slate-400'} />
-                    <span className="text-sm font-medium">Mirror Back</span>
-                  </div>
+                  <div className="flex items-center gap-3"><FlipHorizontal size={16} /> <span className="text-sm font-medium">Mirror Back</span></div>
                 </button>
               </div>
             </div>
 
             <div className="space-y-3">
-              <span className='flex flex-row justify-between items-center text-xs font-semibold text-slate-400 uppercase tracking-wider'>
-                Margin Settings <Settings size={14} className='text-slate-500' />
-              </span>
+              <span className='flex flex-row justify-between items-center text-xs font-semibold text-slate-400 uppercase tracking-wider'>Margin Settings <Settings size={14} /></span>
               <div className="p-3 bg-slate-950/50 rounded-lg border border-slate-800 space-y-4">
                 <div className="grid grid-cols-2 gap-2">
                   {marginPresets.map((preset) => (
-                    <button key={preset.label} onClick={() => applyMarginPreset(preset)} className="py-2 px-3 text-xs font-medium bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">{preset.label}</button>
+                    <button key={preset.label} onClick={() => applyMarginPreset(preset)} className="py-2 px-3 text-xs font-medium bg-slate-800 hover:bg-slate-700 rounded-lg">{preset.label}</button>
                   ))}
                 </div>
                 {[
@@ -254,27 +251,10 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                   { label: 'Left', value: marginLeft, setter: setMarginLeft }
                 ].map(({ label, value, setter }) => (
                   <div key={label}>
-                    <div className="flex justify-between text-xs mb-1.5">
-                      <span className="font-medium text-slate-400">{label}</span>
-                      <span className="font-semibold text-teal-400">{value}px</span>
-                    </div>
+                    <div className="flex justify-between text-xs mb-1.5"><span className="text-slate-400">{label}</span><span className="text-teal-400">{value}px</span></div>
                     <input type="range" min="0" max="50" value={value} onChange={(e) => setter(Number(e.target.value))} className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-500" />
                   </div>
                 ))}
-              </div>
-            </div>
-            
-            <div className="p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-              <div className="flex items-center gap-2 text-indigo-400 mb-2">
-                <Info size={14} />
-                <span className="text-xs font-semibold uppercase tracking-wider">Output Specs</span>
-              </div>
-              <div className="space-y-1 text-xs text-slate-400">
-                <div className="flex justify-between"><span>Resolution:</span><span className="font-mono text-slate-300">{PRINT_WIDTH}×{PRINT_HEIGHT}px</span></div>
-                <div className="flex justify-between"><span>DPI:</span><span className="font-mono text-slate-300">300</span></div>
-                {(marginTop + marginBottom + marginLeft + marginRight) > 0 && (
-                  <div className="flex justify-between pt-2 border-t border-indigo-500/20"><span>With Margins:</span><span className="font-mono text-slate-300">{totalWidth}×{totalHeight}px</span></div>
-                )}
               </div>
             </div>
           </div>
@@ -282,17 +262,17 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
           <div className="p-6 bg-slate-950 border-t border-slate-800 space-y-3">
             <button 
               onClick={handleDownloadImages}
-              disabled={isGeneratingImages}
+              disabled={isGeneratingImages || isPrinting}
               className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              <Download size={16} /> {isGeneratingImages ? 'Processing...' : 'Download Images'}
+              <Download size={16} /> Download Images
             </button>
             <button 
               onClick={handleSilentPrint}
-              disabled={isGeneratingImages}
+              disabled={isGeneratingImages || isPrinting}
               className="w-full py-3 px-4 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20"
             >
-              <Printer size={16} /> {isGeneratingImages ? 'Processing...' : 'Print Cards'}
+              <Printer size={16} /> {isPrinting ? 'Printing...' : 'Print via Tunnel'}
             </button>
           </div>
         </aside>
@@ -304,16 +284,15 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                 <IDCardPreview data={data} layout={layout} side="FRONT" scale={1} isPrinting={false} />
               </div>
               <div className="px-4 py-1.5 rounded-full bg-slate-800/80 backdrop-blur-sm border border-slate-700">
-                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Front Side</span>
+                <span className="text-xs font-semibold text-slate-300 uppercase">Front Side</span>
               </div>
             </div>
-
             <div className="flex flex-col items-center gap-4">
               <div className={`shadow-2xl rounded-sm overflow-hidden ${showCutLines ? 'cut-guides' : ''}`} style={{ transform: mirrorBack ? 'scaleX(-1)' : 'none' }}>
                 <IDCardPreview data={data} layout={layout} side="BACK" scale={1} isPrinting={false} />
               </div>
               <div className="px-4 py-1.5 rounded-full bg-slate-800/80 backdrop-blur-sm border border-slate-700">
-                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">Back Side</span>
+                <span className="text-xs font-semibold text-slate-300 uppercase">Back Side</span>
               </div>
             </div>
           </div>
@@ -323,11 +302,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
       <div className="hidden-canvas">
         <div id="front-print-stage"><IDCardPreview data={data} layout={layout} side="FRONT" scale={1} isPrinting={true} /></div>
         <div id="back-print-stage"><IDCardPreview data={data} layout={layout} side="BACK" scale={1} isPrinting={true} /></div>
-      </div>
-
-      <div id="print-root" className="print-only">
-        <div className="print-page"><IDCardPreview data={data} layout={layout} side="FRONT" scale={1} isPrinting={true} /></div>
-        <div className="print-page" style={{ transform: mirrorBack ? 'scaleX(-1)' : 'none' }}><IDCardPreview data={data} layout={layout} side="BACK" scale={1} isPrinting={true} /></div>
       </div>
     </>
   );
