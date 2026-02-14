@@ -42,61 +42,52 @@ const SubmitDetails: React.FC = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitPhase, setSubmitPhase] = useState<'idle' | 'enhancing' | 'uploading'>('idle');
   
-  // Previews for the UI (Imgly background-removed versions)
-  const [idPreview, setIdPreview] = useState<string | null>(null);
-  const [sigPreview, setSigPreview] = useState<string | null>(null);
-
+  // Submission States
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitPhase, setSubmitPhase] = useState<'idle' | 'enhancing' | 'saving'>('idle');
+  
+  // Local UI Previews (Imgly-processed)
+  const [idPreviewUrl, setIdPreviewUrl] = useState<string | null>(null);
+  const [sigPreviewUrl, setSigPreviewUrl] = useState<string | null>(null);
   const [isRemovingBg, setIsRemovingBg] = useState(false);
+  
   const [status, setStatus] = useState<'success' | 'error' | ''>('');
 
   const isFormIncomplete = !form.idNumber || !form.firstName || !form.lastName || !form.id_picture || !form.signature_picture;
 
+  /**
+   * STEP 1: UPLOAD & PREVIEW (Local Only)
+   * No network calls here. Just Imgly and state updates.
+   */
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: 'id_picture' | 'signature_picture') => {
     const file = e.target.files?.[0];
     if (!file || !ALLOWED_TYPES.includes(file.type)) return;
 
-    // Save the RAW file to the form state immediately
+    // Store the RAW file for the Python Bridge later
     setForm(prev => ({ ...prev, [field]: file }));
 
-    // Instant Preview Logic
     if (field === 'id_picture') {
       setIsRemovingBg(true);
       try {
+        // Run Imgly locally - fast and instant feedback
         const bgRemovedBlob = await removeBackground(file);
-        setIdPreview(URL.createObjectURL(bgRemovedBlob));
+        setIdPreviewUrl(URL.createObjectURL(bgRemovedBlob));
       } catch (err) {
         console.warn("Local BG removal failed, showing raw", err);
-        setIdPreview(URL.createObjectURL(file));
+        setIdPreviewUrl(URL.createObjectURL(file));
       } finally {
         setIsRemovingBg(false);
       }
     } else {
-      setSigPreview(URL.createObjectURL(file));
+      setSigPreviewUrl(URL.createObjectURL(file));
     }
   };
 
-  // Helper to send to Python Bridge
-  const processViaBridge = async (file: File, type: 'id_picture' | 'signature_picture') => {
-    const photoB64 = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.readAsDataURL(file);
-    });
-
-    const response = await axios.post(`${LOCAL_BRIDGE_URL}/process_and_return`, {
-      photo: photoB64,
-      type: type 
-    }, { 
-      responseType: 'blob', 
-      timeout: 120000 
-    });
-
-    return new File([response.data], `processed_${type === 'id_picture' ? 'id' : 'sig'}.webp`, { type: "image/webp" });
-  };
-
+  /**
+   * STEP 2: SUBMISSION FLOW
+   * This is where the heavy lifting happens.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isFormIncomplete || !form.id_picture || !form.signature_picture) return;
@@ -105,37 +96,47 @@ const SubmitDetails: React.FC = () => {
     setSubmitPhase('enhancing');
 
     try {
-      // 1. RUN THE BRIDGE ENHANCEMENT DURING SUBMISSION
-      const [enhancedId, enhancedSig] = await Promise.all([
-        processViaBridge(form.id_picture, 'id_picture'),
-        processViaBridge(form.signature_picture, 'signature_picture')
-      ]);
+      // 1. SEND RAW IMAGE TO PYTHON BRIDGE (Enhancement)
+      const photoB64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(form.id_picture!);
+      });
 
-      setSubmitPhase('uploading');
+      const bridgeResponse = await axios.post(`${LOCAL_BRIDGE_URL}/process_and_return`, {
+        photo: photoB64,
+        type: 'id_picture' 
+      }, { 
+        responseType: 'blob', 
+        timeout: 120000 
+      });
 
-      // 2. FINAL UPLOAD TO YOUR ADMIN BACKEND
+      const enhancedFile = new File([bridgeResponse.data], "enhanced_id.webp", { type: "image/webp" });
+
+      // 2. SAVE TO HOSTED DATABASE (ncnian-id.svizcarra.online)
+      setSubmitPhase('saving');
       await getCsrfCookie();
-      const finalFormData = new FormData();
       
-      // Add all text fields
+      const finalData = new FormData();
+      // Append text data
       Object.entries(form).forEach(([key, value]) => {
         if (key !== 'id_picture' && key !== 'signature_picture' && value !== null) {
-          finalFormData.append(key, value as string);
+          finalData.append(key, value as string);
         }
       });
 
-      // Add the ENHANCED files
-      finalFormData.append('id_picture', enhancedId);
-      finalFormData.append('signature_picture', enhancedSig);
+      // Append the ENHANCED photo and the raw signature
+      finalData.append('id_picture', enhancedFile);
+      finalData.append('signature_picture', form.signature_picture);
 
-      await api.post("/students", finalFormData, {
+      await api.post("/students", finalData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
       setStatus('success');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err: any) {
-      console.error("Submission/Enhancement Error:", err);
+      console.error("Critical Failure:", err);
       setStatus('error');
     } finally {
       setIsSubmitting(false);
@@ -177,15 +178,15 @@ const SubmitDetails: React.FC = () => {
             <div className="p-2.5 bg-slate-100 group-hover:bg-teal-50 rounded-2xl transition-colors">
               <ArrowLeft size={22} />
             </div>
-            <span className="hidden md:inline-block text-sm">Exit</span>
+            <span className="hidden md:inline-block text-sm">Cancel</span>
           </button>
           <div className="text-center">
-            <h2 className="text-[10px] font-black tracking-[0.3em] text-teal-600 uppercase">NCnian School ID</h2>
-            <p className="text-sm lg:text-xl font-black text-slate-900 uppercase">Profile Details</p>
+            <h2 className="text-[10px] font-black tracking-[0.3em] text-teal-600 uppercase">NCnian Digital ID</h2>
+            <p className="text-sm lg:text-xl font-black text-slate-900 uppercase">Student Registration</p>
           </div>
           <div className="hidden lg:flex items-center gap-2 text-slate-400 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
             <ShieldCheck size={16} />
-            <span className="text-[10px] font-black uppercase tracking-tighter">Secure Link</span>
+            <span className="text-[10px] font-black uppercase">Encrypted</span>
           </div>
         </div>
       </header>
@@ -193,35 +194,38 @@ const SubmitDetails: React.FC = () => {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-7xl mx-auto mt-8 px-4">
         <AnimatePresence>
           {status === 'success' && (
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="mb-6 p-6 rounded-[2rem] border shadow-sm flex items-center justify-between bg-emerald-50 border-emerald-200 text-emerald-700">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 size={20}/>
-                <span className="text-xs font-black uppercase tracking-widest">Application Submitted Successfully!</span>
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="mb-6 p-8 rounded-[2.5rem] bg-emerald-600 text-white shadow-2xl flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <CheckCircle2 size={32}/>
+                <div>
+                  <h4 className="font-black uppercase text-sm tracking-widest">Registration Complete</h4>
+                  <p className="text-xs text-emerald-100 font-bold">Your ID is being prepared for printing.</p>
+                </div>
               </div>
-              <button onClick={() => navigate('/')} className="bg-emerald-600 text-white px-6 py-2 rounded-xl text-xs font-bold">Return Home</button>
+              <button onClick={() => navigate('/')} className="bg-white text-emerald-700 px-8 py-3 rounded-2xl text-xs font-black hover:bg-emerald-50 transition-colors">BACK TO DASHBOARD</button>
             </motion.div>
           )}
         </AnimatePresence>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-8">
-            <FormSection icon={<BookOpen />} title="Academic Standing" subtitle="Verified Student Identity">
+            <FormSection icon={<BookOpen />} title="School Credentials" subtitle="Validated Academic Data">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <ScalingInput label="ID Number" value={form.idNumber} onChange={(v: string) => setForm({...form, idNumber: v})} status={verificationStatus} isLoading={isVerifying}/>
-                <ScalingInput label="Course" value={form.course} onChange={(v: string) => setForm({...form, course: v})}/>
+                <ScalingInput label="Student ID Number" value={form.idNumber} onChange={(v: string) => setForm({...form, idNumber: v})} status={verificationStatus} isLoading={isVerifying}/>
+                <ScalingInput label="Department / Course" value={form.course} onChange={(v: string) => setForm({...form, course: v})}/>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mt-6">
-                <div className="md:col-span-2"><ScalingInput label="Given Name" value={form.firstName} onChange={(v: string) => setForm({...form, firstName: v})} /></div>
+                <div className="md:col-span-2"><ScalingInput label="First Name" value={form.firstName} onChange={(v: string) => setForm({...form, firstName: v})} /></div>
                 <div className="md:col-span-1"><ScalingInput label="M.I." value={form.middleInitial} onChange={(v: string) => setForm({...form, middleInitial: v})} /></div>
-                <div className="md:col-span-2"><ScalingInput label="Surname" value={form.lastName} onChange={(v: string) => setForm({...form, lastName: v})} /></div>
+                <div className="md:col-span-2"><ScalingInput label="Last Name" value={form.lastName} onChange={(v: string) => setForm({...form, lastName: v})} /></div>
               </div>
             </FormSection>
 
-            <FormSection icon={<User />} title="Personal Information" subtitle="Contact & Residence">
-              <ScalingInput label="Complete Address" value={form.address} onChange={(v: string) => setForm({...form, address: v})} isTextArea />
+            <FormSection icon={<User />} title="Emergency Contact" subtitle="Residential & Guardian Details">
+              <ScalingInput label="Permanent Home Address" value={form.address} onChange={(v: string) => setForm({...form, address: v})} isTextArea />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <ScalingInput label="Guardian Name" value={form.guardianName} onChange={(v: string) => setForm({...form, guardianName: v})} />
-                <ScalingInput label="Guardian Contact Number" value={form.guardianContact} onChange={(v: string) => setForm({...form, guardianContact: v})} />
+                <ScalingInput label="Guardian Full Name" value={form.guardianName} onChange={(v: string) => setForm({...form, guardianName: v})} />
+                <ScalingInput label="Guardian Phone" value={form.guardianContact} onChange={(v: string) => setForm({...form, guardianContact: v})} />
               </div>
             </FormSection>
           </div>
@@ -230,46 +234,43 @@ const SubmitDetails: React.FC = () => {
             <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 space-y-10 sticky top-28">
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">Identity Assets</h3>
               
+              {/* Photo Box */}
               <div className="space-y-4 text-center">
-                <div className="relative mx-auto w-44 h-44 group">
-                  <div className={`w-full h-full rounded-[3rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all duration-500 ${isRemovingBg ? 'border-teal-500 bg-teal-50' : 'border-slate-200 hover:border-teal-300'}`}>
+                <div className="relative mx-auto w-44 h-44">
+                  <div className={`w-full h-full rounded-[3rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all ${isRemovingBg ? 'border-teal-500 bg-teal-50' : 'border-slate-200 hover:border-teal-300'}`}>
                     {isRemovingBg ? (
-                       <div className="flex flex-col items-center gap-2">
-                          <RefreshCcw className="animate-spin text-teal-600" size={32} />
-                          <span className="text-[9px] font-black text-teal-800 uppercase">Extracting...</span>
-                       </div>
-                    ) : idPreview ? (
-                      <img src={idPreview} className="w-full h-full object-cover" />
+                       <RefreshCcw className="animate-spin text-teal-600" size={32} />
+                    ) : idPreviewUrl ? (
+                      <img src={idPreviewUrl} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="flex flex-col items-center gap-2">
-                         <UploadCloud size={44} className="text-slate-300" />
-                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Photo Required</span>
-                      </div>
+                      <UploadCloud size={44} className="text-slate-300" />
                     )}
                   </div>
                   <input type="file" id="id-p" hidden onChange={e => handleFileChange(e, 'id_picture')} disabled={isSubmitting}/>
-                  <label htmlFor="id-p" className="absolute -bottom-2 -right-2 p-4 bg-teal-600 text-white rounded-2xl cursor-pointer shadow-xl hover:scale-110 active:scale-90">
+                  <label htmlFor="id-p" className="absolute -bottom-2 -right-2 p-4 bg-teal-600 text-white rounded-2xl cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all">
                     <Camera size={20}/>
                   </label>
                 </div>
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Student Photo (2x2)</p>
               </div>
 
+              {/* Signature Box */}
               <div className="space-y-4 text-center">
                 <div className="relative mx-auto w-full h-28 group">
-                  <div className="w-full h-full rounded-[2rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all border-slate-200 hover:border-teal-300">
-                    {sigPreview ? (
-                      <img src={sigPreview} className="w-full h-full object-contain p-4" />
+                  <div className="w-full h-full rounded-[2rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden border-slate-200 hover:border-teal-300 transition-all">
+                    {sigPreviewUrl ? (
+                      <img src={sigPreviewUrl} className="w-full h-full object-contain p-4" />
                     ) : (
                       <FileCheck size={32} className="text-slate-300" />
                     )}
                   </div>
                   <input type="file" id="sig-p" hidden onChange={e => handleFileChange(e, 'signature_picture')} disabled={isSubmitting}/>
-                  <label htmlFor="sig-p" className="absolute -bottom-2 -right-2 bg-slate-800 text-white p-3 rounded-2xl cursor-pointer shadow-lg hover:scale-110"><FileCheck size={20}/></label>
+                  <label htmlFor="sig-p" className="absolute -bottom-2 -right-2 bg-slate-800 text-white p-3 rounded-2xl cursor-pointer shadow-lg hover:scale-110 active:scale-95 transition-all"><FileCheck size={20}/></label>
                 </div>
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">E-Signature</p>
               </div>
 
+              {/* ACTION BUTTON */}
               <div className="pt-4">
                 <button 
                   type="submit" 
@@ -278,11 +279,11 @@ const SubmitDetails: React.FC = () => {
                 >
                   <div className="flex items-center gap-3">
                     {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18}/>}
-                    {isSubmitting ? 'PLEASE WAIT...' : 'CONFIRM & SUBMIT'}
+                    {isSubmitting ? 'PROCESSING...' : 'CONFIRM & SUBMIT'}
                   </div>
                   {isSubmitting && (
-                    <span className="text-[8px] opacity-70 animate-pulse uppercase tracking-widest">
-                      {submitPhase === 'enhancing' ? 'Running GFPGAN Restoration...' : 'Finalizing Upload...'}
+                    <span className="text-[8px] opacity-70 animate-pulse uppercase tracking-widest mt-1 font-bold">
+                      {submitPhase === 'enhancing' ? 'AI Enhancement (GFPGAN)...' : 'Writing to Database...'}
                     </span>
                   )}
                 </button>
