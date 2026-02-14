@@ -18,18 +18,23 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      webSecurity: true,
+      webSecurity: false,
     },
     autoHideMenuBar: true,
   });
 
-  const { session } = require('electron');
+  const isDev = false; // Toggle this when testing locally
+  const url = isDev 
+    ? 'http://localhost:5173' 
+    : 'https://ncnian-id.svizcarra.online';
+
+  mainWindow.loadURL(url);
+
+  // 💡 IMPORTANT: Update the Origin header for your production URL
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    details.requestHeaders['Origin'] = 'http://localhost:5173';
+    details.requestHeaders['Origin'] = url;
     callback({ requestHeaders: details.requestHeaders });
   });
-
-  mainWindow.loadURL('http://localhost:5173');
 }
 
 app.whenReady().then(createWindow);
