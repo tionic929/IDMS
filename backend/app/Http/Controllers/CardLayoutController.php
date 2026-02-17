@@ -50,34 +50,6 @@ class CardLayoutController extends Controller
         return response()->json($layout);
     }
 
-    /**
-     * Set a specific template as the 'Active' one.
-     */
-    public function activate($id)
-    {
-        try {
-            DB::beginTransaction();
-
-            // 1. Deactivate all existing templates
-            CardLayout::where('is_active', true)->update(['is_active' => false]);
-
-            // 2. Activate the selected one
-            $layout = CardLayout::findOrFail($id);
-            $layout->is_active = true;
-            $layout->save();
-
-            DB::commit();
-
-            return response()->json(['message' => 'Template activated successfully', 'layout' => $layout]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['error' => 'Activation failed'], 500);
-        }
-    }
-
-    /**
-     * Remove the specified template.
-     */
     public function destroy($id)
     {
         $layout = CardLayout::findOrFail($id);
@@ -88,5 +60,16 @@ class CardLayoutController extends Controller
 
         $layout->delete();
         return response()->json(['message' => 'Template deleted']);
+    }
+
+    public function duplicate($id)
+    {
+        $original = CardLayout::findOrFail($id);
+        $newLayout = $original->replicate();
+        $newLayout->name = $original->name . ' (Copy)';
+        $newLayout->is_active = false;
+        $newLayout->save();
+
+        return response()->json($newLayout, 201);
     }
 }

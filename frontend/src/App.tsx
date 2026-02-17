@@ -10,14 +10,12 @@ import { ToastContainer } from "react-toastify";
 import Header from './layout/header';
 
 // Lazy Load Admin Components
-const CardDesignerPage = lazy(() => import("./components/CardDesignerPage"));
+const CardDesignerPage = lazy(() => import("./components/CardDesignerPage.tsx"));
 const Dashboard = lazy(() => import("./pages/dashboard"));
 const ApplicantsIndex = lazy(() => import("./pages/Admin/Applicants/ApplicantsIndex"));
 const ImportReports = lazy(() => import("./pages/Admin/Reports/importReports"));
 const DepartmentList = lazy(() => import("./pages/Admin/Departments/DepartmentsIndex"));
 const CardManagement = lazy(() => import("./pages/cardManagement"));
-
-import DesignerWorkspace from "./components/DesignerWorkspace";
 
 // Lazy Load Other Pages
 const ProfileDetails = lazy(() => import("./pages/profileDetails"));

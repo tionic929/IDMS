@@ -25,6 +25,16 @@ export const createNewTemplate = async (name: string) => {
     return request.data;
 }
 
+export const deleteTemplate = async (id: number) => {
+    const request = await api.delete(`/card-layouts/${id}`);
+    return request.data;
+}
+
+export const duplicateTemplate = async (id: number) => {
+    const request = await api.post(`/card-layouts/${id}/duplicate`);
+    return request.data;
+}
+
 export const handleActiveLayouts = async (id: number) => {
     const request = await api.patch(`/api/card-layouts/${id}/activate`);
     return request.data;

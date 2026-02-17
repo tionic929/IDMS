@@ -27,8 +27,6 @@ interface FormState {
   signature_picture: File | null;
 }
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/jpg'];
-
 const SubmitDetails: React.FC = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState<FormState>({
@@ -47,59 +45,45 @@ const SubmitDetails: React.FC = () => {
   const [idPreviewUrl, setIdPreviewUrl] = useState<string | null>(null);
   const [sigPreviewUrl, setSigPreviewUrl] = useState<string | null>(null);
   
-  const [isRemovingBg, setIsRemovingBg] = useState(false);
-  const [removalProgress, setRemovalProgress] = useState(0);
-  
+  // Progress states for UI feedback during Python Bridge processing
+  const [processingProgress, setProcessingProgress] = useState({ id: 0, sig: 0 });
+  const [isProcessingId, setIsProcessingId] = useState(false);
+  const [isProcessingSig, setIsProcessingSig] = useState(false);
   const [status, setStatus] = useState<'success' | 'error' | ''>('');
 
   const isFormIncomplete = !form.idNumber || !form.firstName || !form.lastName || !form.id_picture || !form.signature_picture;
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: 'id_picture' | 'signature_picture') => {
-    const file = e.target.files?.[0];
-    if (!file || !ALLOWED_TYPES.includes(file.type)) return;
-
-    setForm(prev => ({ ...prev, [field]: file }));
-
-    if (field === 'id_picture') {
-      setIsRemovingBg(true);
-      setRemovalProgress(0);
-      try {
-        const config: Config = {
-          debug: true,
-          model: 'isnet_fp16',
-          proxyToWorker: true,
-          progress: (step, current, total) => {
-            const percentage = Math.round((current / total) * 100);
-            setRemovalProgress(percentage);
-          }
-        };
-
-        const bgRemovedBlob = await removeBackground(file, config);
-        setIdPreviewUrl(URL.createObjectURL(bgRemovedBlob));
-        // We update the form with the BG removed version immediately as the reference
-        const bgRemovedFile = new File([bgRemovedBlob], file.name, { type: 'image/png' });
-        setForm(prev => ({ ...prev, id_picture: bgRemovedFile }));
-      } catch (err) {
-        console.error("❌ Local BG removal failed:", err);
-        setIdPreviewUrl(URL.createObjectURL(file));
-      } finally {
-        setIsRemovingBg(false);
-        setRemovalProgress(0);
-      }
-    } else {
-      setSigPreviewUrl(URL.createObjectURL(file));
-    }
+  // Simple progress bar simulator while waiting for Bridge response
+  const startProgressSync = (field: 'id' | 'sig') => {
+    setProcessingProgress(prev => ({ ...prev, [field]: 0 }));
+    const interval = setInterval(() => {
+      setProcessingProgress(prev => {
+        const current = prev[field];
+        if (current >= 95) {
+          clearInterval(interval);
+          return prev;
+        }
+        return { ...prev, [field]: current + (current < 70 ? 15 : 2) };
+      });
+    }, 200);
+    return interval;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isFormIncomplete || !form.id_picture || !form.signature_picture) return;
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: 'id_picture' | 'signature_picture') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    setIsSubmitting(true);
-    setSubmitPhase('enhancing');
+    const fieldKey = field === 'id_picture' ? 'id' : 'sig';
+    
+    // 1. INSTANT RAW PREVIEW 
+    // We set the raw file immediately so the user sees their upload instantly
+    setForm(prev => ({ ...prev, [field]: file }));
+    
+    // 2. TRIGGER BACKGROUND ENHANCEMENT (Python Bridge)
+    field === 'id_picture' ? setIsProcessingId(true) : setIsProcessingSig(true);
+    const progressInterval = startProgressSync(fieldKey);
 
     try {
-      // 1. Convert File to Base64 for the Python Bridge
       const photoB64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
@@ -111,17 +95,44 @@ const SubmitDetails: React.FC = () => {
         photo: photoB64,
         type: 'id_picture' 
       }, { 
-        responseType: 'blob', // Important: Receive as binary
-        timeout: 300000 
+        responseType: 'blob', 
+        timeout: 60000 
       });
 
-      // 3. IMPORTANT: Re-wrap the blob as a File object with a proper name and mime type
-      // Laravel/Backends often fail to detect 'id_picture' if it's just a raw blob
-      const enhancedFile = new File([bridgeResponse.data], `${form.idNumber}_photo.webp`, { 
-        type: "image/webp" 
-      });
+      // 3. OVERWRITE WITH ENHANCED VERSION
+      const processedFile = new File([response.data], `ai_${fieldKey}.webp`, { type: "image/webp" });
+      setForm(prev => ({ ...prev, [field]: processedFile }));
+      setProcessingProgress(prev => ({ ...prev, [fieldKey]: 100 }));
+      
+    } catch (err: any) {
+      console.warn("AI Enhancement skipped/failed, using raw file:", err);
+    } finally {
+      clearInterval(progressInterval);
+      setTimeout(() => {
+        setIsProcessingId(false);
+        setIsProcessingSig(false);
+      }, 500);
+    }
+  };
 
-      setSubmitPhase('saving');
+  // Memoized Previews for Performance
+  const idPreview = useMemo(() => form.id_picture ? URL.createObjectURL(form.id_picture) : '', [form.id_picture]);
+  const sigPreview = useMemo(() => form.signature_picture ? URL.createObjectURL(form.signature_picture) : '', [form.signature_picture]);
+
+  // Clean up Object URLs to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (idPreview) URL.revokeObjectURL(idPreview);
+      if (sigPreview) URL.revokeObjectURL(sigPreview);
+    };
+  }, [idPreview, sigPreview]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isFormIncomplete) return;
+
+    setIsSubmitting(true);
+    try {
       await getCsrfCookie();
       
       // 4. Create FormData for the Final Database Submission
@@ -137,12 +148,7 @@ const SubmitDetails: React.FC = () => {
       finalData.append('guardianName', form.guardianName);
       finalData.append('guardianContact', form.guardianContact);
 
-      // Append files (Enhanced Photo + Signature)
-      finalData.append('id_picture', enhancedFile);
-      finalData.append('signature_picture', form.signature_picture);
-
-      // 5. Final Save to Main Backend
-      const response = await api.post("/students", finalData, {
+      await api.post("/students", formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -207,14 +213,13 @@ const SubmitDetails: React.FC = () => {
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-7xl mx-auto mt-8 px-4">
         <AnimatePresence>
-          {status === 'success' && (
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="mb-6 p-8 rounded-[2.5rem] bg-emerald-600 text-white shadow-2xl flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <CheckCircle2 size={32}/>
-                <div>
-                  <h4 className="font-black uppercase text-sm tracking-widest">Submitted Successfully</h4>
-                  <p className="text-xs text-emerald-100 font-bold">Your ID data is now being saved.</p>
-                </div>
+          {(status === 'success' || verificationStatus === 'invalid') && (
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className={`mb-6 p-6 rounded-[2rem] border shadow-sm flex items-center justify-between ${status === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}>
+              <div className="flex items-center gap-3">
+                {status === 'success' ? <CheckCircle2 size={20}/> : <AlertCircle size={20}/>}
+                <span className="text-xs font-black uppercase tracking-widest">
+                  {status === 'success' ? 'Application Submitted!' : errorMessage}
+                </span>
               </div>
               <button onClick={() => navigate('/')} className="bg-white text-emerald-700 px-8 py-3 rounded-2xl text-xs font-black hover:bg-emerald-50 transition-colors">RETURN</button>
             </motion.div>
@@ -249,71 +254,54 @@ const SubmitDetails: React.FC = () => {
               <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">Capture Photo</h3>
               
               <div className="space-y-4 text-center">
-                <div className="relative mx-auto w-44 h-44">
-                  <div className={`w-full h-full rounded-[3rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all duration-300 ${isRemovingBg ? 'border-teal-500 bg-teal-50 shadow-inner' : 'border-slate-200 hover:border-teal-300'}`}>
-                    {isRemovingBg ? (
-                       <div className="flex flex-col items-center gap-3 px-4">
-                         <div className="relative">
-                            <RefreshCcw className="animate-spin text-teal-600" size={32} />
-                            <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-teal-600">
-                                {removalProgress}%
-                            </span>
-                         </div>
-                         <div className="w-full bg-teal-200 h-1 rounded-full overflow-hidden">
-                            <motion.div 
-                                className="bg-teal-600 h-full" 
-                                initial={{ width: 0 }} 
-                                animate={{ width: `${removalProgress}%` }}
-                            />
-                         </div>
-                         <span className="text-[9px] font-black text-teal-700 uppercase">GPU Background Removal</span>
-                       </div>
-                    ) : idPreviewUrl ? (
-                      <img src={idPreviewUrl} className="w-full h-full object-cover" />
+                <div className="relative mx-auto w-40 h-40">
+                  <div className={`w-full h-full rounded-[2.5rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all duration-300 ${isProcessingId ? 'border-teal-500 bg-teal-50 shadow-inner' : 'border-slate-200'}`}>
+                    {idPreview ? (
+                      <div className="relative w-full h-full">
+                        <img src={idPreview} className={`w-full h-full object-cover transition-opacity duration-500 ${isProcessingId ? 'opacity-40' : 'opacity-100'}`} />
+                        {isProcessingId && (
+                           <div className="absolute inset-0 flex flex-col items-center justify-center">
+                              <RefreshCcw className="animate-spin text-teal-600" size={30} />
+                              <span className="text-[9px] font-black text-teal-700 uppercase mt-2">{processingProgress.id}% Optimizing...</span>
+                           </div>
+                        )}
+                      </div>
                     ) : (
                       <UploadCloud size={44} className="text-slate-300" />
                     )}
                   </div>
-                  <input type="file" id="id-p" hidden onChange={e => handleFileChange(e, 'id_picture')} disabled={isSubmitting}/>
-                  <label htmlFor="id-p" className="absolute -bottom-2 -right-2 p-4 bg-teal-600 text-white rounded-2xl cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all">
-                    <Camera size={20}/>
-                  </label>
+                  <input type="file" id="id-p" hidden onChange={e => handleFileChange(e, 'id_picture')} accept="image/*" />
+                  <label htmlFor="id-p" className="absolute -bottom-2 -right-2 bg-teal-600 text-white p-3 rounded-2xl cursor-pointer shadow-lg hover:scale-110 active:scale-95 transition-transform"><Camera size={20}/></label>
                 </div>
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Student Photo (2x2)</p>
               </div>
 
               <div className="space-y-4 text-center">
-                <div className="relative mx-auto w-full h-28 group">
-                  <div className="w-full h-full rounded-[2rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden border-slate-200 hover:border-teal-300 transition-all">
-                    {sigPreviewUrl ? (
-                      <img src={sigPreviewUrl} className="w-full h-full object-contain p-4" />
+                <div className="relative mx-auto w-full h-24">
+                  <div className={`w-full h-full rounded-3xl bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all ${isProcessingSig ? 'border-teal-500 bg-teal-50' : 'border-slate-200'}`}>
+                    {sigPreview ? (
+                      <div className="relative w-full h-full flex items-center justify-center">
+                        <img src={sigPreview} className={`w-full h-full object-contain p-2 transition-opacity ${isProcessingSig ? 'opacity-30' : 'opacity-100'}`} />
+                        {isProcessingSig && <Loader2 className="absolute animate-spin text-teal-600" />}
+                      </div>
                     ) : (
                       <FileCheck size={32} className="text-slate-300" />
                     )}
                   </div>
-                  <input type="file" id="sig-p" hidden onChange={e => handleFileChange(e, 'signature_picture')} disabled={isSubmitting}/>
-                  <label htmlFor="sig-p" className="absolute -bottom-2 -right-2 bg-slate-800 text-white p-3 rounded-2xl cursor-pointer shadow-lg hover:scale-110 active:scale-95 transition-all"><FileCheck size={20}/></label>
+                  <input type="file" id="sig-p" hidden onChange={e => handleFileChange(e, 'signature_picture')} accept="image/*" />
+                  <label htmlFor="sig-p" className="absolute -bottom-2 -right-2 bg-slate-800 text-white p-3 rounded-2xl cursor-pointer shadow-lg hover:scale-110 active:scale-95 transition-transform"><FileCheck size={20}/></label>
                 </div>
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">E-Signature</p>
               </div>
 
-              <div className="pt-4">
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting || isRemovingBg || verificationStatus !== 'valid' || isFormIncomplete}
-                  className={`w-full py-6 rounded-[2rem] font-black text-xs tracking-[0.3em] shadow-2xl transition-all flex flex-col items-center justify-center gap-1 ${verificationStatus === 'valid' && !isFormIncomplete ? 'bg-[#00928a] text-white hover:bg-[#007a73]' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
-                >
-                  <div className="flex items-center gap-3">
-                    {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18}/>}
-                    {isSubmitting ? 'WORKING...' : 'CONFIRM & SUBMIT'}
-                  </div>
-                  {isSubmitting && (
-                    <span className="text-[8px] opacity-70 animate-pulse uppercase tracking-widest mt-1 font-bold">
-                      {submitPhase === 'enhancing' ? 'Python Bridge: GFPGAN Restoration...' : 'Finalizing Database Record...'}
-                    </span>
-                  )}
-                </button>
-              </div>
+              <button 
+                type="submit" 
+                disabled={isSubmitting || verificationStatus !== 'valid' || isFormIncomplete}
+                className={`w-full py-6 rounded-[2rem] font-black text-sm tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-2 ${verificationStatus === 'valid' && !isFormIncomplete ? 'bg-[#00928a] text-white hover:bg-[#007a73] active:scale-[0.98]' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+              >
+                {isSubmitting ? <Loader2 className="animate-spin" /> : <Zap size={18}/>}
+                {isSubmitting ? 'PROCESSING...' : 'SUBMIT APPLICATION'}
+              </button>
             </div>
           </div>
         </form>
@@ -322,7 +310,6 @@ const SubmitDetails: React.FC = () => {
   );
 };
 
-// --- HELPER COMPONENTS ---
 const FormSection = ({ icon, title, subtitle, children }: any) => (
   <div className="bg-white p-10 rounded-[3.5rem] shadow-sm border border-slate-200 overflow-hidden relative">
     <div className="flex items-center gap-4 mb-8 relative z-10">
@@ -344,11 +331,11 @@ const ScalingInput = ({ label, value, onChange, isTextArea = false, status = 'id
         <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-[2rem] p-6 outline-none focus:bg-white focus:border-teal-500 transition-all text-sm font-bold" />
       ) : (
         <>
-          <input type="text" value={value} onChange={e => onChange(e.target.value)} className={`w-full bg-slate-50 border rounded-[2rem] px-6 py-5 outline-none transition-all text-sm font-bold ${status === 'valid' ? 'border-emerald-500 bg-emerald-50/30' : status === 'invalid' ? 'border-rose-500 bg-rose-50/30' : 'border-slate-200 focus:border-teal-500'}`} />
-          <div className="absolute right-6 top-1/2 -translate-y-1/2">
-            {isLoading && <Loader2 className="animate-spin text-teal-500" size={20}/>}
-            {status === 'valid' && !isLoading && <CheckCircle2 className="text-emerald-500" size={20}/>}
-            {status === 'invalid' && !isLoading && <AlertCircle className="text-rose-500" size={20}/>}
+          <input type="text" value={value} onChange={e => onChange(e.target.value)} className={`w-full bg-slate-50 border rounded-3xl p-5 outline-none transition-all ${status === 'valid' ? 'border-emerald-500 bg-emerald-50/30' : status === 'invalid' ? 'border-rose-500 bg-rose-50/30' : 'border-slate-200 focus:border-teal-500 focus:bg-white'}`} />
+          <div className="absolute right-5 top-1/2 -translate-y-1/2">
+            {isLoading && <Loader2 className="animate-spin text-teal-500" size={18}/>}
+            {status === 'valid' && !isLoading && <CheckCircle2 className="text-emerald-500" size={18}/>}
+            {status === 'invalid' && !isLoading && <AlertCircle className="text-rose-500" size={18}/>}
           </div>
         </>
       )}
