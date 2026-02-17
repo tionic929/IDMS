@@ -132,20 +132,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, [navigate, setUser]);
 
-    // 💡 THE FIXED LOGOUT FUNCTION
     const logout = useCallback(async () => {
         try {
-            // await apiLogoutAndRevokeToken();
-            // await apiLogoutAndClearSession();
+            // 1. Call the API
             await apiLogout();
         } catch (error) {
             console.error("Server-side logout failed:", error);
+        } finally {
+            // 2. ALWAYS clear local state regardless of server response
+            setUser(null);
+
+            // 3. 🚨 THE MISSING PIECE: Clear local persistence
+            // If you store tokens in localStorage, remove them:
+            localStorage.removeItem('auth_token'); 
+            
+            // If you use cookies, you might need to manually clear them 
+            // or ensure axios is configured to drop credentials
+            
+            // 4. Force a clean redirect
+            navigate("/login", { replace: true });
         }
-        
-        setUser(null);
-        
-        navigate("/login");
-    }, [navigate]); 
+    }, [navigate]);
 
     
     // 3. CRITICAL FIX: Memoize the entire context value object

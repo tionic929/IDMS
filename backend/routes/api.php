@@ -54,7 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [CardLayoutController::class, 'store']);
         Route::put('/{id}', [CardLayoutController::class, 'update']);
         Route::delete('/{id}', [CardLayoutController::class, 'destroy']);
-        Route::patch('/{id}/activate', [CardLayoutController::class, 'activate']);
+        Route::post('/{id}/duplicate', [CardLayoutController::class, 'duplicate']);
     });
 
     Route::get('/applicants/{id}/card-preview', [ApplicantsController::class, 'getPreview']);

@@ -8,6 +8,7 @@ import {
   Grid3X3
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { useQuery } from '@tanstack/react-query';
 
 import FRONT_BG_SRC from '../assets/ID/NEWFRONT.png';
 import BACK_BG_SRC from '../assets/ID/BACK.png';
@@ -15,6 +16,7 @@ import { type Students } from '../types/students';
 import { saveLayout } from '../api/templates';
 import { type LayoutItemSchema } from '../types/designer';
 import { getEnabledAnchors, reorderLayer } from '../utils/designerUtils';
+import { getStudents } from '../api/students';
 
 import { 
   DESIGN_WIDTH, DESIGN_HEIGHT, EXPORT_PIXEL_RATIO,
@@ -63,10 +65,9 @@ interface CardDesignerProps {
   templateName: string;
   onSave: (newLayout: any) => void;
   currentLayout: any;
-  allStudents: Students[];
 }
 
-const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, onSave, currentLayout, allStudents }) => {
+const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, onSave, currentLayout }) => {
   const [editSide, setEditSide] = useState<'FRONT' | 'BACK'>('FRONT');
   const [tempLayout, setTempLayout] = useState(currentLayout);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -96,12 +97,23 @@ const CardDesigner: React.FC<CardDesignerProps> = ({ templateId, templateName, o
     return `${VITE_API_URL}/api/proxy-image?path=${encodeURIComponent(cleanPath)}`;
   };
 
-  const activeStudent = useMemo(() => {
-    if (!allStudents?.length) return null;
-    return [...allStudents].sort((a, b) => 
-      new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime()
-    )[0];
-  }, [allStudents]);
+  // ✅ OPTIMIZED: Only fetch ONE student for preview when template is selected
+  const { data: activeStudent } = useQuery({
+    queryKey: ['preview-student'],
+    queryFn: async () => {
+      const res = await getStudents();
+      const allStudents = [...(res.queueList || []), ...(res.history || [])];
+      
+      if (!allStudents?.length) return null;
+      
+      // Return most recently updated student
+      return [...allStudents].sort((a, b) => 
+        new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime()
+      )[0];
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    enabled: !!templateId, // Only fetch when template is selected
+  });
 
   const previewData = useMemo(() => {
     if (!activeStudent) return null;

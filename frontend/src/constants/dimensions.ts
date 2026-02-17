@@ -29,7 +29,7 @@ export const EXPORT_PIXEL_RATIO = 3.4375;
 
 export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 3;
-export const DEFAULT_ZOOM = 1.6;
+export const DEFAULT_ZOOM = 1.2;
 
 export function scaleCoordinate(
   x: number,

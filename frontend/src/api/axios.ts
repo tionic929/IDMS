@@ -6,6 +6,7 @@ const apiBaseUrl = import.meta.env.VITE_API_URL || "";
 const api = axios.create({
   baseURL: `${apiBaseUrl}/api`,
   withCredentials: true,
+  withXSRFToken: true,  
   headers: {
     "X-Requested-With": "XMLHttpRequest",
     Accept: "application/json",
