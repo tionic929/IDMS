@@ -19,7 +19,7 @@ import { type ApplicantCard } from '../types/card';
 // Icons & Components
 import { BsPersonFill } from 'react-icons/bs';
 import IDCardPreview from '../components/IDCardPreview';
-import CardManagementSkeleton from '../components/skeletons/CardManagementSkeleton';
+import CardManagementSkeleton from '../components/Skeletons/CardManagementSkeleton';
 
 // Lazy Load Heavy Components to reduce initial bundle size
 const PrintPreviewModal = lazy(() => import('../components/PrintPreviewModal'));
