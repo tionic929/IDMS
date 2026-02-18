@@ -8,7 +8,7 @@ import {
   AlertCircle, UploadCloud, RefreshCcw, Zap
 } from 'lucide-react';
 
-import { removeBackground, type Config } from '@imgly/background-removal';
+// Adjust these paths if your file structure is different
 import { verifyIdNumber } from '../api/reports';
 import api, { getCsrfCookie } from '../api/axios';
 
@@ -42,10 +42,7 @@ const SubmitDetails: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitPhase, setSubmitPhase] = useState<'idle' | 'enhancing' | 'saving'>('idle');
   
-  const [idPreviewUrl, setIdPreviewUrl] = useState<string | null>(null);
-  const [sigPreviewUrl, setSigPreviewUrl] = useState<string | null>(null);
-  
-  // Progress states for UI feedback during Python Bridge processing
+  // Progress states for UI feedback
   const [processingProgress, setProcessingProgress] = useState({ id: 0, sig: 0 });
   const [isProcessingId, setIsProcessingId] = useState(false);
   const [isProcessingSig, setIsProcessingSig] = useState(false);
@@ -53,7 +50,6 @@ const SubmitDetails: React.FC = () => {
 
   const isFormIncomplete = !form.idNumber || !form.firstName || !form.lastName || !form.id_picture || !form.signature_picture;
 
-  // Simple progress bar simulator while waiting for Bridge response
   const startProgressSync = (field: 'id' | 'sig') => {
     setProcessingProgress(prev => ({ ...prev, [field]: 0 }));
     const interval = setInterval(() => {
@@ -75,11 +71,10 @@ const SubmitDetails: React.FC = () => {
 
     const fieldKey = field === 'id_picture' ? 'id' : 'sig';
     
-    // 1. INSTANT RAW PREVIEW 
-    // We set the raw file immediately so the user sees their upload instantly
+    // 1. Set raw file for preview
     setForm(prev => ({ ...prev, [field]: file }));
     
-    // 2. TRIGGER BACKGROUND ENHANCEMENT (Python Bridge)
+    // 2. Trigger Bridge
     field === 'id_picture' ? setIsProcessingId(true) : setIsProcessingSig(true);
     const progressInterval = startProgressSync(fieldKey);
 
@@ -87,20 +82,20 @@ const SubmitDetails: React.FC = () => {
       const photoB64 = await new Promise<string>((resolve) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(form.id_picture!);
+        reader.readAsDataURL(file); // Fixed: Use 'file' directly instead of 'form.id_picture'
       });
 
-      // 2. Send to Python Bridge (GFPGAN Restoration)
+      // Send to Python Bridge
       const bridgeResponse = await axios.post(`${LOCAL_BRIDGE_URL}/process_and_return`, {
         photo: photoB64,
-        type: 'id_picture' 
+        type: field 
       }, { 
         responseType: 'blob', 
         timeout: 60000 
       });
 
-      // 3. OVERWRITE WITH ENHANCED VERSION
-      const processedFile = new File([response.data], `ai_${fieldKey}.webp`, { type: "image/webp" });
+      // 3. Capture bridgeResponse as a File
+      const processedFile = new File([bridgeResponse.data], `ai_${fieldKey}.webp`, { type: "image/webp" });
       setForm(prev => ({ ...prev, [field]: processedFile }));
       setProcessingProgress(prev => ({ ...prev, [fieldKey]: 100 }));
       
@@ -115,11 +110,9 @@ const SubmitDetails: React.FC = () => {
     }
   };
 
-  // Memoized Previews for Performance
   const idPreview = useMemo(() => form.id_picture ? URL.createObjectURL(form.id_picture) : '', [form.id_picture]);
   const sigPreview = useMemo(() => form.signature_picture ? URL.createObjectURL(form.signature_picture) : '', [form.signature_picture]);
 
-  // Clean up Object URLs to prevent memory leaks
   useEffect(() => {
     return () => {
       if (idPreview) URL.revokeObjectURL(idPreview);
@@ -135,10 +128,7 @@ const SubmitDetails: React.FC = () => {
     try {
       await getCsrfCookie();
       
-      // 4. Create FormData for the Final Database Submission
       const finalData = new FormData();
-      
-      // Append text fields
       finalData.append('idNumber', form.idNumber);
       finalData.append('firstName', form.firstName);
       finalData.append('middleInitial', form.middleInitial);
@@ -148,7 +138,11 @@ const SubmitDetails: React.FC = () => {
       finalData.append('guardianName', form.guardianName);
       finalData.append('guardianContact', form.guardianContact);
 
-      await api.post("/students", formData, {
+      if (form.id_picture) finalData.append('id_picture', form.id_picture);
+      if (form.signature_picture) finalData.append('signature_picture', form.signature_picture);
+
+      // Captured the response variable here
+      const response = await api.post("/students", finalData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -164,6 +158,7 @@ const SubmitDetails: React.FC = () => {
     }
   };
 
+  // ID Verification Logic
   useEffect(() => {
     if (form.idNumber.length >= 8) {
       const delayDebounceFn = setTimeout(async () => {
@@ -310,6 +305,7 @@ const SubmitDetails: React.FC = () => {
   );
 };
 
+// Sub-components
 const FormSection = ({ icon, title, subtitle, children }: any) => (
   <div className="bg-white p-10 rounded-[3.5rem] shadow-sm border border-slate-200 overflow-hidden relative">
     <div className="flex items-center gap-4 mb-8 relative z-10">

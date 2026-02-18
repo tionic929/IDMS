@@ -13,6 +13,7 @@ export interface LayoutItemSchema {
   align: 'left' | 'center' | 'right';
 
   locked?: boolean;
+  visible?: boolean;
 
   fit: FitMode;
   maxLines: number | null;
