@@ -1,11 +1,10 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { ChartContainer } from './ChartContainer';
-import { ArrowUpRight } from 'lucide-react';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899'];
 
-export const DistributionChart: React.FC<{ data: any[]; onViewDetails?: () => void }> = ({ data, onViewDetails }) => {
+export const DistributionChart: React.FC<{ data: any[] }> = ({ data }) => {
   if (!data || data.length === 0) {
     return (
       <ChartContainer title="Distribution">
@@ -19,7 +18,7 @@ export const DistributionChart: React.FC<{ data: any[]; onViewDetails?: () => vo
   const totalCount = data.reduce((sum, item) => sum + item.total, 0);
 
   return (
-    <ChartContainer title="Inventory Share" accent="bg-emerald-500">
+    <ChartContainer title="Inventory Share">
       <div className="flex flex-col h-full justify-between gap-6">
 
         {/* Chart Section */}
@@ -76,43 +75,45 @@ export const DistributionChart: React.FC<{ data: any[]; onViewDetails?: () => vo
 
           {/* Center Text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Total</span>
-            <span className="text-2xl font-black text-zinc-900 mt-0.5 tracking-tighter">{totalCount.toLocaleString()}</span>
+            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Total</span>
+            <span className="text-2xl font-black text-slate-900 mt-1 tracking-tighter">{totalCount}</span>
           </div>
         </div>
 
         {/* Legend */}
-        <div className="border-t border-zinc-100 pt-3">
-          <div className="grid grid-cols-2 gap-x-2 gap-y-2">
+        <div className="border-t border-slate-100 pt-4">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-3">
             {data.slice(0, 4).map((item, i) => (
-              <div key={item.name} className="flex items-center gap-2 px-1 py-1 rounded-lg hover:bg-zinc-50 transition-colors">
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+              <div key={item.name} className="group flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                {/* Color Indicator */}
+                <div className="flex-shrink-0 mt-1">
+                  <div className="w-2.5 h-2.5 rounded-full transition-transform group-hover:scale-125"
+                    style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                  />
+                </div>
+
+                {/* Content */}
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold text-zinc-700 uppercase tracking-tight truncate">
+                  <p className="text-xs font-bold text-slate-700 uppercase tracking-tight truncate">
                     {item.name}
                   </p>
-                  <p className="text-[10px] font-semibold text-zinc-400">
-                    {item.percentage}% · {item.total}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs font-black text-slate-900">
+                      {item.percentage}%
+                    </span>
+                    <span className="text-xs text-slate-400 font-medium">
+                      {item.total}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Show more + view all */}
-          {(data.length > 4 || onViewDetails) && (
-            <div className="mt-2 flex items-center justify-between pt-2 border-t border-zinc-100">
-              <span className="text-[10px] text-zinc-400 font-medium">
-                {data.length > 4 ? `+${data.length - 4} more` : ''}
-              </span>
-              {onViewDetails && (
-                <button
-                  onClick={onViewDetails}
-                  className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 hover:text-emerald-800 transition-colors"
-                >
-                  View all <ArrowUpRight size={10} />
-                </button>
-              )}
+          {/* Show more indicator if needed */}
+          {data.length > 4 && (
+            <div className="mt-3 text-xs text-slate-400 font-semibold text-center py-2 border-t border-slate-100">
+              +{data.length - 4} more
             </div>
           )}
         </div>

@@ -1,9 +1,9 @@
 import React from 'react';
 import { AreaChart, Area, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { ChartContainer } from './ChartContainer';
-import { TrendingUp, ArrowUp, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, ArrowUp } from 'lucide-react';
 
-export const VelocityChart: React.FC<{ data: any[]; onViewDetails?: () => void }> = ({ data, onViewDetails }) => {
+export const VelocityChart: React.FC<{ data: any[] }> = ({ data }) => {
   if (!data || data.length === 0) {
     return (
       <ChartContainer title="Production Trend">
@@ -25,29 +25,17 @@ export const VelocityChart: React.FC<{ data: any[]; onViewDetails?: () => void }
   return (
     <ChartContainer
       title="Production Trend"
-      accent="bg-violet-500"
       footer={
         <div className="w-full flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <TrendingUp size={14} className="text-violet-600" />
-            <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest">Growth Trend</span>
+            <TrendingUp size={14} className="text-indigo-600" />
+            <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Growth Trend</span>
           </div>
-          <div className="flex items-center gap-3">
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-bold ${isPositive
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                : 'bg-red-50 border-red-200 text-red-700'
-              }`}>
-              <ArrowUp size={11} />
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${isPositive ? 'bg-emerald-50' : 'bg-red-50'}`}>
+            <ArrowUp size={12} className={isPositive ? 'text-emerald-600' : 'text-red-600'} />
+            <span className={`text-xs font-black tracking-tight ${isPositive ? 'text-emerald-700' : 'text-red-700'}`}>
               {isPositive ? '+' : ''}{growthPercent}%
-            </div>
-            {onViewDetails && (
-              <button
-                onClick={onViewDetails}
-                className="flex items-center gap-1 text-[11px] font-semibold text-violet-600 hover:text-violet-800 transition-colors"
-              >
-                View details <ArrowUpRight size={11} />
-              </button>
-            )}
+            </span>
           </div>
         </div>
       }

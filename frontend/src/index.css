@@ -4,34 +4,66 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities{
+@layer utilities {
   .scroll-hidden {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
   }
+
   .scroll-hidden::-webkit-scrollbar {
-    display: none; /* Chrome, Edge, Safari */
+    display: none;
+    /* Chrome, Edge, Safari */
+  }
+
+  /* Thin scrollbar for in-card lists (TallyChart etc.) */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #e4e4e7 transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #e4e4e7;
+    border-radius: 20px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #a1a1aa;
   }
 }
 
 /* Custom Scrollbar Design */
 ::-webkit-scrollbar {
-  width: 6px; /* Vertical scrollbar width */
-  height: 6px; /* Horizontal scrollbar height */
+  width: 6px;
+  /* Vertical scrollbar width */
+  height: 6px;
+  /* Horizontal scrollbar height */
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent; 
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #e2e8f0; /* slate-200 */
+  background: #e2e8f0;
+  /* slate-200 */
   border-radius: 20px;
-  border: 2px solid transparent; /* Creates a 'floating' effect */
+  border: 2px solid transparent;
+  /* Creates a 'floating' effect */
   background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #6366f1; /* indigo-500 */
+  background: #6366f1;
+  /* indigo-500 */
   background-clip: content-box;
 }

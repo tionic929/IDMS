@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { 
+import {
   BsPerson, BsClock, BsCreditCard
 } from "react-icons/bs";
 import { FiFilter, FiSearch } from "react-icons/fi";
@@ -11,7 +11,7 @@ import { type ApplicantCard } from "../../../types/card";
 import ApplicantDetailsModal from "../../../components/Modals/ApplicantDetailsModal";
 
 const ApplicantsIndex: React.FC = () => {
-  const [report, setReport] = useState({ total: 0, pending: 0, issued: 0});
+  const [report, setReport] = useState({ total: 0, pending: 0, issued: 0 });
   const [query, setQuery] = useState("");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedApplicant, setSelectedApplicant] = useState<ApplicantCard | null>(null);
@@ -32,36 +32,35 @@ const ApplicantsIndex: React.FC = () => {
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-5 lg:p-8 font-sans selection:bg-indigo-100">
+    <div className="min-h-screen bg-zinc-50 p-5 lg:p-8 font-sans">
       <div className="mx-auto max-w-[1400px] space-y-6">
-        
+
         {/* HEADER */}
-        <header className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-slate-200 pb-8">
+        <header className="flex flex-col md:flex-row justify-between items-end gap-6 border-b border-zinc-200 pb-6">
           <div>
-            <h1 className="text-3xl font-sans font-[600] text-slate-800 tracking-tight">
-              Applicants <span className="text-indigo-600 font-medium">Registry</span>
+            <h1 className="text-2xl font-black text-zinc-900 tracking-tight">
+              Applicants <span className="text-indigo-600">Registry</span>
             </h1>
-            <p className="text-slate-500 text-sm">Review, verify, and issue identification cards.</p>
+            <p className="text-zinc-500 text-sm mt-0.5">Review, verify, and issue identification cards.</p>
           </div>
 
           <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="relative flex-1 md:w-72 group">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-indigo-500 transition-colors" />
               <input
                 type="text"
                 placeholder="Find applicant..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all"
+                className="w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-4 py-2 text-sm shadow-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
               />
             </div>
-            <button 
+            <button
               onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
-                isFilterOpen ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-              }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-semibold transition-all ${isFilterOpen ? 'bg-zinc-900 text-white border-zinc-900' : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50'
+                }`}
             >
-              <FiFilter size={16} /> Filters
+              <FiFilter size={14} /> Filters
             </button>
           </div>
         </header>
@@ -99,16 +98,16 @@ const ApplicantsIndex: React.FC = () => {
             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">History Log</h3>
           </div>
           <div className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm">
-            <ApplicantsTable 
-              query={query} 
-              onViewDetails={(applicant: ApplicantCard) => setSelectedApplicant(applicant)} 
+            <ApplicantsTable
+              query={query}
+              onViewDetails={(applicant: ApplicantCard) => setSelectedApplicant(applicant)}
             />
           </div>
         </div>
       </div>
 
       {selectedApplicant && (
-        <ApplicantDetailsModal 
+        <ApplicantDetailsModal
           data={selectedApplicant}
           onClose={() => setSelectedApplicant(null)}
         />

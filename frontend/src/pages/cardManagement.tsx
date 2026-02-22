@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useCallback, Suspense, lazy } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { 
-  Search, Trash2, Printer, RefreshCw, CheckCircle2,
-  Database, CheckSquare, Square, MapPin, Phone, 
-  User as UserIcon, Ban,
-  CardSimIcon
+import {
+    Search, Trash2, Printer, RefreshCw, CheckCircle2,
+    Database, CheckSquare, Square, MapPin, Phone,
+    User as UserIcon, Ban,
+    CardSimIcon
 } from 'lucide-react';
 
 import { toast } from 'react-toastify';
@@ -28,23 +28,23 @@ const VITE_API_URL = import.meta.env.VITE_API_URL;
 type SortKey = 'created_at' | 'id_number' | 'first_name' | 'last_name';
 
 // Memoized Table Row to prevent "Tunnel Lag" and entire table re-renders
-const StudentRow = React.memo(({ 
-    student, 
-    isActive, 
-    isSelected, 
-    onSelect, 
-    onView, 
-    courses 
-}: { 
-    student: Students, 
-    isActive: boolean, 
-    isSelected: boolean, 
-    onSelect: (id: number) => void, 
+const StudentRow = React.memo(({
+    student,
+    isActive,
+    isSelected,
+    onSelect,
+    onView,
+    courses
+}: {
+    student: Students,
+    isActive: boolean,
+    isSelected: boolean,
+    onSelect: (id: number) => void,
     onView: (id: number) => void,
     courses: any
 }) => {
     return (
-        <tr 
+        <tr
             onClick={() => onView(student.id)}
             className={`group hover:bg-slate-50 dark:hover:bg-zinc-900/40 transition-colors cursor-pointer ${isActive ? 'bg-teal-500/10 dark:bg-teal-500/10' : ''}`}
         >
@@ -66,8 +66,8 @@ const StudentRow = React.memo(({
                 </span>
             </td>
             <td className="px-4 py-3">
-                {student.has_card ? 
-                    <div className="text-emerald-500 flex items-center gap-1 text-[9px] font-black uppercase"><CheckCircle2 size={10} /> Printed</div> : 
+                {student.has_card ?
+                    <div className="text-emerald-500 flex items-center gap-1 text-[9px] font-black uppercase"><CheckCircle2 size={10} /> Printed</div> :
                     <div className="text-amber-500 flex items-center gap-1 text-[9px] font-black uppercase"><RefreshCw size={10} className="animate-spin-slow" /> In Queue</div>
                 }
             </td>
@@ -84,14 +84,14 @@ const Dashboard: React.FC = () => {
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [selectedViewingId, setSelectedViewingId] = useState<number | null>(null);
-    const [printData, setPrintData] = useState<{ student: ApplicantCard, layout: any} | null>(null);
+    const [printData, setPrintData] = useState<{ student: ApplicantCard, layout: any } | null>(null);
 
     // TanStack Query for Students Data
     const { data: allStudents = [], isLoading: studentsLoading, refetch: refetchStudents } = useQuery({
         queryKey: ['students'],
         queryFn: async () => {
             const res = await getStudents();
-            return [ ...(res.queueList || []), ...(res.history || [])];
+            return [...(res.queueList || []), ...(res.history || [])];
         },
         staleTime: 60000, // Keep data fresh for 1 minute
     });
@@ -135,7 +135,7 @@ const Dashboard: React.FC = () => {
 
     const previewData = useMemo((): ApplicantCard | null => {
         if (!activeStudent) return null;
-        const getUrl = (path: string | null) => 
+        const getUrl = (path: string | null) =>
             !path ? '' : (path.startsWith('http') ? path : `${VITE_API_URL}/storage/${path}`);
 
         return {
@@ -156,9 +156,9 @@ const Dashboard: React.FC = () => {
         return allStudents
             .filter((s: Students) => {
                 if (!query) return true;
-                return s.id_number.toLowerCase().includes(query) || 
-                       `${s.first_name} ${s.last_name}`.toLowerCase().includes(query) || 
-                       s.course.toLowerCase().includes(query);
+                return s.id_number.toLowerCase().includes(query) ||
+                    `${s.first_name} ${s.last_name}`.toLowerCase().includes(query) ||
+                    s.course.toLowerCase().includes(query);
             })
             .sort((a: Students, b: Students) => {
                 let aVal = sortBy === 'created_at' ? new Date(a.created_at).getTime() : a[sortBy];
@@ -176,7 +176,7 @@ const Dashboard: React.FC = () => {
     }, []);
 
     const handleExport = async (studentId: number) => {
-        if(currentAutoLayout && previewData){
+        if (currentAutoLayout && previewData) {
             setPrintData({ student: previewData, layout: currentAutoLayout });
         }
     };
@@ -184,11 +184,11 @@ const Dashboard: React.FC = () => {
     if (studentsLoading || templatesLoading) return <CardManagementSkeleton />;
 
     return (
-        <div className="h-full bg-slate-50 dark:bg-[#020617] text-slate-900 dark:text-slate-100 flex flex-col overflow-hidden">
+        <div className="h-full bg-zinc-50 dark:bg-[#020617] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-hidden">
             <Suspense fallback={<div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center"><RefreshCw className="animate-spin text-white" size={48} /></div>}>
                 <AnimatePresence>
                     {printData && (
-                        <PrintPreviewModal 
+                        <PrintPreviewModal
                             data={printData.student}
                             layout={printData.layout}
                             onClose={() => setPrintData(null)}
@@ -204,7 +204,7 @@ const Dashboard: React.FC = () => {
                             <div className="p-5 bg-slate-50/50 dark:bg-zinc-900/30 border-b border-slate-200 dark:border-zinc-900">
                                 <div className="flex flex-row gap-4 items-center justify-center">
                                     <IDCardPreview data={previewData} layout={currentAutoLayout} side="FRONT" scale={0.9} />
-                                    <IDCardPreview data={previewData} layout={currentAutoLayout} side="BACK" scale={0.9}/>
+                                    <IDCardPreview data={previewData} layout={currentAutoLayout} side="BACK" scale={0.9} />
                                 </div>
                             </div>
 
@@ -214,7 +214,7 @@ const Dashboard: React.FC = () => {
                                         <BsPersonFill className="text-teal-500" /> {activeStudent.last_name}, {activeStudent.first_name}
                                     </h2>
                                     <div className="flex items-center gap-4 mt-2">
-                                        <span className="flex items-center gap-2 text-lg font-bold text-slate-500"><CardSimIcon size={20}/> {activeStudent.id_number}</span>
+                                        <span className="flex items-center gap-2 text-lg font-bold text-slate-500"><CardSimIcon size={20} /> {activeStudent.id_number}</span>
                                         <span className="px-2 py-1 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-black uppercase">{activeStudent.course}</span>
                                     </div>
                                 </div>
@@ -259,7 +259,7 @@ const Dashboard: React.FC = () => {
                     <div className="p-4 border-b border-slate-100 dark:border-zinc-900 flex items-center justify-between gap-4">
                         <div className="relative flex-1 max-w-md">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                            <input 
+                            <input
                                 type="text"
                                 placeholder="Filter directory by name, ID or course..."
                                 value={searchTerm}
@@ -277,8 +277,8 @@ const Dashboard: React.FC = () => {
                             <thead className="sticky top-0 z-10 bg-slate-50/90 dark:bg-zinc-950/90 backdrop-blur-sm">
                                 <tr className="text-slate-400 text-[9px] font-black uppercase tracking-widest">
                                     <th className="w-12 pl-6 py-4">
-                                        <button 
-                                            className="text-indigo-600" 
+                                        <button
+                                            className="text-indigo-600"
                                             onClick={() => setSelectedIds(selectedIds.length === filteredStudents.length ? [] : filteredStudents.map((s: Students) => s.id))}
                                         >
                                             {selectedIds.length === filteredStudents.length && filteredStudents.length > 0 ? <CheckSquare size={16} className="text-teal-500" /> : <Square size={16} />}
@@ -293,7 +293,7 @@ const Dashboard: React.FC = () => {
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-zinc-900">
                                 {filteredStudents.map((student: Students) => (
-                                    <StudentRow 
+                                    <StudentRow
                                         key={student.id}
                                         student={student}
                                         isActive={activeStudent?.id === student.id}
