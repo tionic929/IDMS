@@ -1,7 +1,13 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+
+﻿import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { saveLayout } from '../../../api/templates';
 import { EXPORT_PIXEL_RATIO } from '../../../constants/dimensions';
+import type { Students } from '../../../types/students';
+
+
+import { usePreviewData } from '../hooks/usePreviewData';
+
 
 interface DesignerContextType {
   templateId: number | null;
@@ -16,6 +22,10 @@ interface DesignerContextType {
   handleExport: (stageRef: any, previewData: any) => void;
   onSave: (layout: any) => void;
   updateItem: (id: string, attrs: any) => void;
+
+  allStudents: Students[];
+  previewData: any;
+
 }
 
 const DesignerContext = createContext<DesignerContextType | undefined>(undefined);
@@ -26,7 +36,13 @@ export const DesignerProvider: React.FC<{
   templateName: string;
   currentLayout: any;
   onSave: (layout: any) => void;
-}> = ({ children, templateId, templateName, currentLayout, onSave }) => {
+
+  allStudents: Students[];
+}> = ({ children, templateId, templateName, currentLayout, onSave, allStudents }) => {
+  const { previewData } = usePreviewData(templateId, templateName, allStudents);
+
+
+
   const [editSide, setEditSide] = useState<'FRONT' | 'BACK'>('FRONT');
   const [tempLayout, setTempLayout] = useState(currentLayout);
   const [isSaving, setIsSaving] = useState(false);
@@ -118,8 +134,14 @@ export const DesignerProvider: React.FC<{
     handleSave,
     handleExport,
     onSave,
-    updateItem
+
+    updateItem,
+    allStudents,
+    previewData
   };
+
+
+
 
   return (
     <DesignerContext.Provider value={value}>
@@ -134,4 +156,7 @@ export const useDesignerContext = () => {
     throw new Error('useDesignerContext must be used within DesignerProvider');
   }
   return context;
+
 };
+
+

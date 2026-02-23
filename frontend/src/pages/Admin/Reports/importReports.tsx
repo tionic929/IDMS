@@ -1,8 +1,26 @@
 import React, { useState, useRef, useEffect } from "react";
-import { importReports, getImportedReports } from "../../../api/reports";
-import { AiOutlineCloudUpload, AiOutlineFileExcel, AiOutlineCheckCircle, AiOutlineSearch, AiOutlineInbox } from "react-icons/ai";
-import { Loader2 } from "lucide-react"; // Optional: for a smoother spinner
-import type { ImportedReportsPayload } from "../../../types/reports";
+import { importReports, getImportedReports } from "@/api/reports";
+import {
+    CloudUpload, FileSpreadsheet, CheckCircle2,
+    Search, Inbox, AlertCircle, RefreshCw,
+    X, ChevronLeft, ChevronRight
+} from "lucide-react";
+import type { ImportedReportsPayload } from "@/types/reports";
+
+// shadcn UI
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 function ImportReports() {
     const [query, setQuery] = useState("");
@@ -65,151 +83,211 @@ function ImportReports() {
     }, []);
 
     return (
-        <div className="p-8 max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
-            {/* HEADER SECTION */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-black text-slate-800 tracking-tight">Report Importer</h1>
-                    <p className="text-slate-500 font-medium">Manage and review your enrollment data uploads</p>
+        <div className="max-w-[1400px] mx-auto p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* HEADER */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Data Management</span>
+                        <span className="text-border">/</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Import</span>
+                    </div>
+                    <h1 className="text-4xl font-black text-foreground tracking-tight">Report Importer</h1>
+                    <p className="text-muted-foreground font-medium text-sm">Synchronize enrollment data through automated spreadsheet processing.</p>
                 </div>
-                
-                {/* SEARCH BAR */}
-                <div className="relative group w-full md:w-72">
-                    <AiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-                    <input 
-                        type="text"
-                        placeholder="Search records..."
-                        className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all text-sm"
+
+                <div className="relative group w-full md:w-80">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Input
+                        placeholder="Filter synchronization log..."
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && fetchImportedReports(1, query)}
+                        className="pl-10 h-11 shadow-sm"
                     />
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* LEFT: UPLOAD CARD */}
-                <div className="lg:col-span-1 space-y-4">
-                    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500" />
-                        
-                        <div className={`border-2 border-dashed rounded-2xl p-6 transition-all ${file ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200 bg-slate-50/50'}`}>
-                            {!file ? (
-                                <div className="text-center">
-                                    <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                        <AiOutlineCloudUpload className="text-3xl text-indigo-600" />
-                                    </div>
-                                    <h3 className="font-bold text-slate-800">Select File</h3>
-                                    <p className="text-xs text-slate-500 mt-1 mb-4 uppercase tracking-tighter">XLSX, CSV supported</p>
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="w-full py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 active:scale-95 transition-all"
-                                    >
-                                        Browse Files
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="text-center">
-                                    <AiOutlineFileExcel className="text-4xl text-emerald-500 mx-auto mb-2" />
-                                    <p className="text-sm font-bold text-slate-700 truncate mb-4">{file.name}</p>
-                                    <div className="flex flex-col gap-2">
-                                        <button 
-                                            onClick={handleUpload}
-                                            disabled={uploading}
-                                            className="w-full py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-600 active:scale-95 transition-all flex items-center justify-center gap-2"
-                                        >
-                                            {uploading ? "Importing..." : "Confirm Import"}
-                                        </button>
-                                        <button 
-                                            onClick={() => setFile(null)}
-                                            className="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-rose-500 transition-colors"
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <input 
-                            type="file" accept=".xlsx, .xls, .csv" 
-                            className="hidden" ref={fileInputRef} onChange={handleFileChange}
-                        />
-
-                        {status && (
-                            <div className={`mt-4 p-3 rounded-xl flex items-center gap-2 text-xs font-bold ${
-                                status.type === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                            }`}>
-                                {status.type === 'success' && <AiOutlineCheckCircle size={16}/>}
-                                <span>{status.msg}</span>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* UPLOAD PANEL */}
+                <div className="lg:col-span-4 space-y-6">
+                    <Card className="border-none shadow-xl shadow-primary/5 bg-gradient-to-b from-card to-muted/20">
+                        <CardHeader className="pb-4">
+                            <CardTitle className="text-lg font-bold">Data Upload</CardTitle>
+                            <CardDescription className="text-xs">Drag and drop your spreadsheet here.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div
+                                className={cn(
+                                    "border-2 border-dashed rounded-2xl p-8 transition-all flex flex-col items-center justify-center text-center gap-4 group cursor-pointer",
+                                    file ? "border-emerald-500/50 bg-emerald-500/5" : "border-muted-foreground/20 bg-muted/30 hover:bg-muted/50 hover:border-primary/50"
+                                )}
+                                onClick={() => !file && fileInputRef.current?.click()}
+                            >
+                                {!file ? (
+                                    <>
+                                        <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                                            <CloudUpload className="h-7 w-7 text-primary" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold">Click to browse</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">XLSX, CSV Supported</p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
+                                            <FileSpreadsheet className="h-7 w-7 text-emerald-500" />
+                                        </div>
+                                        <div className="w-full">
+                                            <p className="text-sm font-bold truncate px-4">{file.name}</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Ready for processing</p>
+                                        </div>
+                                        <div className="flex flex-col w-full gap-2 mt-2">
+                                            <Button
+                                                onClick={(e) => { e.stopPropagation(); handleUpload(); }}
+                                                disabled={uploading}
+                                                className="w-full bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20"
+                                            >
+                                                {uploading ? (
+                                                    <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Processing</>
+                                                ) : "Initiate Import"}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={(e) => { e.stopPropagation(); setFile(null); }}
+                                                className="h-8 text-[11px] font-bold uppercase tracking-widest text-muted-foreground hover:text-destructive"
+                                            >
+                                                Discard File
+                                            </Button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
-                        )}
-                    </div>
+
+                            <input
+                                type="file" accept=".xlsx, .xls, .csv"
+                                className="hidden" ref={fileInputRef} onChange={handleFileChange}
+                            />
+
+                            {status && (
+                                <Alert variant={status.type === 'success' ? 'default' : 'destructive'} className={cn(
+                                    "border-none shadow-sm",
+                                    status.type === 'success' ? "bg-emerald-500/10 text-emerald-600" : "bg-destructive/10 text-destructive"
+                                )}>
+                                    {status.type === 'success' ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                                    <AlertTitle className="text-xs font-bold uppercase tracking-widest mb-1">
+                                        {status.type === 'success' ? "Success" : "Error"}
+                                    </AlertTitle>
+                                    <AlertDescription className="text-xs font-medium opacity-90">
+                                        {status.msg}
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-none shadow-sm bg-muted/20">
+                        <CardContent className="p-6 space-y-4">
+                            <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Import Guidelines</h4>
+                            <ul className="grid gap-2">
+                                {[
+                                    "Column headers must match schema",
+                                    "ID numbers must be unique digits",
+                                    "Courses names should be capitalized",
+                                    "Maximum file size is 10MB"
+                                ].map((item, i) => (
+                                    <li key={i} className="text-[11px] font-medium flex items-center gap-2">
+                                        <div className="h-1 w-1 rounded-full bg-primary/40" />
+                                        {item}
+                                    </li>
+                                ))}
+                            </ul>
+                        </CardContent>
+                    </Card>
                 </div>
 
-                {/* RIGHT: DATA TABLE */}
-                <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-                    <div className="overflow-x-auto flex-1">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    <th className="px-6 py-4">ID Number</th>
-                                    <th className="px-6 py-4">Full Name</th>
-                                    <th className="px-6 py-4">Course</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
+                {/* LOG TABLE */}
+                <Card className="lg:col-span-8 border-none shadow-xl shadow-primary/5 h-full flex flex-col min-h-[600px]">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-lg font-bold">Import History</CardTitle>
+                        <CardDescription className="text-xs text-muted-foreground">Detailed log of previously imported student records.</CardDescription>
+                    </CardHeader>
+                    <div className="flex-1 overflow-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                    <TableHead className="pl-8 w-[180px]">ID Number</TableHead>
+                                    <TableHead>Full Name</TableHead>
+                                    <TableHead className="pr-8">Departmental Course</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
                                 {loading ? (
-                                    Array(5).fill(0).map((_, i) => (
-                                        <tr key={i} className="animate-pulse">
-                                            <td colSpan={3} className="px-6 py-4"><div className="h-4 bg-slate-100 rounded w-full"></div></td>
-                                        </tr>
+                                    [...Array(10)].map((_, i) => (
+                                        <TableRow key={i} className="animate-pulse">
+                                            <TableCell className="pl-8"><div className="h-4 w-24 bg-muted rounded" /></TableCell>
+                                            <TableCell><div className="h-4 w-48 bg-muted rounded" /></TableCell>
+                                            <TableCell className="pr-8"><div className="h-4 w-32 bg-muted rounded" /></TableCell>
+                                        </TableRow>
                                     ))
                                 ) : importedReports.length > 0 ? (
                                     importedReports.map((report) => (
-                                        <tr key={report.id} className="hover:bg-slate-50/50 transition-colors group">
-                                            <td className="px-6 py-4 font-mono text-xs font-bold text-indigo-600">{report.id_number}</td>
-                                            <td className="px-6 py-4 text-sm font-semibold text-slate-700">{report.name}</td>
-                                            <td className="px-6 py-4 text-sm text-slate-500">
-                                                <span className="px-2 py-1 bg-slate-100 rounded-lg text-[11px] font-bold uppercase tracking-tight">{report.course}</span>
-                                            </td>
-                                        </tr>
+                                        <TableRow key={report.id} className="group transition-colors">
+                                            <TableCell className="pl-8 font-mono text-[11px] font-bold text-primary">
+                                                {report.id_number}
+                                            </TableCell>
+                                            <TableCell className="font-semibold text-foreground">
+                                                {report.name}
+                                            </TableCell>
+                                            <TableCell className="pr-8">
+                                                <div className="inline-flex items-center px-2 py-0.5 rounded-lg bg-muted text-[10px] font-bold text-muted-foreground uppercase border border-border">
+                                                    {report.course}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
                                     ))
                                 ) : (
-                                    <tr>
-                                        <td colSpan={3} className="py-20 text-center">
-                                            <AiOutlineInbox className="mx-auto text-4xl text-slate-200 mb-2" />
-                                            <p className="text-slate-400 font-medium">No records found</p>
-                                        </td>
-                                    </tr>
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="h-60 text-center">
+                                            <div className="flex flex-col items-center justify-center gap-2">
+                                                <Inbox className="h-10 w-10 text-muted-foreground/20" />
+                                                <p className="text-sm font-medium text-muted-foreground">No synchronization logs available</p>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
                                 )}
-                            </tbody>
-                        </table>
+                            </TableBody>
+                        </Table>
                     </div>
 
-                    {/* PAGINATION FOOTER */}
-                    <div className="p-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            Page {page} of {lastPage}
+                    <div className="p-6 border-t border-border flex items-center justify-between bg-card shrink-0">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                            Sync Page {page} <span className="mx-2 text-border">/</span> Total {lastPage}
                         </p>
                         <div className="flex gap-2">
-                            <button 
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => handlePageChange(page - 1)}
                                 disabled={page === 1 || loading}
-                                className="px-3 py-1.5 text-xs font-bold bg-white border border-slate-200 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 transition-all"
+                                className="h-9 px-4"
                             >
-                                Previous
-                            </button>
-                            <button 
+                                <ChevronLeft className="mr-2 h-4 w-4" /> Previous
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => handlePageChange(page + 1)}
                                 disabled={page === lastPage || loading}
-                                className="px-3 py-1.5 text-xs font-bold bg-white border border-slate-200 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-30 transition-all"
+                                className="h-9 px-4"
                             >
-                                Next
-                            </button>
+                                Next <ChevronRight className="ml-2 h-4 w-4" />
+                            </Button>
                         </div>
                     </div>
-                </div>
+                </Card>
             </div>
         </div>
     );

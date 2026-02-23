@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState } from 'react';
+
+﻿import React, { createContext, useContext, useState } from 'react';
+
 import { DEFAULT_ZOOM } from '../../../constants/dimensions';
 
 // Define the available modes and units
@@ -78,4 +80,7 @@ export const useCanvasContext = () => {
     throw new Error('useCanvasContext must be used within CanvasProvider');
   }
   return context;
+
 };
+
+

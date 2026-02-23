@@ -2,9 +2,9 @@ import React from 'react';
 
 const CardManagementSkeleton: React.FC = () => {
   return (
-    <div className="h-full bg-slate-600 dark:bg-[#020617] flex flex-col overflow-hidden animate-pulse">
+    <div className="h-full bg-zinc-50 dark:bg-[#020617] flex flex-col overflow-hidden animate-pulse">
       <main className="flex-1 flex overflow-hidden">
-        
+
         {/* ASIDE SKELETON (Preview Panel) */}
         <aside className="w-[660px] bg-white dark:bg-zinc-950 flex flex-col border-r border-slate-200 dark:border-zinc-900 shadow-2xl shrink-0">
           {/* Card Preview Area */}

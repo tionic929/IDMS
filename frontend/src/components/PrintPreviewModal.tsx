@@ -1,15 +1,15 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { 
-  Printer, Scissors, FlipHorizontal, Download, 
+import {
+  Printer, Scissors, FlipHorizontal, Download,
   Settings, X, ZoomIn, ZoomOut, Info
 } from 'lucide-react';
 import IDCardPreview from './IDCardPreview';
 import { type ApplicantCard } from '../types/card';
 import { toast } from 'react-toastify';
 import { confirmApplicant } from '../api/students';
-import { 
-  PRINT_WIDTH, 
-  PRINT_HEIGHT 
+import {
+  PRINT_WIDTH,
+  PRINT_HEIGHT
 } from '../constants/dimensions';
 
 interface PrintModalProps {
@@ -34,7 +34,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
   const [frontImage, setFrontImage] = useState<string>('');
   const [backImage, setBackImage] = useState<string>('');
   const [isGeneratingImages, setIsGeneratingImages] = useState(true);
-  
+
   // Margin Settings
   const [marginTop, setMarginTop] = useState(0);
   const [marginBottom, setMarginBottom] = useState(0);
@@ -104,9 +104,9 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
 
     // Check for Electron IPC availability
     const checkIsElectron = () => {
-    const win = window as ExtendedWindow;
-    // This is the safest way to check for Electron without triggering TS errors
-    return !!(win.process && win.process.type) || !!(win.navigator && win.navigator.userAgent.includes('Electron'));
+      const win = window as ExtendedWindow;
+      // This is the safest way to check for Electron without triggering TS errors
+      return !!(win.process && win.process.type) || !!(win.navigator && win.navigator.userAgent.includes('Electron'));
     };
 
     const isElectron = checkIsElectron();
@@ -115,13 +115,13 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
     if (hasRequire || isElectron) {
       try {
         await confirmApplicant(data.id);
-        
+
         // Use window.require to get the Electron IPC
         const electron = window.require('electron');
         const ipcRenderer = electron.ipcRenderer;
 
         toast.info('Sending to local printer service...');
-        
+
         ipcRenderer.send('print-card-images', {
           frontImage,
           backImage,
@@ -245,18 +245,18 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
 
       {/* Modal Container */}
       <div className="fixed inset-0 z-[100] flex bg-slate-950 text-slate-200 overflow-hidden">
-        
+
         {/* Left Sidebar - Controls */}
         <aside className="w-[30vw] h-full bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 shadow-2xl">
-          
+
           {/* Header */}
           <div className="p-6 border-b border-slate-800 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-white">Print Settings</h2>
               <p className="text-xs text-slate-400 mt-0.5">{data.idNumber}</p>
             </div>
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
             >
               <X size={18} className="text-slate-400" />
@@ -265,7 +265,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
 
           {/* Scrollable Controls */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-            
+
             {/* Zoom Control */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -283,12 +283,12 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                 >
                   <ZoomOut size={14} className="text-slate-400" />
                 </button>
-                <input 
-                  type="range" 
-                  min="0.3" 
-                  max="1.5" 
-                  step="0.1" 
-                  value={zoom} 
+                <input
+                  type="range"
+                  min="0.3"
+                  max="1.5"
+                  step="0.1"
+                  value={zoom}
                   onChange={(e) => setZoom(parseFloat(e.target.value))}
                   className="flex-1 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-500"
                 />
@@ -309,11 +309,10 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
               <div className="flex flex-row gap-4">
                 <button
                   onClick={() => setShowCutLines(!showCutLines)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
-                    showCutLines
+                  className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${showCutLines
                       ? 'border-teal-500 bg-teal-500/10'
                       : 'border-slate-700 hover:border-slate-600'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <Scissors size={16} className={showCutLines ? 'text-teal-400' : 'text-slate-400'} />
@@ -323,11 +322,10 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                 </button>
                 <button
                   onClick={() => setMirrorBack(!mirrorBack)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
-                    mirrorBack
+                  className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${mirrorBack
                       ? 'border-teal-500 bg-teal-500/10'
                       : 'border-slate-700 hover:border-slate-600'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <FlipHorizontal size={16} className={mirrorBack ? 'text-teal-400' : 'text-slate-400'} />
@@ -370,11 +368,11 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                       <span className="font-medium text-slate-400">{label}</span>
                       <span className="font-semibold text-teal-400">{value}px</span>
                     </div>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="50" 
-                      value={value} 
+                    <input
+                      type="range"
+                      min="0"
+                      max="50"
+                      value={value}
                       onChange={(e) => setter(Number(e.target.value))}
                       className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-500"
                     />
@@ -382,7 +380,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                 ))}
               </div>
             </div>
-            
+
             {/* Output Info */}
             <div className="p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
               <div className="flex items-center gap-2 text-indigo-400 mb-2">
@@ -416,7 +414,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
 
           {/* Action Buttons */}
           <div className="p-6 bg-slate-950 border-t border-slate-800 space-y-3">
-            <button 
+            <button
               onClick={handleDownloadImages}
               disabled={isGeneratingImages}
               className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -424,7 +422,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
               <Download size={16} />
               {isGeneratingImages ? 'Processing...' : 'Download Images'}
             </button>
-            <button 
+            <button
               onClick={handleSilentPrint}
               disabled={isGeneratingImages}
               className="w-full py-3 px-4 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20"
@@ -437,22 +435,22 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
 
         {/* Main Viewport - Card Preview */}
         <main className="flex-1 blueprint-grid relative flex items-center justify-center overflow-auto p-12 custom-scrollbar">
-          <div 
+          <div
             className="flex flex-col xl:flex-row gap-12 transition-transform duration-300 ease-out"
             style={{ transform: `scale(${zoom})` }}
           >
             {/* Front Card */}
             <div className="flex flex-col items-center gap-4">
               <div className={`shadow-2xl rounded-sm overflow-hidden ${showCutLines ? 'cut-guides' : ''}`}>
-                <IDCardPreview 
-                  data={data} 
-                  layout={layout} 
-                  side="FRONT" 
-                  scale={1} 
-                  isPrinting={false} 
+                <IDCardPreview
+                  data={data}
+                  layout={layout}
+                  side="FRONT"
+                  scale={1}
+                  isPrinting={false}
                 />
               </div>
-              <div className="px-4 py-1.5 rounded-full bg-slate-800/80 backdrop-blur-sm border border-slate-700">
+              <div className="px-4 py-1.5 rounded-full bg-slate-800 border border-slate-700">
                 <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
                   Front Side
                 </span>
@@ -461,19 +459,19 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
 
             {/* Back Card */}
             <div className="flex flex-col items-center gap-4">
-              <div 
+              <div
                 className={`shadow-2xl rounded-sm overflow-hidden ${showCutLines ? 'cut-guides' : ''}`}
                 style={{ transform: mirrorBack ? 'scaleX(-1)' : 'none' }}
               >
-                <IDCardPreview 
-                  data={data} 
-                  layout={layout} 
-                  side="BACK" 
-                  scale={1} 
-                  isPrinting={false} 
+                <IDCardPreview
+                  data={data}
+                  layout={layout}
+                  side="BACK"
+                  scale={1}
+                  isPrinting={false}
                 />
               </div>
-              <div className="px-4 py-1.5 rounded-full bg-slate-800/80 backdrop-blur-sm border border-slate-700">
+              <div className="px-4 py-1.5 rounded-full bg-slate-800 border border-slate-700">
                 <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
                   Back Side
                 </span>
@@ -486,21 +484,21 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
       {/* Hidden Canvas for High-Res Image Generation */}
       <div className="hidden-canvas">
         <div id="front-print-stage">
-          <IDCardPreview 
-            data={data} 
-            layout={layout} 
-            side="FRONT" 
-            scale={1} 
-            isPrinting={true} 
+          <IDCardPreview
+            data={data}
+            layout={layout}
+            side="FRONT"
+            scale={1}
+            isPrinting={true}
           />
         </div>
         <div id="back-print-stage">
-          <IDCardPreview 
-            data={data} 
-            layout={layout} 
-            side="BACK" 
-            scale={1} 
-            isPrinting={true} 
+          <IDCardPreview
+            data={data}
+            layout={layout}
+            side="BACK"
+            scale={1}
+            isPrinting={true}
           />
         </div>
       </div>
@@ -508,24 +506,24 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
       {/* Print-Only Content */}
       <div id="print-root" className="print-only">
         <div className="print-page">
-          <IDCardPreview 
-            data={data} 
-            layout={layout} 
-            side="FRONT" 
-            scale={1} 
-            isPrinting={true} 
+          <IDCardPreview
+            data={data}
+            layout={layout}
+            side="FRONT"
+            scale={1}
+            isPrinting={true}
           />
         </div>
-        <div 
-          className="print-page" 
+        <div
+          className="print-page"
           style={{ transform: mirrorBack ? 'scaleX(-1)' : 'none' }}
         >
-          <IDCardPreview 
-            data={data} 
-            layout={layout} 
-            side="BACK" 
-            scale={1} 
-            isPrinting={true} 
+          <IDCardPreview
+            data={data}
+            layout={layout}
+            side="BACK"
+            scale={1}
+            isPrinting={true}
           />
         </div>
       </div>

@@ -1,126 +1,138 @@
+/**
+ * TallyChart — Leaderboard-list layout
+ * Replaces the BarChart with vertical scrollable rows:
+ *   [rank badge] [dept initial circle] [dept name] [bar fill] [count]
+ * This avoids the cramped X-axis label problem entirely.
+ * Bar click still fires onBarClick for the modal.
+ */
 import React from 'react';
-import { BarChart, Bar, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 import { ChartContainer } from './ChartContainer';
 import type { Department } from '../../types/analytics';
-import { Medal, TrendingUp, BarChart3 } from 'lucide-react';
+import { ArrowUpRight, BarChart3, Medal } from 'lucide-react';
 
-const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899'];
+// Static logo imports (Vite-safe)
+import abLogo from '../../assets/dept_logo/ab.webp';
+import becLogo from '../../assets/dept_logo/bec.webp';
+import bsbaLogo from '../../assets/dept_logo/bsba.webp';
+import bscrimLogo from '../../assets/dept_logo/bscrim.webp';
+import bsedLogo from '../../assets/dept_logo/bsed.webp';
+import bsgeLogo from '../../assets/dept_logo/bsge.webp';
+import bshmLogo from '../../assets/dept_logo/bshm.webp';
+import bsitLogo from '../../assets/dept_logo/bsit.webp';
+import bsnLogo from '../../assets/dept_logo/bsn.webp';
+import colaLogo from '../../assets/dept_logo/cola.webp';
+import masteralLogo from '../../assets/dept_logo/masteral.webp';
+import midwiferyLogo from '../../assets/dept_logo/midwifery.webp';
 
-export const TallyChart: React.FC<{ data: Department[] }> = ({ data }) => {
-  // 1. Data Sanitization & Sorting
+const LOGO_MAP: Record<string, string> = {
+  AB: abLogo, BEC: becLogo, BSBA: bsbaLogo, BSCRIM: bscrimLogo,
+  BSED: bsedLogo, BSGE: bsgeLogo, BSHM: bshmLogo, BSIT: bsitLogo,
+  BSN: bsnLogo, COLA: colaLogo, MASTERAL: masteralLogo, MIDWIFERY: midwiferyLogo,
+};
+
+// Color pool for bar fills
+const BAR_COLORS = [
+  '#6366f1', '#3b82f6', '#10b981', '#f59e0b',
+  '#8b5cf6', '#ec4899', '#14b8a6', '#f97316',
+];
+
+const MEDAL_ICONS = ['🥇', '🥈', '🥉'];
+
+export const TallyChart: React.FC<{
+  title?: string;
+  data: Department[];
+  onViewDetails?: () => void;
+  onBarClick?: (deptName: string) => void;
+}> = ({ title = "Section Ranks", data, onViewDetails, onBarClick }) => {
+
   if (!data || data.length === 0) {
     return (
-      <ChartContainer title="Departmental Tallies">
-        <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
-          <BarChart3 size={24} className="opacity-20" />
-          <p className="text-[10px] font-black uppercase tracking-widest">No Records Found</p>
+      <ChartContainer title={title}>
+        <div className="h-full flex flex-col items-center justify-center text-slate-200 gap-2 py-12">
+          <BarChart3 size={28} className="opacity-20" />
+          <p className="text-[10px] font-bold uppercase tracking-wider">No Data</p>
         </div>
       </ChartContainer>
     );
   }
 
-  const sortedData = [...data].sort((a, b) => b.total - a.total);
-  const topPerformers = sortedData.slice(0, 2);
-  const maxValue = Math.max(...data.map(d => d.total));
+  const sorted = [...data].sort((a, b) => b.total - a.total);
+  const maxVal = sorted[0]?.total || 1;
+  const visible = sorted.slice(0, 8);
 
   return (
-    <ChartContainer 
-      title="Departmental Tallies"
+    <ChartContainer
+      title={title}
+      badge={`${sorted.length} Groups`}
       footer={
-        <div className="w-full space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-            <div className="flex items-center gap-2">
-              <Medal size={12} className="text-amber-500" />
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Top Performance</span>
-            </div>
-            <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full uppercase">Leaderboard</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">High Traffic Areas</span>
           </div>
-          
-          <div className="grid grid-cols-1 gap-2">
-            {topPerformers.map((dept, idx) => (
-              <div 
-                key={dept.name}
-                className="flex items-center justify-between p-2 rounded-xl bg-slate-50/50 border border-transparent hover:border-slate-100 transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black text-white shadow-sm ${idx === 0 ? 'bg-indigo-600' : 'bg-emerald-500'}`}>
-                    {idx + 1}
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-black text-slate-700 uppercase leading-none mb-1">{dept.name}</p>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase">Primary Division</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-4">
-                  <div className="hidden sm:flex flex-col items-end">
-                    <div className="h-1 w-16 bg-slate-200 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-indigo-500 transition-all duration-1000" 
-                        style={{ width: `${(dept.total / maxValue) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <TrendingUp size={10} className="text-emerald-500" />
-                    <span className="text-xs font-black text-slate-900 tabular-nums">{dept.total}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+
+          {onViewDetails && (
+            <button
+              onClick={onViewDetails}
+              className="text-[10px] font-bold text-primary hover:text-primary/70 transition-all uppercase tracking-widest"
+            >
+              View list ↗
+            </button>
+          )}
         </div>
       }
     >
-      {/* Visual Chart Area - Optimized for 260px internal height */}
-      <div className="h-[200px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
-            <XAxis 
-              dataKey="name" 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} 
-              dy={10}
-            />
-            <YAxis 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fontSize: 10, fontWeight: 600, fill: '#cbd5e1' }}
-              domain={[0, Math.ceil(maxValue * 1.1)]} // Adds headroom
-            />
-            <Tooltip 
-              cursor={{ fill: '#f8fafc', radius: 6 }}
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  return (
-                    <div className="bg-slate-900 text-white px-3 py-2 rounded-xl shadow-2xl border border-slate-800">
-                      <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">{payload[0].payload.name}</p>
-                      <p className="text-sm font-black tracking-tight">{payload[0].value} <span className="text-[10px] font-normal text-slate-400">Total</span></p>
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
-            <Bar 
-              dataKey="total" 
-              radius={[6, 6, 2, 2]} 
-              barSize={32}
-              animationBegin={300}
+      <div className="h-[210px] overflow-y-auto space-y-1 pr-1 scrollbar-none">
+        {visible.map((dept, i) => {
+          const logo = LOGO_MAP[dept.name?.toUpperCase()];
+          const fillPct = Math.round((dept.total / maxVal) * 100);
+
+          return (
+            <button
+              key={dept.name}
+              onClick={() => onBarClick?.(dept.name)}
+              className="w-full flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-slate-50 transition-all group text-left relative overflow-hidden"
             >
-              {data.map((_, index) => (
-                <Cell 
-                  key={`cell-${index}`} 
-                  fill={index === 0 ? '#6366f1' : '#e2e8f0'} // Highlights only the first/top bar by default or uses a consistent color
-                  fillOpacity={0.9}
-                  className="hover:fill-indigo-500 transition-all cursor-pointer"
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+              <span className={`w-4 text-center flex-shrink-0 text-[10px] font-bold tabular-nums ${i < 3 ? 'text-primary' : 'text-slate-300'}`}>
+                {i + 1}
+              </span>
+
+              <div className="w-6 h-6 rounded bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0 overflow-hidden transition-transform group-hover:scale-110">
+                {logo ? (
+                  <img src={logo} alt={dept.name} className="w-full h-full object-contain opacity-80 group-hover:opacity-100" />
+                ) : (
+                  <span className="text-[8px] font-bold text-slate-400">
+                    {dept.name.slice(0, 2)}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <span className="text-[10px] font-bold text-slate-600 truncate uppercase tracking-tight group-hover:text-slate-900 transition-colors">
+                    {dept.name}
+                  </span>
+                  <span className="text-[10px] font-black text-slate-900 tabular-nums ml-2 flex-shrink-0">
+                    {dept.total.toLocaleString()}
+                  </span>
+                </div>
+                <div className="h-[2px] w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-1000"
+                    style={{ width: `${fillPct}%`, backgroundColor: '#00928a' }}
+                  />
+                </div>
+              </div>
+            </button>
+          );
+        })}
+
+        {sorted.length > 8 && (
+          <div className="text-center py-2">
+            <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
+              +{sorted.length - 8} Additional Entries
+            </span>
+          </div>
+        )}
       </div>
     </ChartContainer>
   );

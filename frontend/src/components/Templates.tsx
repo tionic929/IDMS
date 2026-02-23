@@ -1,347 +1,198 @@
-import React, { useState } from 'react';
-import { Layout, Plus, CheckCircle2, Trash2, Edit3, Loader2, Layers, Copy, AlertTriangle } from 'lucide-react';
-import { toast } from 'react-toastify';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Template } from '../types/templates';
-import TemplateModal from '../components/Modals/TemplateModal';
-import { 
-  getTemplate, 
-  createNewTemplate, 
-  handleActiveLayouts, 
-  deleteTemplate, 
-  duplicateTemplate, 
-  saveLayout 
-} from '../api/templates';
+import React, { useEffect, useState } from 'react';
+import { Layout, Plus, CheckCircle2, Loader2, Layers, Sparkles, Check } from 'lucide-react';
+import { motion } from 'framer-motion';
+import type { TemplatesProps } from '../types/templates';
+import { useTemplates } from '../context/TemplateContext';
 
-interface ExtendedTemplatesProps {
-  onSelect: (t: Template) => void;
-  activeId?: number;
-  refreshTrigger?: number;
-  isCollapsed: boolean;
-}
+// shadcn UI
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
-const Templates: React.FC<ExtendedTemplatesProps> = ({ onSelect, activeId, refreshTrigger, isCollapsed }) => {
-  const queryClient = useQueryClient();
-  const [modalType, setModalType] = useState<'create' | 'rename' | 'delete' | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
-  const [inputValue, setInputValue] = useState('');
+const TemplateSkeleton = () => (
+  <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 animate-pulse space-y-3">
+    <div className="flex items-center justify-between">
+      <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800" />
+      <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800" />
+    </div>
+    <div className="space-y-2">
+      <div className="h-3 w-2/3 bg-slate-100 dark:bg-slate-800 rounded shadow-sm" />
+      <div className="h-2.5 w-1/3 bg-slate-50 dark:bg-slate-900 rounded shadow-sm" />
+    </div>
+  </div>
+);
 
-  // ✅ Use React Query for automatic caching and refetching
-  const { data: templates = [], isLoading: loading } = useQuery({
-    queryKey: ['templates', refreshTrigger], // Include refreshTrigger to force refetch
-    queryFn: getTemplate,
-    staleTime: 2 * 60 * 1000, // Keep data fresh for 2 minutes
-    refetchOnWindowFocus: false, // Don't refetch when window regains focus
-  });
+const Templates: React.FC<TemplatesProps> = ({ onSelect, activeId, refreshTrigger }) => {
+  const { templates, loading, setActiveTemplate, createTemplate, refreshTemplates } = useTemplates();
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
-  // ✅ Optimistic updates with React Query mutations
-  const createMutation = useMutation({
-    mutationFn: createNewTemplate,
-    onMutate: async (newName) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ['templates'] });
+  useEffect(() => {
+    refreshTemplates();
+  }, [refreshTrigger, refreshTemplates]);
 
-      // Snapshot previous value
-      const previousTemplates = queryClient.getQueryData(['templates']);
-
-      // Optimistically update with temporary template
-      queryClient.setQueryData(['templates', refreshTrigger], (old: Template[] = []) => [
-        { id: Date.now(), name: newName, is_active: false, front_config: {}, back_config: {} } as Template,
-        ...old
-      ]);
-
-      return { previousTemplates };
-    },
-    onError: (err, newName, context) => {
-      // Rollback on error
-      queryClient.setQueryData(['templates', refreshTrigger], context?.previousTemplates);
-      toast.error("Error creating template");
-    },
-    onSuccess: (data) => {
-      toast.success("Template created!");
-      closeModal();
-    },
-    onSettled: () => {
-      // Refetch to ensure we have latest data
-      queryClient.invalidateQueries({ queryKey: ['templates'] });
-    },
-  });
-
-  const renameMutation = useMutation({
-    mutationFn: async ({ id, name, config }: { id: number; name: string; config: any }) => 
-      saveLayout(id, name, config),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['templates'] });
-      toast.success("Template renamed");
-      closeModal();
-    },
-    onError: () => {
-      toast.error("Failed to rename");
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: deleteTemplate,
-    onMutate: async (deletedId) => {
-      await queryClient.cancelQueries({ queryKey: ['templates'] });
-      const previousTemplates = queryClient.getQueryData(['templates']);
-
-      // Optimistically remove from UI
-      queryClient.setQueryData(['templates', refreshTrigger], (old: Template[] = []) => 
-        old.filter(t => t.id !== deletedId)
-      );
-
-      return { previousTemplates };
-    },
-    onError: (err, deletedId, context) => {
-      queryClient.setQueryData(['templates', refreshTrigger], context?.previousTemplates);
-      toast.error("Error deleting template");
-    },
-    onSuccess: () => {
-      toast.success("Template deleted");
-      closeModal();
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['templates'] });
-    },
-  });
-
-  const duplicateMutation = useMutation({
-    mutationFn: duplicateTemplate,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['templates'] });
-      toast.success("Template duplicated");
-    },
-    onError: () => {
-      toast.error("Failed to duplicate");
-    },
-  });
-
-  const closeModal = () => { 
-    setModalType(null); 
-    setSelectedTemplate(null); 
-    setInputValue(''); 
-  };
-
-  const handleConfirmCreate = () => {
-    if (!inputValue.trim()) return;
-    createMutation.mutate(inputValue);
-  };
-
-  const handleConfirmRename = () => {
-    if (!selectedTemplate || !inputValue.trim() || inputValue === selectedTemplate.name) { 
-      closeModal(); 
-      return; 
+  const handleCreateNew = async () => {
+    if (!newTemplateName.trim()) return;
+    setIsCreating(true);
+    try {
+      await createTemplate(newTemplateName);
+      setNewTemplateName("");
+      setIsDialogOpen(false);
+    } catch (error) {
+      // Error handled in context
+    } finally {
+      setIsCreating(false);
     }
-    renameMutation.mutate({ 
-      id: selectedTemplate.id, 
-      name: inputValue, 
-      config: { 
-        front: selectedTemplate.front_config, 
-        back: selectedTemplate.back_config 
-      } 
-    });
   };
 
-  const handleConfirmDelete = () => {
-    if (!selectedTemplate) return;
-    deleteMutation.mutate(selectedTemplate.id);
+  const handleSetActive = async (id: number) => {
+    await setActiveTemplate(id);
   };
-
-  const handleDuplicate = (e: React.MouseEvent, id: number) => {
-    e.stopPropagation();
-    duplicateMutation.mutate(id);
-  };
-
-  const isProcessing = createMutation.isPending || renameMutation.isPending || deleteMutation.isPending;
 
   return (
-    <div className="flex flex-col h-full bg-zinc-900 overflow-hidden">
+    <div className="flex flex-col h-full font-sans">
       {/* Header */}
-      <div className={`p-4 border-b border-zinc-800 flex items-center transition-all duration-300 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
-        <div className={`flex flex-col transition-all duration-300 origin-left ${isCollapsed ? 'w-0 opacity-0 scale-x-0' : 'w-auto opacity-100 scale-x-100'}`}>
-          <h3 className="text-[11px] font-black uppercase text-zinc-100 tracking-wider whitespace-nowrap">Library</h3>
-          <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-tight whitespace-nowrap">Templates</p>
+      <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[1rem] text-slate-900 dark:text-white font-black uppercase tracking-tight">Templates</p>
+          </div>
+
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all rounded-lg"
+              >
+                <Plus size={16} strokeWidth={3} />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-zinc-900 border-border/40 rounded-[2rem] p-8 max-w-sm">
+              <DialogHeader className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                  <Sparkles size={24} />
+                </div>
+                <DialogTitle className="text-2xl font-black text-white italic uppercase">New Template</DialogTitle>
+                <DialogDescription className="text-zinc-400 font-medium">
+                  Define a new layout identifier for your ID card designs.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <Input
+                  placeholder="e.g. Science Dept 2026"
+                  className="bg-zinc-950/50 border-border/40 h-12 rounded-xl text-white font-bold"
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  onClick={handleCreateNew}
+                  disabled={isCreating}
+                  className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px]"
+                >
+                  {isCreating ? <Loader2 className="animate-spin" /> : "Initialize Template"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
-        <button 
-          onClick={() => { setInputValue(''); setModalType('create'); }}
-          className="p-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md transition-all shadow-lg shadow-indigo-500/20 shrink-0"
-          aria-label="Create new template"
-        >
-          <Plus size={16} />
-        </button>
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-10 opacity-20">
-            <Loader2 size={18} className="animate-spin text-zinc-400" />
-            {!isCollapsed && <p className="text-[9px] text-zinc-500 mt-2 uppercase font-bold">Loading...</p>}
-          </div>
-        ) : templates.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center px-4">
-            <Layout size={32} className="text-zinc-700 mb-2" />
-            {!isCollapsed && (
-              <>
-                <p className="text-[10px] text-zinc-500 font-bold uppercase">No Templates</p>
-                <p className="text-[9px] text-zinc-600 mt-1">Create your first template</p>
-              </>
-            )}
-          </div>
-        ) : (
-          templates.map((template) => (
-            <div 
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-none pb-10">
+        {loading && templates.length === 0 ? (
+          <>
+            <TemplateSkeleton />
+            <TemplateSkeleton />
+            <TemplateSkeleton />
+          </>
+        ) : templates.map((template) => {
+          const isActive = activeId === template.id;
+          return (
+            <div
               key={template.id}
               onClick={() => onSelect(template)}
-              className={`group relative rounded-lg border transition-all duration-300 cursor-pointer overflow-hidden ${
-                isCollapsed ? 'p-2' : 'p-3'
-              } ${
-                activeId === template.id 
-                  ? 'bg-indigo-500/10 border-indigo-500/50' 
-                  : 'bg-transparent border-transparent hover:bg-zinc-800'
-              }`}
+              className={cn(
+                "group relative p-4 rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden",
+                isActive
+                  ? 'bg-primary/5 border-primary/40 shadow-sm shadow-primary/5'
+                  : 'border-slate-200 dark:border-slate-800 hover:border-primary/30 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+              )}
             >
-              <div className="flex items-center gap-3">
-                {/* Icon - Stays fixed */}
-                <div className={`p-2 rounded-md shrink-0 transition-colors ${activeId === template.id ? 'bg-indigo-500 text-white' : 'bg-zinc-950 text-zinc-600 group-hover:text-zinc-400'}`}>
-                  <Layers size={14} />
+              {isActive && (
+                <motion.div layoutId="active-template-glow" className="absolute -left-10 -top-10 w-24 h-24 bg-primary/20 blur-[40px] pointer-events-none" />
+              )}
+
+              <div className="relative z-10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className={cn(
+                    "p-2 rounded-xl transition-colors",
+                    isActive ? "bg-primary text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-zinc-600 group-hover:text-primary/60"
+                  )}>
+                    <Layers size={14} strokeWidth={2.5} />
+                  </div>
+
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleSetActive(template.id); }}
+                    className={cn(
+                      "h-7 w-7 rounded-lg flex items-center justify-center transition-all",
+                      template.is_active
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : 'text-zinc-700 hover:text-emerald-500 hover:bg-emerald-500/10'
+                    )}
+                    title={template.is_active ? "Current Active Layout" : "Publish Layout"}
+                  >
+                    {template.is_active ? <Check size={14} strokeWidth={4} /> : <CheckCircle2 size={14} strokeWidth={2.5} />}
+                  </button>
                 </div>
 
-                {/* Text Content - Transforms on X-axis */}
-                <div className={`flex flex-col text-left transition-all duration-300 origin-left overflow-hidden ${
-                  isCollapsed ? 'w-0 opacity-0 scale-x-0 invisible' : 'w-full opacity-100 scale-x-100 visible'
-                }`}>
-                  <h4 className={`text-[11px] font-bold truncate whitespace-nowrap ${activeId === template.id ? 'text-indigo-400' : 'text-zinc-300'}`}>
+                <div className="space-y-1">
+                  <h4 className={cn(
+                    "text-[11px] font-black uppercase tracking-tight truncate",
+                    isActive ? 'text-primary' : 'text-slate-700 dark:text-zinc-200'
+                  )}>
                     {template.name}
                   </h4>
-                  <div className="flex items-center gap-2 whitespace-nowrap">
-                    <span className="text-[8px] font-mono text-zinc-600 uppercase">ID: {template.id}</span>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-[8px] h-4 px-1 py-0 font-bold border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-zinc-500 tracking-widest uppercase">
+                      UID: {template.id}
+                    </Badge>
                     {template.is_active && (
-                      <span className="text-[7px] bg-emerald-500/10 text-emerald-500 px-1 rounded font-black uppercase">Active</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                        </span>
+                        <span className="text-[7px] text-emerald-500 font-black uppercase tracking-widest">Live</span>
+                      </div>
                     )}
                   </div>
                 </div>
-
-                {/* Action Buttons - Slide/Fade */}
-                {!isCollapsed && (
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 shrink-0">
-                    <button 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        setSelectedTemplate(template); 
-                        setInputValue(template.name); 
-                        setModalType('rename'); 
-                      }} 
-                      className="p-1 hover:bg-zinc-700 rounded text-zinc-500 hover:text-zinc-100 transition-colors"
-                      aria-label="Rename template"
-                    >
-                      <Edit3 size={11} />
-                    </button>
-                    <button 
-                      onClick={(e) => handleDuplicate(e, template.id)} 
-                      className="p-1 hover:bg-zinc-700 rounded text-zinc-500 hover:text-zinc-100 transition-colors"
-                      disabled={duplicateMutation.isPending}
-                      aria-label="Duplicate template"
-                    >
-                      <Copy size={11} />
-                    </button>
-                    <button 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        setSelectedTemplate(template); 
-                        setModalType('delete'); 
-                      }} 
-                      className="p-1 hover:bg-red-500/10 rounded text-zinc-500 hover:text-red-500 transition-colors"
-                      aria-label="Delete template"
-                    >
-                      <Trash2 size={11} />
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
-          ))
+          );
+        })}
+
+        {!loading && templates.length === 0 && (
+          <div className="py-20 text-center opacity-10">
+            <Layout size={32} className="mx-auto mb-4" />
+            <p className="text-[10px] font-black uppercase tracking-widest">No Library Nodes</p>
+          </div>
         )}
       </div>
-
-      {/* MODALS */}
-      <TemplateModal 
-        isOpen={modalType === 'create' || modalType === 'rename'} 
-        onClose={closeModal} 
-        title={modalType === 'create' ? "New Template" : "Rename Template"} 
-        footer={
-          <>
-            <button 
-              onClick={closeModal} 
-              className="px-4 py-2 text-[10px] font-black uppercase text-zinc-500 hover:text-white transition-colors"
-            >
-              Cancel
-            </button>
-            <button 
-              onClick={modalType === 'create' ? handleConfirmCreate : handleConfirmRename} 
-              disabled={isProcessing || !inputValue.trim()} 
-              className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md text-[10px] font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              {isProcessing ? <Loader2 size={14} className="animate-spin" /> : 'Confirm'}
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <label className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">
-            Display Name
-          </label>
-          <input 
-            autoFocus 
-            type="text" 
-            value={inputValue} 
-            onChange={(e) => setInputValue(e.target.value)} 
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 focus:outline-none focus:border-indigo-500 transition-colors" 
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && inputValue.trim()) {
-                modalType === 'create' ? handleConfirmCreate() : handleConfirmRename();
-              }
-            }}
-            placeholder="Enter template name..."
-          />
-        </div>
-      </TemplateModal>
-
-      <TemplateModal 
-        isOpen={modalType === 'delete'} 
-        onClose={closeModal} 
-        title="Delete Template" 
-        footer={
-          <>
-            <button 
-              onClick={closeModal} 
-              className="px-4 py-2 text-[10px] font-black uppercase text-zinc-500 hover:text-white transition-colors"
-            >
-              Go Back
-            </button>
-            <button 
-              onClick={handleConfirmDelete} 
-              disabled={isProcessing} 
-              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md text-[10px] font-black uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              {isProcessing ? <Loader2 size={14} className="animate-spin" /> : 'Delete Permanently'}
-            </button>
-          </>
-        }
-      >
-        <div className="flex flex-col items-center text-center space-y-4 py-2">
-          <div className="p-3 bg-red-500/10 text-red-500 rounded-full">
-            <AlertTriangle size={32} />
-          </div>
-          <div>
-            <p className="text-sm text-zinc-300">
-              Delete <span className="text-white font-bold">"{selectedTemplate?.name}"</span>?
-            </p>
-            <p className="text-xs text-zinc-500 mt-2">This action cannot be undone</p>
-          </div>
-        </div>
-      </TemplateModal>
     </div>
   );
 };
