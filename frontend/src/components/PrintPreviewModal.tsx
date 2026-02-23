@@ -12,8 +12,6 @@ import {
   PRINT_HEIGHT
 } from '../constants/dimensions';
 
-const VITE_LOCAL_BRIDGE_URL = import.meta.env.VITE_LOCAL_BRIDGE_URL
-
 interface PrintModalProps {
   data: ApplicantCard;
   layout: any;
@@ -43,7 +41,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
   const [marginLeft, setMarginLeft] = useState(0);
   const [marginRight, setMarginRight] = useState(0);
 
-  // Margin presets for quick adjustment [cite: 1]
+  // Margin presets
   const marginPresets = [
     { label: 'None', values: { top: 0, bottom: 0, left: 0, right: 0 } },
     { label: '5px', values: { top: 5, bottom: 5, left: 5, right: 5 } },
@@ -58,7 +56,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
     setMarginRight(preset.values.right);
   };
 
-  // Capture high-res images from hidden canvas stages 
+  // Capture high-res images from hidden canvas
   useEffect(() => {
     setIsGeneratingImages(true);
     const timer = setTimeout(() => {
@@ -134,30 +132,27 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             bottom: marginBottom,
             left: marginLeft,
             right: marginRight,
+          },
+        });
+
+        // Listen for the response from main.cjs
+        ipcRenderer.once('print-reply', (_event: any, arg: any) => {
+          if (arg.success) {
+            toast.success('Print job completed successfully!');
+            setTimeout(onClose, 1500);
+          } else {
+            toast.error(`Print failed: ${arg.failureReason}`);
           }
-        }),
-      });
+        });
 
-      const result = await response.json();
-
-      if (result.success) {
-        toast.success('Print job submitted to CX-D80 U1!');
-
-        // Optional: Inform Electron to handle any OS-level UI updates
-        const win = window as any;
-        if (win.require) {
-          const ipcRenderer = win.require('electron').ipcRenderer;
-          ipcRenderer.send('print-started', { id: data.idNumber });
-        }
-
-        setTimeout(onClose, 2000);
-      } else {
-        toast.error(`Print Error: ${result.error || 'Unknown error'}`);
+      } catch (err) {
+        console.error('Print error:', err);
+        toast.error('Local printing failed. The Python service might be busy.');
       }
-
-    } catch (err) {
-      console.error('Print service error:', err);
-      toast.error('Could not connect to Python Print Service. Is it running?');
+    } else {
+      // Fallback for regular web browsers
+      toast.warn("Silent printing requires the Desktop App. Opening browser print...");
+      window.print();
     }
   };
 
@@ -166,11 +161,12 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
 
   return (
     <>
-      {/* Print-Specific Global Styles [cite: 1] */}
+      {/* Print Styles */}
       <style>{`
         @media print {
           @page { 
-            margin: 0;
+            margin: 0; 
+            size: 2.125in 3.375in portrait;
           }
           body, html {
             margin: 0 !important;
@@ -267,6 +263,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             </button>
           </div>
 
+          {/* Scrollable Controls */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
 
             {/* Zoom Control */}
@@ -321,6 +318,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                     <Scissors size={16} className={showCutLines ? 'text-teal-400' : 'text-slate-400'} />
                     <span className="text-sm font-medium">Cut Guides</span>
                   </div>
+                  <div className={`w-2 h-2 rounded-full ${showCutLines ? 'bg-teal-400' : 'bg-slate-600'}`} />
                 </button>
                 <button
                   onClick={() => setMirrorBack(!mirrorBack)}
@@ -333,17 +331,19 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                     <FlipHorizontal size={16} className={mirrorBack ? 'text-teal-400' : 'text-slate-400'} />
                     <span className="text-sm font-medium">Mirror Back</span>
                   </div>
+                  <div className={`w-2 h-2 rounded-full ${mirrorBack ? 'bg-teal-400' : 'bg-slate-600'}`} />
                 </button>
               </div>
             </div>
 
-            {/* Margin Settings [cite: 1] */}
+            {/* Margin Settings */}
             <div className="space-y-3">
               <span className='flex flex-row justify-between items-center text-xs font-semibold text-slate-400 uppercase tracking-wider'>
                 Margin Settings
                 <Settings size={14} className='text-slate-500' />
               </span>
               <div className="p-3 bg-slate-950/50 rounded-lg border border-slate-800 space-y-4">
+                {/* Quick Presets */}
                 <div className="grid grid-cols-2 gap-2">
                   {marginPresets.map((preset) => (
                     <button
@@ -356,6 +356,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                   ))}
                 </div>
 
+                {/* Individual Controls */}
                 {[
                   { label: 'Top', value: marginTop, setter: setMarginTop },
                   { label: 'Right', value: marginRight, setter: setMarginRight },
@@ -397,6 +398,10 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                   <span>DPI:</span>
                   <span className="font-mono text-slate-300">300</span>
                 </div>
+                <div className="flex justify-between">
+                  <span>Format:</span>
+                  <span className="font-mono text-slate-300">CR80</span>
+                </div>
                 {(marginTop + marginBottom + marginLeft + marginRight) > 0 && (
                   <div className="flex justify-between pt-2 border-t border-indigo-500/20">
                     <span>With Margins:</span>
@@ -407,6 +412,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             </div>
           </div>
 
+          {/* Action Buttons */}
           <div className="p-6 bg-slate-950 border-t border-slate-800 space-y-3">
             <button
               onClick={handleDownloadImages}
@@ -427,12 +433,13 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
           </div>
         </aside>
 
-        {/* Main Viewport  */}
+        {/* Main Viewport - Card Preview */}
         <main className="flex-1 blueprint-grid relative flex items-center justify-center overflow-auto p-12 custom-scrollbar">
           <div
             className="flex flex-col xl:flex-row gap-12 transition-transform duration-300 ease-out"
             style={{ transform: `scale(${zoom})` }}
           >
+            {/* Front Card */}
             <div className="flex flex-col items-center gap-4">
               <div className={`shadow-2xl rounded-sm overflow-hidden ${showCutLines ? 'cut-guides' : ''}`}>
                 <IDCardPreview
@@ -450,6 +457,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
               </div>
             </div>
 
+            {/* Back Card */}
             <div className="flex flex-col items-center gap-4">
               <div
                 className={`shadow-2xl rounded-sm overflow-hidden ${showCutLines ? 'cut-guides' : ''}`}
@@ -473,7 +481,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         </main>
       </div>
 
-      {/* Hidden Canvas - Used to capture full 300 DPI images  */}
+      {/* Hidden Canvas for High-Res Image Generation */}
       <div className="hidden-canvas">
         <div id="front-print-stage">
           <IDCardPreview
@@ -495,7 +503,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         </div>
       </div>
 
-      {/* Print-Only Content for window.print() fallback [cite: 1] */}
+      {/* Print-Only Content */}
       <div id="print-root" className="print-only">
         <div className="print-page">
           <IDCardPreview
