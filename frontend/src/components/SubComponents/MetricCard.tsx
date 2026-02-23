@@ -1,5 +1,8 @@
 import React from 'react';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
+import { TrendingUp, TrendingDown } from 'lucide-react';
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 interface MetricCardProps {
   title: string;
@@ -8,79 +11,90 @@ interface MetricCardProps {
   color: string;
   chartData?: any[];
   trendLabel?: string;
+  trend?: 'up' | 'down' | 'neutral';
+  className?: string;
+  onClick?: () => void;
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ 
-  title, 
-  value, 
-  icon: Icon, 
-  color, 
-  chartData, 
-  trendLabel 
+
+const MetricCard: React.FC<MetricCardProps> = ({
+  title,
+  value,
+  icon: Icon,
+  color,
+  chartData,
+  trendLabel,
+  trend = 'neutral',
+  className,
+  onClick,
 }) => {
-  const getChartColor = () => {
-    if (color.includes('indigo')) return '#6366f1';
-    if (color.includes('emerald')) return '#10b981';
-    if (color.includes('amber')) return '#f59e0b';
-    if (color.includes('blue')) return '#3b82f6';
-    return '#64748b';
-  };
-
-  const strokeColor = getChartColor();
-
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-6 flex flex-col h-full transition-all hover:shadow-md hover:border-slate-300 group">
-      {/* Header Section */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
-            {title}
-          </p>
-          <div className="text-3xl font-black text-slate-950 tracking-tighter">
-            {typeof value === 'number' ? value.toLocaleString() : value}
+    <Card
+      onClick={onClick}
+      className={cn(
+        "relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group cursor-pointer bg-white border-slate-100",
+        className
+      )}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1">{title}</p>
+            <div className="text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+              {typeof value === 'number' ? value.toLocaleString() : value}
+            </div>
+          </div>
+          <div className="p-2 rounded-xl border border-slate-100 bg-slate-50 transition-transform group-hover:scale-110 duration-500 text-primary">
+            <Icon size={16} strokeWidth={2.5} />
           </div>
         </div>
-        
-        {/* Icon Badge */}
-        <div className={`${color} bg-opacity-15 p-3 rounded-lg flex items-center justify-center transition-all group-hover:scale-105 flex-shrink-0 ml-3`}>
-          <Icon className="w-5 h-5" style={{ color: strokeColor }} />
-        </div>
-      </div>
 
-      {/* Chart Section */}
-      {chartData && chartData.length > 0 && (
-        <div className="h-16 w-full mb-4 -mx-1">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id={`gradient-${color}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={strokeColor} stopOpacity={0.25} />
-                  <stop offset="95%" stopColor={strokeColor} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <YAxis hide domain={['dataMin', 'dataMax']} />
-              <Area 
-                type="monotone" 
-                dataKey="count" 
-                stroke={strokeColor}
-                strokeWidth={2.5}
-                fill={`url(#gradient-${color})`}
-                isAnimationActive={true}
-                animationDuration={1000}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      )}
+        {/* Sparkline - Very minimal */}
+        {chartData && chartData.length > 0 && (
+          <div className="h-10 w-full mt-2 opacity-40 group-hover:opacity-100 transition-opacity duration-700">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <YAxis hide domain={['dataMin', 'dataMax']} />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  fill="transparent"
+                  dot={false}
+                  isAnimationActive
+                  className="text-primary"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
 
-      {/* Footer Trend Label */}
-      <div className="flex items-center gap-2 mt-auto pt-4 border-t border-slate-100/80">
-        <div className={`w-1.5 h-1.5 rounded-full ${color} animate-pulse`} />
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-          {trendLabel || 'Real-time'}
-        </span>
-      </div>
-    </div>
+        <div className="mt-4 flex items-center justify-between">
+          {trendLabel && (
+            <div className="flex items-center gap-1.5">
+              <div className={cn(
+                "px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider flex items-center gap-1",
+                trend === 'up' ? 'bg-emerald-50 text-emerald-600'
+                  : trend === 'down' ? 'bg-red-50 text-red-600'
+                    : 'bg-slate-50 text-slate-400'
+              )}>
+                {trend === 'up' && <TrendingUp size={10} />}
+                {trend === 'down' && <TrendingDown size={10} />}
+                {trendLabel.split(' ')[0]}
+              </div>
+            </div>
+          )}
+
+          <span className="text-[9px] font-bold uppercase tracking-wider transition-all duration-500 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 text-primary">
+            View details ↗
+          </span>
+        </div>
+      </CardContent>
+
+      {/* Very subtle bottom line */}
+      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-100" />
+    </Card>
   );
 };
 

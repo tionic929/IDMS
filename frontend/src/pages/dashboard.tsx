@@ -1,38 +1,37 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area, PieChart, Pie, Cell, Legend, LineChart, Line
-} from 'recharts';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   Users, Award, Package, Inbox, CheckCircle2, Zap, Activity, ShieldCheck,
   Calendar, Download, RefreshCw, AlertCircle, TrendingUp, Clock, Eye,
-  Filter, ChevronDown
+  Filter, ChevronDown, MoreHorizontal
 } from 'lucide-react';
-import { fetchDashboardData, exportDashboardAsCSV, type DashboardFilters } from '../api/analytics';
-import { type DashboardData } from '../types/analytics';
-import MetricCard from '../components/SubComponents/MetricCard';
-import { VelocityChart } from '../components/Charts/VelocityChart';
-import { DistributionChart } from '../components/Charts/DistributionChart';
-import { TallyChart } from '../components/Charts/TallyChart';
+import { fetchDashboardData, exportDashboardAsCSV, type DashboardFilters } from '@/api/analytics';
+import { type DashboardData } from '@/types/analytics';
+import { type Students } from '@/types/students';
+import MetricCard from '@/components/SubComponents/MetricCard';
+import { VelocityChart } from '@/components/Charts/VelocityChart';
+import { DistributionChart } from '@/components/Charts/DistributionChart';
+import { TallyChart } from '@/components/Charts/TallyChart';
+import { MetricDetailModal, type MetricModalMeta } from '@/components/dashboard/MetricDetailModal';
+import { TallyDetailModal } from '@/components/dashboard/TallyDetailModal';
+import { VelocityDetailModal } from '@/components/dashboard/VelocityDetailModal';
+import { DistributionDetailModal } from '@/components/dashboard/DistributionDetailModal';
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { useStudents } from '@/context/StudentContext';
+import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 
-const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899'];
-
-const SkeletonLoader = ({ width = 'w-full', height = 'h-12', count = 1 }) => (
-  <div className="space-y-3">
-    {[...Array(count)].map((_, i) => (
-      <div
-        key={i}
-        className={`${width} ${height} bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 rounded-lg animate-pulse`}
-        style={{
-          backgroundSize: '200% 100%',
-          animation: 'shimmer 2s infinite',
-        }}
-      />
-    ))}
-  </div>
-);
-
-const ErrorBoundary = ({ error, retry }) => (
+const ErrorBoundary = ({ error, retry }: { error: any; retry: () => void }) => (
   <div className="bg-red-50 border border-red-200 rounded-lg p-6 flex items-start gap-4">
     <AlertCircle className="text-red-600 flex-shrink-0 mt-1" size={20} />
     <div className="flex-1">
@@ -50,7 +49,7 @@ const ErrorBoundary = ({ error, retry }) => (
   </div>
 );
 
-const DataFreshness = ({ timestamp, isLoading }) => {
+const DataFreshness = ({ timestamp, isLoading }: { timestamp: Date | null; isLoading: boolean }) => {
   const [timeAgo, setTimeAgo] = useState('just now');
 
   useEffect(() => {
@@ -69,118 +68,83 @@ const DataFreshness = ({ timestamp, isLoading }) => {
   }, [timestamp]);
 
   return (
-    <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+    <div className="flex items-center gap-2 text-xs font-medium text-zinc-500">
       <Clock size={12} />
       <span>{isLoading ? 'updating...' : timeAgo}</span>
     </div>
   );
 };
 
-const DateRangePicker = ({ onRangeChange, currentRange }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
+const DateRangePicker = ({ onRangeChange, currentRange }: { onRangeChange: (r: any) => void; currentRange: any }) => {
   const presets = [
     { label: 'Last 7 days', days: 7 },
     { label: 'Last 30 days', days: 30 },
     { label: 'Last 90 days', days: 90 },
   ];
 
-  const handlePreset = (days) => {
-    onRangeChange({ days, label: presets.find(p => p.days === days)?.label });
-    setIsOpen(false);
-  };
-
   return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-sm font-medium text-slate-700 bg-white"
-      >
-        <Calendar size={16} />
-        <span>{currentRange.label || 'Date Range'}</span>
-        <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-10">
-          <div className="p-3 space-y-2">
-            {presets.map(preset => (
-              <button
-                key={preset.days}
-                onClick={() => handlePreset(preset.days)}
-                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-slate-700"
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2 h-9">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span>{currentRange.label || 'Date Range'}</span>
+          <ChevronDown className="h-3 w-3 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-48">
+        <DropdownMenuLabel>Select Range</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuRadioGroup
+          value={currentRange.days.toString()}
+          onValueChange={(val) => {
+            const days = parseInt(val);
+            onRangeChange({ days, label: presets.find(p => p.days === days)?.label });
+          }}
+        >
+          {presets.map(preset => (
+            <DropdownMenuRadioItem key={preset.days} value={preset.days.toString()}>
+              {preset.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 
-const DepartmentFilter = ({ departments, selectedDept, onChange }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
+const DepartmentFilter = ({ departments, selectedDept, onChange }: { departments: string[]; selectedDept: string | null; onChange: (d: string | null) => void }) => {
   return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-sm font-medium text-slate-700 bg-white"
-      >
-        <Filter size={16} />
-        <span>{selectedDept || 'All Departments'}</span>
-        <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      {isOpen && (
-        <div className="absolute left-0 mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-10">
-          <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
-            <button
-              onClick={() => {
-                onChange(null);
-                setIsOpen(false);
-              }}
-              className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-slate-700 font-medium"
-            >
-              All Departments
-            </button>
-            {departments?.map(dept => (
-              <button
-                key={dept}
-                onClick={() => {
-                  onChange(dept);
-                  setIsOpen(false);
-                }}
-                className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
-                  selectedDept === dept
-                    ? 'bg-indigo-100 text-indigo-700 font-medium'
-                    : 'hover:bg-slate-50 text-slate-700'
-                }`}
-              >
-                {dept}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2 h-9">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <span>{selectedDept || 'All Departments'}</span>
+          <ChevronDown className="h-3 w-3 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuLabel>Departments</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuRadioGroup
+          value={selectedDept || "all"}
+          onValueChange={(val) => onChange(val === "all" ? null : val)}
+        >
+          <DropdownMenuRadioItem value="all">
+            All Departments
+          </DropdownMenuRadioItem>
+          {departments?.map(dept => (
+            <DropdownMenuRadioItem key={dept} value={dept}>
+              {dept}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
-};
-
-const CustomTooltip = ({ active, payload }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-slate-900 text-white p-3 px-4 rounded-lg shadow-xl text-xs font-semibold">
-        {payload[0].value.toLocaleString()} {payload[0].name}
-      </div>
-    );
-  }
-  return null;
 };
 
 const Dashboard = () => {
+  const { allStudents, loading: studentsLoading } = useStudents();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -195,9 +159,15 @@ const Dashboard = () => {
     issuedCards: true,
     userGrowth: true,
   });
+
+  const [metricModal, setMetricModal] = useState<MetricModalMeta | null>(null);
+  const [tallyModalOpen, setTallyModalOpen] = useState(false);
+  const [tallyFocusDept, setTallyFocusDept] = useState<string | null>(null);
+  const [velocityModalOpen, setVelocityModalOpen] = useState(false);
+  const [distModalOpen, setDistModalOpen] = useState(false);
+
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Fetch dashboard data with filters
   const fetchData = useCallback(async (isManualRefresh = false) => {
     try {
       if (isManualRefresh) setIsRefreshing(true);
@@ -220,7 +190,6 @@ const Dashboard = () => {
       setLastUpdate(new Date());
       setError(null);
 
-      // Extract available departments from response
       const depts = response.departments.full_list.map(d => d.name);
       setAvailableDepts(depts);
     } catch (err) {
@@ -234,7 +203,6 @@ const Dashboard = () => {
     }
   }, [dateRange.days, selectedDept]);
 
-  // Initial load
   useEffect(() => {
     fetchData();
     return () => {
@@ -244,7 +212,6 @@ const Dashboard = () => {
     };
   }, [fetchData]);
 
-  // Auto-refresh every 2 minutes
   useEffect(() => {
     const interval = setInterval(() => {
       fetchData(false);
@@ -282,241 +249,314 @@ const Dashboard = () => {
     }));
   };
 
+  const recentStudents = useMemo(() => {
+    if (!allStudents) return [];
+    return [...allStudents]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5);
+  }, [allStudents]);
+
   if (error) {
     return (
-      <div className="p-8 bg-slate-50 min-h-screen">
+      <div className="p-8 bg-zinc-50 min-h-screen">
         <ErrorBoundary error={error} retry={handleRefresh} />
       </div>
     );
   }
 
   return (
-    <div className="bg-slate-50 min-h-screen text-slate-900 font-sans">
-      <div className="p-6 lg:p-8 mx-auto">
+    <div className="bg-slate-50 min-h-screen text-slate-950 font-sans selection:bg-primary/10">
+      <div className="px-6 py-8 lg:px-12 lg:py-12 max-w-[1600px] mx-auto">
 
-        {/* HEADER */}
-        <div className="mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 mb-6">
-            <div>
-              <h1 className="text-3xl lg:text-4xl font-black tracking-tight text-slate-950">
-                Analytics Dashboard
-              </h1>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mt-2">
-                Operational Intelligence • {new Date().getFullYear()}
-              </p>
+        {/* ── PAGE HEADER ────────────────────────────────────────── */}
+        <div className="mb-10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 relative">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Overview</span>
+              <span className="w-1 h-1 rounded-full bg-slate-200" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Reports</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">System Status</p>
-                <p className="text-sm font-bold text-emerald-600">Operational</p>
-              </div>
-              <div className="w-12 h-12 rounded-full bg-white border-2 border-slate-200 flex items-center justify-center shadow-sm hover:shadow-md transition-shadow">
-                <ShieldCheck size={20} className="text-indigo-600" />
+            <div className="flex items-center gap-5">
+              <h1 className="text-3xl font-black tracking-tight text-slate-900 uppercase">Dashboard</h1>
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 text-[9px] font-bold uppercase tracking-[0.1em]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live
               </div>
             </div>
           </div>
 
-          {/* CONTROLS */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-4">
+            <DataFreshness timestamp={lastUpdate} isLoading={isRefreshing} />
+            <div className="h-12 w-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-lg group hover:border-primary/50 transition-all">
+              <ShieldCheck className="h-6 w-6 text-primary group-hover:scale-110 transition-transform" />
+            </div>
+          </div>
+        </div>
+
+        {/* ── TOOLBAR ─────────────────────────────────────────────── */}
+        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-10 p-2 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2">
             <DateRangePicker onRangeChange={handleDateRangeChange} currentRange={dateRange} />
             <DepartmentFilter
               departments={availableDepts}
               selectedDept={selectedDept}
               onChange={handleDepartmentChange}
             />
-            <button
+          </div>
+
+          <div className="flex items-center gap-2 md:ml-auto">
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleExport}
               disabled={loading || !data}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-sm font-medium text-slate-700 bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+              className="gap-2 h-9 bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             >
-              <Download size={16} />
-              Export
-            </button>
-            <button
+              <Download className="h-4 w-4" />
+              Spreadsheet
+            </Button>
+
+            <Button
+              variant="default"
+              size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+              className="gap-2 h-9 px-6 bg-primary hover:bg-primary/90 text-white font-bold uppercase tracking-wider text-[10px]"
             >
-              <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
-              {isRefreshing ? 'Refreshing...' : 'Refresh'}
-            </button>
-            <div className="ml-auto">
-              <DataFreshness timestamp={lastUpdate} isLoading={isRefreshing} />
-            </div>
+              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+              {isRefreshing ? 'Updating...' : 'Refresh'}
+            </Button>
+
+            <div className="w-px h-6 bg-slate-200 mx-1" />
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-900 hover:bg-slate-50">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-white border-slate-200 text-slate-950">
+                <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest opacity-40">Display Options</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-slate-100" />
+                {([
+                  { key: 'totalRecords' as const, label: 'Total Students' },
+                  { key: 'newThisWeek' as const, label: 'New activity' },
+                  { key: 'issuedCards' as const, label: 'Cards Printed' },
+                  { key: 'userGrowth' as const, label: 'Growth' },
+                ]).map(({ key, label }) => (
+                  <DropdownMenuItem
+                    key={key}
+                    onClick={() => toggleMetricVisibility(key)}
+                    className="flex items-center justify-between text-xs font-semibold py-2 hover:bg-slate-50"
+                  >
+                    {label}
+                    {visibleMetrics[key] && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
-        {/* METRIC CARDS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-          {loading ? (
-            <>
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-white rounded-xl p-6 border border-slate-200">
-                  <SkeletonLoader count={3} />
-                </div>
-              ))}
-            </>
-          ) : data ? (
-            <>
-              {visibleMetrics.totalRecords && (
-                <div className="group relative">
-                  <MetricCard
-                    title="Total Records"
-                    value={data.summary.total_records}
-                    icon={Users}
-                    color="bg-blue-600"
-                    chartData={data.trends}
-                    trendLabel="+12% growth"
-                  />
-                  <button
-                    onClick={() => toggleMetricVisibility('totalRecords')}
-                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-slate-100 rounded-lg"
-                    aria-label="Hide metric"
-                  >
-                    <Eye size={14} className="text-slate-400" />
-                  </button>
-                </div>
-              )}
-
-              {visibleMetrics.newThisWeek && (
-                <div className="group relative">
-                  <MetricCard
-                    title="New This Week"
-                    value={data.summary.new_this_week}
-                    icon={Inbox}
-                    color="bg-amber-500"
-                    chartData={data.trends.slice(-3)}
-                    trendLabel="Weekly trend"
-                  />
-                  <button
-                    onClick={() => toggleMetricVisibility('newThisWeek')}
-                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-slate-100 rounded-lg"
-                    aria-label="Hide metric"
-                  >
-                    <Eye size={14} className="text-slate-400" />
-                  </button>
-                </div>
-              )}
-
-              {visibleMetrics.issuedCards && (
-                <div className="group relative">
-                  <MetricCard
-                    title="Issued Cards"
-                    value={data.summary.issued_cards}
-                    icon={Award}
-                    color="bg-emerald-500"
-                    chartData={data.trends}
-                    trendLabel="Production status"
-                  />
-                  <button
-                    onClick={() => toggleMetricVisibility('issuedCards')}
-                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-slate-100 rounded-lg"
-                    aria-label="Hide metric"
-                  >
-                    <Eye size={14} className="text-slate-400" />
-                  </button>
-                </div>
-              )}
-
-              {visibleMetrics.userGrowth && (
-                <div className="group relative">
-                  <MetricCard
-                    title="User Growth"
-                    value={data.summary.user_growth}
-                    icon={TrendingUp}
-                    color="bg-indigo-600"
-                    chartData={data.trends}
-                    trendLabel="New users this week"
-                  />
-                  <button
-                    onClick={() => toggleMetricVisibility('userGrowth')}
-                    className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-slate-100 rounded-lg"
-                    aria-label="Hide metric"
-                  >
-                    <Eye size={14} className="text-slate-400" />
-                  </button>
-                </div>
-              )}
-            </>
-          ) : null}
-        </div>
-
-        {/* CHARTS */}
+        {/* ── DASHBOARD CONTENT ───────────────────────────────────── */}
         {loading ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-            <div className="lg:col-span-5 bg-white rounded-xl p-6 border border-slate-200">
-              <SkeletonLoader height="h-80" count={1} />
-            </div>
-            <div className="lg:col-span-5 bg-white rounded-xl p-6 border border-slate-200">
-              <SkeletonLoader height="h-80" count={1} />
-            </div>
-            <div className="lg:col-span-2 bg-white rounded-xl p-6 border border-slate-200">
-              <SkeletonLoader height="h-80" count={1} />
-            </div>
-          </div>
+          <DashboardSkeleton />
         ) : data ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-            <div className="lg:col-span-5">
-              <VelocityChart data={data.trends} />
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+              {visibleMetrics.totalRecords && (
+                <MetricCard
+                  title="Total Students"
+                  value={data.summary.total_records}
+                  icon={Users}
+                  color="blue"
+                  chartData={data.trends}
+                  trendLabel="Records"
+                  trend="up"
+                  onClick={() => setMetricModal({
+                    key: 'totalRecords', title: 'Total Students',
+                    value: data.summary.total_records, trendLabel: 'Total count',
+                    strokeColor: '#3b82f6', trends: data.trends,
+                    distribution: data.departments.full_list.map(d => ({ name: d.name, value: d.total })),
+                  })}
+                />
+              )}
+              {visibleMetrics.newThisWeek && (
+                <MetricCard
+                  title="New Activity"
+                  value={data.summary.new_this_week}
+                  icon={Inbox}
+                  color="amber"
+                  chartData={data.trends.slice(-3)}
+                  trendLabel="Since Monday"
+                  trend="up"
+                  onClick={() => setMetricModal({
+                    key: 'newThisWeek', title: 'New Activity',
+                    value: data.summary.new_this_week, trendLabel: 'Weekly growth',
+                    strokeColor: '#f59e0b', trends: data.trends,
+                    distribution: data.departments.full_list.map(d => ({ name: d.name, value: Math.round(d.total * 0.15) })), // Mocking periodic activity
+                  })}
+                />
+              )}
+              {visibleMetrics.issuedCards && (
+                <MetricCard
+                  title="Cards Printed"
+                  value={data.summary.issued_cards}
+                  icon={Award}
+                  color="emerald"
+                  chartData={data.trends}
+                  trendLabel="Status"
+                  trend="neutral"
+                  onClick={() => setMetricModal({
+                    key: 'issuedCards', title: 'Cards Printed',
+                    value: data.summary.issued_cards, trendLabel: 'Processing status',
+                    strokeColor: '#10b981', trends: data.trends,
+                  })}
+                />
+              )}
+              {visibleMetrics.userGrowth && (
+                <MetricCard
+                  title="Growth"
+                  value={data.summary.user_growth}
+                  icon={TrendingUp}
+                  color="indigo"
+                  chartData={data.trends}
+                  trendLabel="Trend"
+                  trend="up"
+                  onClick={() => setMetricModal({
+                    key: 'userGrowth', title: 'Growth',
+                    value: data.summary.user_growth, trendLabel: 'Growth trend',
+                    strokeColor: '#6366f1', trends: data.trends,
+                  })}
+                />
+              )}
             </div>
-            <div className="lg:col-span-5">
-              <TallyChart data={data.departments.full_list} />
+
+            <div className="flex items-center gap-4 mb-5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Activity & Stats</span>
+              <div className="flex-1 h-px bg-slate-200" />
             </div>
-            <div className="lg:col-span-2">
-              <DistributionChart data={data.departments.full_list} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-10">
+              <div className="lg:col-span-5 h-[340px]">
+                <VelocityChart
+                  title="Student Activity"
+                  data={data.trends}
+                  onViewDetails={() => setVelocityModalOpen(true)}
+                />
+              </div>
+              <div className="lg:col-span-5 h-[340px]">
+                <TallyChart
+                  title="Departments"
+                  data={data.departments.full_list}
+                  onViewDetails={() => { setTallyFocusDept(null); setTallyModalOpen(true); }}
+                  onBarClick={(dept) => { setTallyFocusDept(dept); setTallyModalOpen(true); }}
+                />
+              </div>
+              <div className="lg:col-span-2 h-[340px]">
+                <DistributionChart
+                  title="Share"
+                  data={data.departments.full_list}
+                  onViewDetails={() => setDistModalOpen(true)}
+                />
+              </div>
             </div>
-          </div>
+
+            <div className="flex items-center gap-4 mb-5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Recent Students</span>
+              <div className="flex-1 h-px bg-slate-200" />
+            </div>
+
+            <Card className="border-slate-200 overflow-hidden shadow-sm shadow-slate-100">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto text-slate-900 font-sans">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 border-b border-slate-100">
+                      <tr>
+                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Name</th>
+                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID Number</th>
+                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Joined</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {studentsLoading ? (
+                        [...Array(5)].map((_, i) => (
+                          <tr key={i} className="animate-pulse">
+                            <td className="px-6 py-4"><div className="h-4 w-32 bg-slate-50 rounded" /></td>
+                            <td className="px-6 py-4"><div className="h-4 w-24 bg-slate-50 rounded" /></td>
+                            <td className="px-6 py-4"><div className="h-4 w-16 bg-slate-50 rounded" /></td>
+                          </tr>
+                        ))
+                      ) : recentStudents.length > 0 ? (
+                        recentStudents.map((student: Students) => (
+                          <tr key={student.id} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold">
+                                  {student.first_name[0]}{student.last_name[0]}
+                                </div>
+                                <span className="text-xs font-bold text-slate-700">{student.first_name} {student.last_name}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-xs font-medium text-slate-500">{student.id_number}</td>
+                            <td className="px-6 py-4 text-[10px] font-bold text-primary uppercase">
+                              {new Date(student.created_at).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="px-6 py-12 text-center text-xs font-bold text-slate-300 uppercase italic">
+                            No recent activity found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </>
         ) : null}
 
-        {/* FOOTER STATUS BAR */}
-        <div className="mt-8 p-5 bg-slate-900 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 text-white border border-slate-800">
-          <div className="flex flex-col sm:flex-row gap-8">
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
-                Total Records
-              </span>
-              <span className="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
-                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                {data?.summary.total_records.toLocaleString()}
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
-                Departments
-              </span>
-              <span className="text-sm font-bold text-blue-400">
-                {data?.departments.full_list.length || 0} Active
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
-                Data Status
-              </span>
-              <span className="text-sm font-bold text-white">Current</span>
-            </div>
-          </div>
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="text-xs font-bold uppercase tracking-widest border border-slate-700 px-5 py-2.5 rounded-lg hover:bg-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
-            {isRefreshing ? 'Refreshing' : 'Refresh'}
-          </button>
-        </div>
-
-        {/* HELPFUL TIP */}
-        <div className="mt-6 text-center text-xs text-slate-400 font-medium">
-          💡 Tip: Use filters to drill down into specific data by date range or department
-        </div>
       </div>
 
       <style>{`
         @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
+          0%   { background-position: -200% 0; }
+          100% { background-position:  200% 0; }
+        }
+        .scrollbar-none::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-none {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
+
+      <MetricDetailModal
+        open={!!metricModal}
+        onClose={() => setMetricModal(null)}
+        meta={metricModal}
+      />
+      <VelocityDetailModal
+        open={velocityModalOpen}
+        onClose={() => setVelocityModalOpen(false)}
+        data={data?.trends ?? []}
+        auditLog={allStudents || []}
+      />
+      <TallyDetailModal
+        open={tallyModalOpen}
+        onClose={() => { setTallyModalOpen(false); setTallyFocusDept(null); }}
+        data={data?.departments.full_list ?? []}
+        focusDept={tallyFocusDept}
+      />
+      <DistributionDetailModal
+        open={distModalOpen}
+        onClose={() => setDistModalOpen(false)}
+        data={data?.departments.full_list ?? []}
+      />
     </div>
   );
 };

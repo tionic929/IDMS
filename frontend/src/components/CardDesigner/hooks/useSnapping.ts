@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+﻿import { useCallback } from 'react';
 import { useCanvasContext, type SnapMode, type GridUnit } from '../context/CanvasContext';
 import { DESIGN_WIDTH, DESIGN_HEIGHT } from '../../../constants/dimensions';
 

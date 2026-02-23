@@ -1,6 +1,5 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getStudents } from '../../../api/students';
+﻿import { useMemo } from 'react';
+import type { Students } from '../../../types/students';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 
@@ -11,25 +10,17 @@ const getProxyUrl = (path: string | null | undefined) => {
   return `${VITE_API_URL}/api/proxy-image?path=${encodeURIComponent(cleanPath)}`;
 };
 
-export const usePreviewData = (templateId: number | null, templateName: string) => {
-  // Fetch only ONE student for preview
-  const { data: activeStudent, isLoading } = useQuery({
-    queryKey: ['preview-student'],
-    queryFn: async () => {
-      const res = await getStudents();
-      const allStudents = [...(res.queueList || []), ...(res.history || [])];
+export const usePreviewData = (templateId: number | null, templateName: string, allStudents: Students[]) => {
+  const activeStudent = useMemo(() => {
+    if (!templateId || !allStudents?.length) return null;
 
-      if (!allStudents?.length) return null;
-
-      // Return most recently updated student
-      return [...allStudents].sort((a, b) =>
-        new Date(b.updated_at || b.created_at).getTime() -
-        new Date(a.updated_at || a.created_at).getTime()
-      )[0];
-    },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    enabled: !!templateId, // Only fetch when template is selected
-  });
+    // Return most recently updated student from the provided list
+    return [...allStudents].sort((a, b) => {
+      const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+      const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+      return dateB - dateA;
+    })[0];
+  }, [allStudents, templateId]);
 
   const previewData = useMemo(() => {
     if (!activeStudent) return null;
@@ -46,5 +37,6 @@ export const usePreviewData = (templateId: number | null, templateName: string) 
     };
   }, [activeStudent, templateName]);
 
-  return { previewData, activeStudent, isLoading };
+  return { previewData, activeStudent };
 };
+

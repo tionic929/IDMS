@@ -2,13 +2,13 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ArrowLeft, Loader2, User, BookOpen, 
-  Camera, FileCheck, CheckCircle2, ShieldCheck, 
-  AlertCircle, UploadCloud, RefreshCcw, Zap
+import {
+  ArrowLeft, Loader2, User, BookOpen,
+  Camera, FileCheck, CheckCircle2, ShieldCheck,
+  AlertCircle, UploadCloud, RefreshCw, Zap,
+  Contact, MapPin, Sparkles
 } from 'lucide-react';
 
-// Adjust these paths if your file structure is different
 import { verifyIdNumber } from '../api/reports';
 import api, { getCsrfCookie } from '../api/axios';
 
@@ -38,14 +38,15 @@ const SubmitDetails: React.FC = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationStatus, setVerificationStatus] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitPhase, setSubmitPhase] = useState<'idle' | 'enhancing' | 'saving'>('idle');
-  
-  // Progress states for UI feedback
+
+  // Progress states for UI feedback during Python Bridge processing
   const [processingProgress, setProcessingProgress] = useState({ id: 0, sig: 0 });
   const [isProcessingId, setIsProcessingId] = useState(false);
   const [isProcessingSig, setIsProcessingSig] = useState(false);
+
+
   const [status, setStatus] = useState<'success' | 'error' | ''>('');
 
   const isFormIncomplete = !form.idNumber || !form.firstName || !form.lastName || !form.id_picture || !form.signature_picture;
@@ -55,7 +56,9 @@ const SubmitDetails: React.FC = () => {
     const interval = setInterval(() => {
       setProcessingProgress(prev => {
         const current = prev[field];
-        if (current >= 95) {
+
+        if (current >= 92) { // Hang at 92% until request actually finishes
+
           clearInterval(interval);
           return prev;
         }
@@ -70,12 +73,15 @@ const SubmitDetails: React.FC = () => {
     if (!file) return;
 
     const fieldKey = field === 'id_picture' ? 'id' : 'sig';
-    
-    // 1. Set raw file for preview
+
+    // 1. INSTANT RAW PREVIEW 
+    // We set the raw file immediately so the user sees their upload instantly
     setForm(prev => ({ ...prev, [field]: file }));
-    
-    // 2. Trigger Bridge
+
+    // 2. TRIGGER BACKGROUND ENHANCEMENT (Python Bridge)
     field === 'id_picture' ? setIsProcessingId(true) : setIsProcessingSig(true);
+
+
     const progressInterval = startProgressSync(fieldKey);
 
     try {
@@ -88,17 +94,17 @@ const SubmitDetails: React.FC = () => {
       // Send to Python Bridge
       const bridgeResponse = await axios.post(`${LOCAL_BRIDGE_URL}/process_and_return`, {
         photo: photoB64,
-        type: field 
-      }, { 
-        responseType: 'blob', 
-        timeout: 60000 
+        type: field
+      }, {
+        responseType: 'blob',
+        timeout: 60000
       });
 
-      // 3. Capture bridgeResponse as a File
-      const processedFile = new File([bridgeResponse.data], `ai_${fieldKey}.webp`, { type: "image/webp" });
+      // 3. OVERWRITE WITH ENHANCED VERSION
+      const processedFile = new File([response.data], `ai_${fieldKey}.webp`, { type: "image/webp" });
       setForm(prev => ({ ...prev, [field]: processedFile }));
       setProcessingProgress(prev => ({ ...prev, [fieldKey]: 100 }));
-      
+
     } catch (err: any) {
       console.warn("AI Enhancement skipped/failed, using raw file:", err);
     } finally {
@@ -127,7 +133,7 @@ const SubmitDetails: React.FC = () => {
     setIsSubmitting(true);
     try {
       await getCsrfCookie();
-      
+
       const finalData = new FormData();
       finalData.append('idNumber', form.idNumber);
       finalData.append('firstName', form.firstName);
@@ -186,118 +192,180 @@ const SubmitDetails: React.FC = () => {
   }, [form.idNumber]);
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] font-sans pb-20">
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-2xl border-b border-slate-200 px-4 md:px-10 py-4">
-        <div className="max-w-[1440px] mx-auto flex items-center justify-between">
-          <button onClick={() => navigate('/')} className="flex items-center gap-3 text-slate-600 font-bold group">
-            <div className="p-2.5 bg-slate-100 group-hover:bg-teal-50 rounded-2xl transition-colors">
-              <ArrowLeft size={22} />
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans pb-32">
+      {/* ── Page header ─────────────────────────────────────── */}
+      <header className="sticky top-0 z-50 bg-white dark:bg-zinc-950 border-b border-border px-6 py-4">
+        <div className="max-w-[1400px] mx-auto flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="gap-2 text-muted-foreground hover:text-foreground font-bold group"
+          >
+            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+            <span className="hidden sm:inline uppercase tracking-widest text-[10px]">Back to Portal</span>
+          </Button>
+
+          <div className="flex flex-col items-center">
+            <Badge variant="outline" className="border-primary/20 text-primary px-3 py-0 flex gap-2 items-center mb-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="text-[9px] font-black uppercase tracking-widest">Enrollment v2.1</span>
+            </Badge>
+            <h1 className="text-xl font-black text-foreground uppercase tracking-tighter leading-none">Application Form</h1>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="hidden lg:flex items-center gap-2 text-muted-foreground bg-muted/30 px-4 py-2 rounded-xl border border-border">
+              <ShieldCheck className="h-4 w-4 text-emerald-500" />
+              <span className="text-[10px] font-black uppercase tracking-widest">End-to-End Encrypted</span>
             </div>
-            <span className="hidden md:inline-block text-sm">Cancel</span>
+            <span className="hidden md:inline-block">Exit</span>
           </button>
           <div className="text-center">
-            <h2 className="text-[10px] font-black tracking-[0.3em] text-teal-600 uppercase">NCnian Digital ID</h2>
-            <p className="text-sm lg:text-xl font-black text-slate-900 uppercase">Student Registration</p>
+            <h2 className="text-[10px] font-black tracking-[0.3em] text-teal-600 uppercase">NCnian School ID</h2>
+            <p className="text-sm lg:text-xl font-black text-slate-900 uppercase">Application Form</p>
           </div>
           <div className="hidden lg:flex items-center gap-2 text-slate-400 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
             <ShieldCheck size={16} />
-            <span className="text-[10px] font-black uppercase tracking-tighter">Verified</span>
+            <span className="text-[10px] font-black uppercase">Secure Session</span>
           </div>
         </div>
       </header>
 
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-7xl mx-auto mt-8 px-4">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-[1400px] mx-auto mt-12 px-6"
+      >
         <AnimatePresence>
           {(status === 'success' || verificationStatus === 'invalid') && (
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className={`mb-6 p-6 rounded-[2rem] border shadow-sm flex items-center justify-between ${status === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}>
               <div className="flex items-center gap-3">
-                {status === 'success' ? <CheckCircle2 size={20}/> : <AlertCircle size={20}/>}
+                {status === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
                 <span className="text-xs font-black uppercase tracking-widest">
                   {status === 'success' ? 'Application Submitted!' : errorMessage}
                 </span>
               </div>
-              <button onClick={() => navigate('/')} className="bg-white text-emerald-700 px-8 py-3 rounded-2xl text-xs font-black hover:bg-emerald-50 transition-colors">RETURN</button>
+              {status === 'success' && <button onClick={() => navigate('/')} className="bg-emerald-600 text-white px-6 py-2 rounded-xl text-xs font-bold">Done</button>}
             </motion.div>
           )}
         </AnimatePresence>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           <div className="lg:col-span-8 space-y-8">
-            <FormSection icon={<BookOpen />} title="School Credentials" subtitle="Academic Verification">
+            <FormSection icon={<BookOpen />} title="Academic Standing" subtitle="Primary Data">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <ScalingInput label="Student ID Number" value={form.idNumber} onChange={(v: string) => setForm({...form, idNumber: v})} status={verificationStatus} isLoading={isVerifying}/>
-                <ScalingInput label="Course/Year" value={form.course} onChange={(v: string) => setForm({...form, course: v})}/>
+                <ScalingInput label="ID Number" value={form.idNumber} onChange={(v: string) => setForm({ ...form, idNumber: v })} status={verificationStatus} isLoading={isVerifying} />
+                <ScalingInput label="Course" value={form.course} onChange={(v: string) => setForm({ ...form, course: v })} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mt-6">
-                <div className="md:col-span-2"><ScalingInput label="First Name" value={form.firstName} onChange={(v: string) => setForm({...form, firstName: v})} /></div>
-                <div className="md:col-span-1"><ScalingInput label="M.I." value={form.middleInitial} onChange={(v: string) => setForm({...form, middleInitial: v})} /></div>
-                <div className="md:col-span-2"><ScalingInput label="Last Name" value={form.lastName} onChange={(v: string) => setForm({...form, lastName: v})} /></div>
+                <div className="md:col-span-2"><ScalingInput label="Given Name" value={form.firstName} onChange={(v: string) => setForm({ ...form, firstName: v })} /></div>
+                <div className="md:col-span-1"><ScalingInput label="M.I." value={form.middleInitial} onChange={(v: string) => setForm({ ...form, middleInitial: v })} /></div>
+                <div className="md:col-span-2"><ScalingInput label="Surname" value={form.lastName} onChange={(v: string) => setForm({ ...form, lastName: v })} /></div>
               </div>
-            </FormSection>
+            </FormCard>
 
-            <FormSection icon={<User />} title="Emergency Contact" subtitle="Contact Information">
-              <ScalingInput label="Home Address" value={form.address} onChange={(v: string) => setForm({...form, address: v})} isTextArea />
+            <FormSection icon={<User />} title="Personal Data" subtitle="Guardian & Address">
+              <ScalingInput label="Address" value={form.address} onChange={(v: string) => setForm({ ...form, address: v })} isTextArea />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <ScalingInput label="Guardian Name" value={form.guardianName} onChange={(v: string) => setForm({...form, guardianName: v})} />
-                <ScalingInput label="Guardian Phone" value={form.guardianContact} onChange={(v: string) => setForm({...form, guardianContact: v})} />
+                <ScalingInput label="Guardian Name" value={form.guardianName} onChange={(v: string) => setForm({ ...form, guardianName: v })} />
+                <ScalingInput label="Guardian Contact" value={form.guardianContact} onChange={(v: string) => setForm({ ...form, guardianContact: v })} />
               </div>
-            </FormSection>
+            </FormCard>
           </div>
 
           <div className="lg:col-span-4">
-            <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 space-y-10 sticky top-28">
-              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">Capture Photo</h3>
-              
-              <div className="space-y-4 text-center">
-                <div className="relative mx-auto w-40 h-40">
-                  <div className={`w-full h-full rounded-[2.5rem] bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all duration-300 ${isProcessingId ? 'border-teal-500 bg-teal-50 shadow-inner' : 'border-slate-200'}`}>
-                    {idPreview ? (
-                      <div className="relative w-full h-full">
-                        <img src={idPreview} className={`w-full h-full object-cover transition-opacity duration-500 ${isProcessingId ? 'opacity-40' : 'opacity-100'}`} />
-                        {isProcessingId && (
-                           <div className="absolute inset-0 flex flex-col items-center justify-center">
-                              <RefreshCcw className="animate-spin text-teal-600" size={30} />
-                              <span className="text-[9px] font-black text-teal-700 uppercase mt-2">{processingProgress.id}% Optimizing...</span>
-                           </div>
-                        )}
-                      </div>
-                    ) : (
-                      <UploadCloud size={44} className="text-slate-300" />
-                    )}
-                  </div>
-                  <input type="file" id="id-p" hidden onChange={e => handleFileChange(e, 'id_picture')} accept="image/*" />
-                  <label htmlFor="id-p" className="absolute -bottom-2 -right-2 bg-teal-600 text-white p-3 rounded-2xl cursor-pointer shadow-lg hover:scale-110 active:scale-95 transition-transform"><Camera size={20}/></label>
-                </div>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Student Photo (2x2)</p>
-              </div>
+            <div className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 space-y-10">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest text-center">Biometric Previews</h3>
 
               <div className="space-y-4 text-center">
-                <div className="relative mx-auto w-full h-24">
-                  <div className={`w-full h-full rounded-3xl bg-slate-50 border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all ${isProcessingSig ? 'border-teal-500 bg-teal-50' : 'border-slate-200'}`}>
-                    {sigPreview ? (
-                      <div className="relative w-full h-full flex items-center justify-center">
-                        <img src={sigPreview} className={`w-full h-full object-contain p-2 transition-opacity ${isProcessingSig ? 'opacity-30' : 'opacity-100'}`} />
-                        {isProcessingSig && <Loader2 className="absolute animate-spin text-teal-600" />}
+                <div className="relative mx-auto w-44 h-44">
+                  <div className={cn(
+                    "w-full h-full rounded-3xl border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all duration-300 relative group",
+                    isProcessingId ? "border-primary bg-primary/5" : "border-border bg-muted/30 hover:bg-muted/50 hover:border-primary/50"
+                  )}>
+                    {isProcessingId ? (
+                      <div className="flex flex-col items-center gap-2 animate-in fade-in zoom-in duration-300">
+                        <div className="relative flex items-center justify-center">
+                          <RefreshCw className="h-10 w-10 animate-spin text-primary" />
+                          <span className="absolute text-[10px] font-black text-primary">{processingProgress.id}%</span>
+                        </div>
+                        <span className="text-[10px] font-black text-primary uppercase tracking-widest">AI Enhancing</span>
+
                       </div>
                     ) : (
-                      <FileCheck size={32} className="text-slate-300" />
+                      <UploadCloud size={40} className="text-slate-300" />
                     )}
                   </div>
-                  <input type="file" id="sig-p" hidden onChange={e => handleFileChange(e, 'signature_picture')} accept="image/*" />
-                  <label htmlFor="sig-p" className="absolute -bottom-2 -right-2 bg-slate-800 text-white p-3 rounded-2xl cursor-pointer shadow-lg hover:scale-110 active:scale-95 transition-transform"><FileCheck size={20}/></label>
+
+                  <input type="file" id="id-p" hidden onChange={e => handleFileChange(e, 'id_picture')} disabled={isProcessingId} />
+                  <label htmlFor="id-p" className="absolute -bottom-2 -right-2 bg-primary text-primary-foreground p-3 rounded-2xl cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all">
+                    <Camera size={18} />
+                  </label>
                 </div>
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">E-Signature</p>
+                <div className="px-8">
+                  <Progress value={processingProgress.id} className="h-1 bg-muted shrink-0" />
+
+                </div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Student Photo (2x2)</p>
               </div>
 
-              <button 
-                type="submit" 
-                disabled={isSubmitting || verificationStatus !== 'valid' || isFormIncomplete}
-                className={`w-full py-6 rounded-[2rem] font-black text-sm tracking-[0.2em] shadow-xl transition-all flex items-center justify-center gap-2 ${verificationStatus === 'valid' && !isFormIncomplete ? 'bg-[#00928a] text-white hover:bg-[#007a73] active:scale-[0.98]' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+
+              {/* SIGNATURE */}
+              <div className="space-y-4 text-center">
+                <div className="relative mx-auto w-full h-28 px-4">
+                  <div className={cn(
+                    "w-full h-full rounded-2xl border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all duration-300 relative group",
+                    isProcessingSig ? "border-primary bg-primary/5" : "border-border bg-muted/30 hover:bg-muted/50 hover:border-primary/50"
+                  )}>
+                    {isProcessingSig ? (
+                      <div className="flex items-center gap-3 animate-in slide-in-from-left-4 duration-300">
+                        <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+                        <span className="text-xs font-black text-primary">{processingProgress.sig}% Processing</span>
+                      </div>
+                    ) : sigPreview ? (
+                      <img src={sigPreview} className="w-full h-full object-contain p-4 mix-blend-multiply dark:mix-blend-normal" />
+
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <FileCheck size={24} className="opacity-20" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Digital Signature</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <input type="file" id="sig-p" hidden onChange={e => handleFileChange(e, 'signature_picture')} disabled={isProcessingSig} />
+                  <label htmlFor="sig-p" className="absolute -bottom-2 -right-1 bg-foreground text-background dark:bg-zinc-800 dark:text-zinc-100 p-3 rounded-2xl cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all">
+                    <Sparkles size={18} />
+                  </label>
+                </div>
+                <div className="px-8">
+                  <Progress value={processingProgress.sig} className="h-1 bg-muted shrink-0" />
+
+                </div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Digital Signature</p>
+              </div>
+
+
+              <Button
+                type="submit"
+                disabled={isSubmitting || isProcessingId || isProcessingSig || verificationStatus !== 'valid' || isFormIncomplete}
+                className={cn(
+                  "w-full h-16 rounded-[1.5rem] font-black text-xs tracking-[0.2em] transition-all gap-4 shadow-xl",
+                  verificationStatus === 'valid' && !isFormIncomplete
+                    ? "bg-primary text-primary-foreground hover:translate-y-[-2px] shadow-primary/20"
+                    : "bg-muted text-muted-foreground"
+                )}
+
               >
-                {isSubmitting ? <Loader2 className="animate-spin" /> : <Zap size={18}/>}
-                {isSubmitting ? 'PROCESSING...' : 'SUBMIT APPLICATION'}
-              </button>
-            </div>
+                {isSubmitting ? <RefreshCw className="h-5 w-5 animate-spin" /> : <Zap className="h-5 w-5 fill-current" />}
+                {isSubmitting ? 'TRANSMITTING...' : 'FINALIZE SUBMISSION'}
+              </Button>
+
+              <p className="text-center text-[9px] font-bold text-muted-foreground px-6 py-2 bg-muted/30 rounded-xl leading-relaxed">
+                By submitting, you agree to our <span className="text-foreground">Privacy Policy</span> regarding official school documentation processing.
+              </p>
+            </Card>
           </div>
         </form>
       </motion.div>
@@ -305,33 +373,32 @@ const SubmitDetails: React.FC = () => {
   );
 };
 
-// Sub-components
 const FormSection = ({ icon, title, subtitle, children }: any) => (
-  <div className="bg-white p-10 rounded-[3.5rem] shadow-sm border border-slate-200 overflow-hidden relative">
-    <div className="flex items-center gap-4 mb-8 relative z-10">
-      <div className="w-14 h-14 bg-teal-50 rounded-[1.25rem] flex items-center justify-center text-teal-600 shadow-sm">{icon}</div>
+  <div className="bg-white p-10 rounded-[3.5rem] shadow-sm border border-slate-200">
+    <div className="flex items-center gap-4 mb-8">
+      <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center text-teal-600">{icon}</div>
       <div>
         <h3 className="text-xl font-black text-slate-900 tracking-tight">{title}</h3>
-        <p className="text-[10px] text-teal-600/60 font-black uppercase tracking-widest">{subtitle}</p>
+        <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{subtitle}</p>
       </div>
     </div>
-    <div className="relative z-10">{children}</div>
+    {children}
   </div>
 );
 
-const ScalingInput = ({ label, value, onChange, isTextArea = false, status = 'idle', isLoading = false }: any) => (
+const ModernInput = ({ label, value, onChange, placeholder, status = 'idle', isLoading = false }: any) => (
   <div className="w-full">
-    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-4 tracking-[0.15em]">{label}</label>
+    <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 ml-2 tracking-widest">{label}</label>
     <div className="relative">
       {isTextArea ? (
-        <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-[2rem] p-6 outline-none focus:bg-white focus:border-teal-500 transition-all text-sm font-bold" />
+        <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-3xl p-5 outline-none focus:bg-white focus:border-teal-500 transition-all" />
       ) : (
         <>
           <input type="text" value={value} onChange={e => onChange(e.target.value)} className={`w-full bg-slate-50 border rounded-3xl p-5 outline-none transition-all ${status === 'valid' ? 'border-emerald-500 bg-emerald-50/30' : status === 'invalid' ? 'border-rose-500 bg-rose-50/30' : 'border-slate-200 focus:border-teal-500 focus:bg-white'}`} />
           <div className="absolute right-5 top-1/2 -translate-y-1/2">
-            {isLoading && <Loader2 className="animate-spin text-teal-500" size={18}/>}
-            {status === 'valid' && !isLoading && <CheckCircle2 className="text-emerald-500" size={18}/>}
-            {status === 'invalid' && !isLoading && <AlertCircle className="text-rose-500" size={18}/>}
+            {isLoading && <Loader2 className="animate-spin text-teal-500" size={18} />}
+            {status === 'valid' && !isLoading && <CheckCircle2 className="text-emerald-500" size={18} />}
+            {status === 'invalid' && !isLoading && <AlertCircle className="text-rose-500" size={18} />}
           </div>
         </>
       )}
@@ -340,3 +407,4 @@ const ScalingInput = ({ label, value, onChange, isTextArea = false, status = 'id
 );
 
 export default SubmitDetails;
+
