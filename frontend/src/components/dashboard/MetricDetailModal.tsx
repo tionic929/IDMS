@@ -21,14 +21,15 @@ export interface MetricModalMeta {
     trendLabel: string;
     strokeColor: string;
     trends: TrendData[];
+    distribution?: { name: string; value: number; color?: string }[];
 }
 
 const Tooltip_ = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
-        <div className="bg-white border border-slate-200 shadow-lg rounded-xl px-3 py-2 text-xs">
+        <div className="bg-white border border-slate-200 shadow-xl rounded-xl px-4 py-3 text-[10px] font-bold uppercase tracking-wider">
             <p className="text-slate-400 mb-1">{label}</p>
-            <p className="font-bold text-slate-900 text-base">{payload[0].value?.toLocaleString()}</p>
+            <p className="text-primary text-lg">{payload[0].value?.toLocaleString()}</p>
         </div>
     );
 };
@@ -64,31 +65,30 @@ export const MetricDetailModal: React.FC<{
             size="lg"
         >
             {/* Current value hero */}
-            <div className="flex items-end gap-3 mb-6">
-                <span className="text-4xl font-black text-slate-900 tracking-tight">
+            <div className="flex items-end gap-3 mb-8">
+                <span className="text-5xl font-black text-slate-900 tracking-tighter tabular-nums">
                     {typeof value === 'number' ? value.toLocaleString() : value}
                 </span>
                 {stats && (
-                    <span className={`flex items-center gap-1 pb-1.5 text-sm font-bold ${stats.positive ? 'text-emerald-600' : 'text-red-500'
+                    <span className={`flex items-center gap-1 pb-2 text-[10px] font-bold uppercase tracking-wider ${stats.positive ? 'text-emerald-600' : 'text-red-600'
                         }`}>
-                        {stats.positive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                        {stats.positive ? '+' : ''}{stats.pct}% vs last period
+                        {stats.positive ? '▲' : '▼'} {stats.pct}% Growth
                     </span>
                 )}
             </div>
 
             {/* Stats grid */}
             {stats && (
-                <div className="grid grid-cols-4 gap-3 mb-6">
+                <div className="grid grid-cols-4 gap-4 mb-8">
                     {[
-                        { label: 'Total (period)', val: stats.sum.toLocaleString() },
-                        { label: 'Monthly avg', val: stats.avg.toLocaleString() },
-                        { label: 'Peak', val: stats.max.toLocaleString() },
-                        { label: 'Low', val: stats.min.toLocaleString() },
+                        { label: 'Total Count', val: stats.sum.toLocaleString() },
+                        { label: 'Average', val: stats.avg.toLocaleString() },
+                        { label: 'Highest', val: stats.max.toLocaleString() },
+                        { label: 'Lowest', val: stats.min.toLocaleString() },
                     ].map(s => (
-                        <div key={s.label} className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">{s.label}</p>
-                            <p className="text-lg font-black text-slate-900">{s.val}</p>
+                        <div key={s.label} className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
+                            <p className="text-xl font-black text-slate-900 tabular-nums">{s.val}</p>
                         </div>
                     ))}
                 </div>
@@ -97,57 +97,81 @@ export const MetricDetailModal: React.FC<{
             {/* Full trend chart */}
             <div className="h-64 w-full mb-6">
                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={trends} margin={{ top: 4, right: 4, left: -10, bottom: 20 }}>
+                    <AreaChart data={trends} margin={{ top: 10, right: 10, left: -25, bottom: 20 }}>
                         <defs>
                             <linearGradient id={`m-fill-${meta.key}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.18} />
-                                <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
+                                <stop offset="0%" stopColor="#00928a" stopOpacity={0.1} />
+                                <stop offset="100%" stopColor="#00928a" stopOpacity={0} />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
                         <XAxis
                             dataKey="month"
                             axisLine={false} tickLine={false}
-                            tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
-                            angle={-35} textAnchor="end" height={50}
+                            tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 700 }}
+                            dy={10}
                         />
                         <YAxis
                             axisLine={false} tickLine={false}
-                            tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
-                            width={36}
+                            tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 700 }}
                         />
                         {stats && (
                             <ReferenceLine
                                 y={stats.avg}
-                                stroke={strokeColor}
-                                strokeDasharray="4 3"
-                                strokeOpacity={0.4}
-                                label={{ value: 'avg', position: 'insideTopRight', fontSize: 10, fill: '#94a3b8' }}
+                                stroke="#00928a"
+                                strokeDasharray="4 4"
+                                strokeOpacity={0.2}
                             />
                         )}
                         <Tooltip content={<Tooltip_ active={undefined} payload={undefined} label={undefined} />} />
                         <Area
                             type="monotone"
                             dataKey="count"
-                            stroke={strokeColor}
-                            strokeWidth={2.5}
+                            stroke="#00928a"
+                            strokeWidth={2}
                             fill={`url(#m-fill-${meta.key})`}
                             dot={false}
-                            activeDot={{ r: 5, fill: strokeColor, stroke: '#fff', strokeWidth: 2 }}
-                            animationDuration={700}
+                            activeDot={{ r: 4, fill: '#00928a', stroke: '#fff', strokeWidth: 2 }}
+                            animationDuration={1000}
                         />
                     </AreaChart>
                 </ResponsiveContainer>
             </div>
 
+            {/* Composition / Breakdown (if provided) */}
+            {meta.distribution && (
+                <div className="mb-10">
+                    <div className="flex items-center gap-3 mb-5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Composition Breakdown</span>
+                        <div className="flex-1 h-px bg-slate-100" />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {meta.distribution.map((item, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-100/50 hover:bg-white hover:shadow-sm transition-all group">
+                                <div className="flex items-center gap-3">
+                                    <div
+                                        className="w-2 h-2 rounded-full"
+                                        style={{ backgroundColor: item.color || '#3b82f6' }}
+                                    />
+                                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-tight group-hover:text-slate-900">{item.name}</span>
+                                </div>
+                                <span className="text-xs font-black text-slate-800 tabular-nums">
+                                    {item.value.toLocaleString()}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Month-by-month breakdown table */}
-            <div className="border border-slate-100 rounded-xl overflow-hidden">
-                <table className="w-full text-xs">
+            <div className="border border-slate-100 rounded-xl overflow-hidden bg-white shadow-sm">
+                <table className="w-full text-[10px]">
                     <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100">
-                            <th className="px-4 py-2.5 text-left font-semibold text-slate-500 uppercase tracking-wider">Period</th>
-                            <th className="px-4 py-2.5 text-right font-semibold text-slate-500 uppercase tracking-wider">Count</th>
-                            <th className="px-4 py-2.5 text-right font-semibold text-slate-500 uppercase tracking-wider">vs Prev</th>
+                        <tr className="bg-slate-50/50 border-b border-slate-100">
+                            <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-widest">Period</th>
+                            <th className="px-4 py-3 text-right font-bold text-slate-400 uppercase tracking-widest">Amount</th>
+                            <th className="px-4 py-3 text-right font-bold text-slate-400 uppercase tracking-widest">Change</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -156,17 +180,16 @@ export const MetricDetailModal: React.FC<{
                             const diff = prev != null ? t.count - prev : null;
                             const pos = diff != null && diff >= 0;
                             return (
-                                <tr key={t.month} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-4 py-2.5 font-medium text-slate-700">{t.month}</td>
-                                    <td className="px-4 py-2.5 text-right font-bold text-slate-900 tabular-nums">{t.count.toLocaleString()}</td>
-                                    <td className="px-4 py-2.5 text-right tabular-nums">
+                                <tr key={t.month} className="hover:bg-slate-50 transition-colors group">
+                                    <td className="px-4 py-3 font-bold text-slate-600 uppercase group-hover:text-slate-900 transition-colors">{t.month}</td>
+                                    <td className="px-4 py-3 text-right font-bold text-slate-900 tabular-nums">{t.count.toLocaleString()}</td>
+                                    <td className="px-4 py-3 text-right tabular-nums">
                                         {diff != null ? (
-                                            <span className={`inline-flex items-center gap-0.5 font-semibold ${pos ? 'text-emerald-600' : 'text-red-500'}`}>
-                                                {pos ? <ArrowUpRight size={10} /> : <ArrowUpRight size={10} className="rotate-90" />}
-                                                {pos ? '+' : ''}{diff.toLocaleString()}
+                                            <span className={`inline-flex items-center gap-1 font-bold ${pos ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                {pos ? '▲' : '▼'} {Math.abs(diff).toLocaleString()}
                                             </span>
                                         ) : (
-                                            <span className="text-slate-300">—</span>
+                                            <span className="text-slate-200">—</span>
                                         )}
                                     </td>
                                 </tr>

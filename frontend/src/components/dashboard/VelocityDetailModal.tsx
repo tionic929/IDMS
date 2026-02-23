@@ -11,12 +11,14 @@ import {
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { DashboardModal } from './DashboardModal';
 import type { TrendData } from '../../types/analytics';
+import type { Students } from '../../types/students';
 
 export const VelocityDetailModal: React.FC<{
     open: boolean;
     onClose: () => void;
     data: TrendData[];
-}> = ({ open, onClose, data }) => {
+    auditLog?: Students[];
+}> = ({ open, onClose, data, auditLog }) => {
     const stats = useMemo(() => {
         if (!data?.length) return null;
         const vals = data.map(d => d.count);
@@ -34,35 +36,34 @@ export const VelocityDetailModal: React.FC<{
         <DashboardModal
             open={open}
             onClose={onClose}
-            title="Production Trend"
-            subtitle="Enrollment velocity over time · full dataset"
+            title="Performance History"
+            subtitle="Enrollment trends over time · Full dataset"
             size="xl"
         >
             {/* Summary hero */}
             {stats && (
                 <>
-                    <div className="flex items-end gap-4 mb-6">
+                    <div className="flex items-end gap-3 mb-8">
                         <div>
-                            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Latest period</p>
-                            <p className="text-4xl font-black text-slate-900">{stats.last.toLocaleString()}</p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Current Rate</p>
+                            <p className="text-5xl font-black text-slate-900 tracking-tighter tabular-nums">{stats.last.toLocaleString()}</p>
                         </div>
-                        <span className={`pb-2 flex items-center gap-1 text-sm font-bold ${stats.positive ? 'text-emerald-600' : 'text-red-500'
+                        <span className={`pb-2 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${stats.positive ? 'text-emerald-600' : 'text-red-600'
                             }`}>
-                            {stats.positive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                            {stats.positive ? '+' : ''}{stats.pct}% vs prev
+                            {stats.positive ? '▲' : '▼'} {stats.pct}% vs prev
                         </span>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-3 mb-6">
+                    <div className="grid grid-cols-4 gap-4 mb-8">
                         {[
-                            { label: 'Total', val: stats.sum.toLocaleString() },
+                            { label: 'Total Count', val: stats.sum.toLocaleString() },
                             { label: 'Average', val: stats.avg.toLocaleString() },
-                            { label: 'Peak', val: stats.max.toLocaleString() },
+                            { label: 'Highest', val: stats.max.toLocaleString() },
                             { label: 'Lowest', val: stats.min.toLocaleString() },
                         ].map(s => (
-                            <div key={s.label} className="bg-slate-50 border border-slate-100 rounded-xl p-3">
-                                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">{s.label}</p>
-                                <p className="text-lg font-black text-slate-900">{s.val}</p>
+                            <div key={s.label} className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
+                                <p className="text-xl font-black text-slate-900 tabular-nums">{s.val}</p>
                             </div>
                         ))}
                     </div>
@@ -70,63 +71,71 @@ export const VelocityDetailModal: React.FC<{
             )}
 
             {/* Full chart */}
-            <div className="h-72 mb-6">
+            <div className="h-72 mb-8">
                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data} margin={{ top: 4, right: 4, left: -10, bottom: 24 }}>
+                    <AreaChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 20 }}>
                         <defs>
                             <linearGradient id="vd-fill" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#6366f1" stopOpacity={0.15} />
-                                <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                                <stop offset="0%" stopColor="#00928a" stopOpacity={0.1} />
+                                <stop offset="100%" stopColor="#00928a" stopOpacity={0} />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
                         <XAxis
                             dataKey="month"
                             axisLine={false} tickLine={false}
-                            tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
-                            angle={-35} textAnchor="end" height={50}
+                            tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 700 }}
+                            dy={10}
                         />
                         <YAxis
                             axisLine={false} tickLine={false}
-                            tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
-                            width={40}
+                            tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 700 }}
                         />
                         {stats && (
                             <ReferenceLine
                                 y={stats.avg}
-                                stroke="#6366f1"
-                                strokeDasharray="4 3"
-                                strokeOpacity={0.4}
-                                label={{ value: 'avg', position: 'insideTopRight', fontSize: 10, fill: '#94a3b8' }}
+                                stroke="#00928a"
+                                strokeDasharray="4 4"
+                                strokeOpacity={0.2}
                             />
                         )}
                         <Tooltip
-                            contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
-                            formatter={(v: any) => [v.toLocaleString(), 'Enrollments']}
+                            contentStyle={{
+                                backgroundColor: '#ffffff',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '12px',
+                                fontSize: '10px',
+                                fontWeight: '700',
+                                color: '#0f172a',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em'
+                            }}
+                            itemStyle={{ color: '#00928a' }}
+                            formatter={(v: any) => [v.toLocaleString(), 'Rate']}
                         />
                         <Area
                             type="monotone"
                             dataKey="count"
-                            stroke="#6366f1"
-                            strokeWidth={2.5}
+                            stroke="#00928a"
+                            strokeWidth={2}
                             fill="url(#vd-fill)"
                             dot={false}
-                            activeDot={{ r: 5, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
-                            animationDuration={700}
+                            activeDot={{ r: 4, fill: '#00928a', stroke: '#fff', strokeWidth: 2 }}
+                            animationDuration={1500}
                         />
                     </AreaChart>
                 </ResponsiveContainer>
             </div>
 
             {/* Period breakdown table */}
-            <div className="border border-slate-100 rounded-xl overflow-hidden">
-                <table className="w-full text-xs">
+            <div className="border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-sm">
+                <table className="w-full text-[10px]">
                     <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100">
-                            <th className="px-4 py-2.5 text-left font-semibold text-slate-400 uppercase tracking-wider">Period</th>
-                            <th className="px-4 py-2.5 text-right font-semibold text-slate-400 uppercase tracking-wider">Count</th>
-                            <th className="px-4 py-2.5 text-right font-semibold text-slate-400 uppercase tracking-wider">Change</th>
-                            <th className="px-4 py-2.5 text-right font-semibold text-slate-400 uppercase tracking-wider">% Change</th>
+                        <tr className="bg-slate-50/50 border-b border-slate-100">
+                            <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-widest">Period</th>
+                            <th className="px-4 py-3 text-right font-bold text-slate-400 uppercase tracking-widest">Count</th>
+                            <th className="px-4 py-3 text-right font-bold text-slate-400 uppercase tracking-widest">Change</th>
+                            <th className="px-4 py-3 text-right font-bold text-slate-400 uppercase tracking-widest">Trend</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -138,18 +147,18 @@ export const VelocityDetailModal: React.FC<{
                                 : null;
                             const pos = diff != null && diff >= 0;
                             return (
-                                <tr key={t.month} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-4 py-2.5 font-medium text-slate-700">{t.month}</td>
-                                    <td className="px-4 py-2.5 text-right font-bold text-slate-900 tabular-nums">
+                                <tr key={t.month} className="hover:bg-slate-50 transition-colors group">
+                                    <td className="px-4 py-3 font-bold text-slate-600 uppercase group-hover:text-slate-900 transition-colors">{t.month}</td>
+                                    <td className="px-4 py-3 text-right font-bold text-slate-900 tabular-nums">
                                         {t.count.toLocaleString()}
                                     </td>
-                                    <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${diff == null ? 'text-slate-300' : pos ? 'text-emerald-600' : 'text-red-500'
+                                    <td className={`px-4 py-3 text-right font-bold tabular-nums ${diff == null ? 'text-slate-200' : pos ? 'text-emerald-600' : 'text-red-600'
                                         }`}>
-                                        {diff != null ? `${pos ? '+' : ''}${diff.toLocaleString()}` : '—'}
+                                        {diff != null ? `${pos ? '▲' : '▼'}${Math.abs(diff).toLocaleString()}` : '—'}
                                     </td>
-                                    <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${pctStr == null ? 'text-slate-300' : parseFloat(pctStr) >= 0 ? 'text-emerald-600' : 'text-red-500'
+                                    <td className={`px-4 py-3 text-right font-bold tabular-nums ${pctStr == null ? 'text-slate-200' : parseFloat(pctStr) >= 0 ? 'text-emerald-600' : 'text-red-600'
                                         }`}>
-                                        {pctStr != null ? `${parseFloat(pctStr) >= 0 ? '+' : ''}${pctStr}%` : '—'}
+                                        {pctStr != null ? `${parseFloat(pctStr) >= 0 ? '▲' : '▼'}${Math.abs(parseFloat(pctStr))}%` : '—'}
                                     </td>
                                 </tr>
                             );
@@ -157,6 +166,46 @@ export const VelocityDetailModal: React.FC<{
                     </tbody>
                 </table>
             </div>
+            {/* Audit Log (if provided) */}
+            {auditLog && auditLog.length > 0 && (
+                <div className="mt-12 space-y-6">
+                    <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Data Audit Log</span>
+                        <div className="flex-1 h-px bg-slate-100" />
+                    </div>
+
+                    <div className="border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-sm overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50 border-b border-slate-100">
+                                <tr>
+                                    <th className="px-6 py-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest text-[9px] font-black uppercase tracking-widest text-slate-400">Identity</th>
+                                    <th className="px-6 py-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest">ID Code</th>
+                                    <th className="px-6 py-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Unit</th>
+                                    <th className="px-6 py-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {auditLog.slice(0, 10).map((s) => (
+                                    <tr key={s.id} className="hover:bg-slate-50/50 transition-colors group">
+                                        <td className="px-6 py-3.5">
+                                            <div className="text-[11px] font-bold text-slate-700 uppercase tracking-tight">{s.first_name} {s.last_name}</div>
+                                        </td>
+                                        <td className="px-6 py-3.5">
+                                            <div className="text-[11px] font-mono font-bold text-primary">{s.id_number}</div>
+                                        </td>
+                                        <td className="px-6 py-3.5">
+                                            <div className="text-[10px] font-black text-slate-400 uppercase">{s.course}</div>
+                                        </td>
+                                        <td className="px-6 py-3.5">
+                                            <div className="text-[10px] font-bold text-slate-500">{new Date(s.created_at).toLocaleDateString()}</div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </DashboardModal>
     );
 };

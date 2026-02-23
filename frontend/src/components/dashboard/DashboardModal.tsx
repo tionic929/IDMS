@@ -43,8 +43,7 @@ export const DashboardModal: React.FC<DashboardModalProps> = ({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(3px)' }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50"
             onClick={onClose}
         >
             <div
@@ -54,21 +53,21 @@ export const DashboardModal: React.FC<DashboardModalProps> = ({
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-slate-100 flex-shrink-0">
+                <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-slate-100 flex-shrink-0 bg-slate-50/50">
                     <div>
-                        <h2 className="text-base font-bold text-slate-900">{title}</h2>
-                        {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+                        <h2 className="text-base font-bold text-slate-900 uppercase tracking-wider">{title}</h2>
+                        {subtitle && <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">{subtitle}</p>}
                     </div>
                     <button
                         onClick={onClose}
-                        className="ml-4 p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600 flex-shrink-0"
+                        className="ml-4 p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-900 flex-shrink-0"
                     >
                         <X size={16} />
                     </button>
                 </div>
 
                 {/* Scrollable body */}
-                <div className="flex-1 overflow-y-auto px-6 py-5">
+                <div className="flex-1 overflow-y-auto px-6 py-5 custom-scrollbar">
                     {children}
                 </div>
             </div>

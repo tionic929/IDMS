@@ -1,38 +1,37 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   Users, Award, Package, Inbox, CheckCircle2, Zap, Activity, ShieldCheck,
   Calendar, Download, RefreshCw, AlertCircle, TrendingUp, Clock, Eye,
-  Filter, ChevronDown
+  Filter, ChevronDown, MoreHorizontal
 } from 'lucide-react';
-import { fetchDashboardData, exportDashboardAsCSV, type DashboardFilters } from '../api/analytics';
-import { type DashboardData } from '../types/analytics';
-import MetricCard from '../components/SubComponents/MetricCard';
-import { VelocityChart } from '../components/Charts/VelocityChart';
-import { DistributionChart } from '../components/Charts/DistributionChart';
-import { TallyChart } from '../components/Charts/TallyChart';
-import { MetricDetailModal, type MetricModalMeta } from '../components/dashboard/MetricDetailModal';
-import { TallyDetailModal } from '../components/dashboard/TallyDetailModal';
-import { VelocityDetailModal } from '../components/dashboard/VelocityDetailModal';
-import { DistributionDetailModal } from '../components/dashboard/DistributionDetailModal';
+import { fetchDashboardData, exportDashboardAsCSV, type DashboardFilters } from '@/api/analytics';
+import { type DashboardData } from '@/types/analytics';
+import { type Students } from '@/types/students';
+import MetricCard from '@/components/SubComponents/MetricCard';
+import { VelocityChart } from '@/components/Charts/VelocityChart';
+import { DistributionChart } from '@/components/Charts/DistributionChart';
+import { TallyChart } from '@/components/Charts/TallyChart';
+import { MetricDetailModal, type MetricModalMeta } from '@/components/dashboard/MetricDetailModal';
+import { TallyDetailModal } from '@/components/dashboard/TallyDetailModal';
+import { VelocityDetailModal } from '@/components/dashboard/VelocityDetailModal';
+import { DistributionDetailModal } from '@/components/dashboard/DistributionDetailModal';
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { useStudents } from '@/context/StudentContext';
+import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 
-const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899'];
-
-const SkeletonLoader = ({ width = 'w-full', height = 'h-12', count = 1 }) => (
-  <div className="space-y-3">
-    {[...Array(count)].map((_, i) => (
-      <div
-        key={i}
-        className={`${width} ${height} bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 rounded-lg animate-pulse`}
-        style={{
-          backgroundSize: '200% 100%',
-          animation: 'shimmer 2s infinite',
-        }}
-      />
-    ))}
-  </div>
-);
-
-const ErrorBoundary = ({ error, retry }) => (
+const ErrorBoundary = ({ error, retry }: { error: any; retry: () => void }) => (
   <div className="bg-red-50 border border-red-200 rounded-lg p-6 flex items-start gap-4">
     <AlertCircle className="text-red-600 flex-shrink-0 mt-1" size={20} />
     <div className="flex-1">
@@ -50,7 +49,7 @@ const ErrorBoundary = ({ error, retry }) => (
   </div>
 );
 
-const DataFreshness = ({ timestamp, isLoading }) => {
+const DataFreshness = ({ timestamp, isLoading }: { timestamp: Date | null; isLoading: boolean }) => {
   const [timeAgo, setTimeAgo] = useState('just now');
 
   useEffect(() => {
@@ -69,117 +68,83 @@ const DataFreshness = ({ timestamp, isLoading }) => {
   }, [timestamp]);
 
   return (
-    <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
+    <div className="flex items-center gap-2 text-xs font-medium text-zinc-500">
       <Clock size={12} />
       <span>{isLoading ? 'updating...' : timeAgo}</span>
     </div>
   );
 };
 
-const DateRangePicker = ({ onRangeChange, currentRange }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
+const DateRangePicker = ({ onRangeChange, currentRange }: { onRangeChange: (r: any) => void; currentRange: any }) => {
   const presets = [
     { label: 'Last 7 days', days: 7 },
     { label: 'Last 30 days', days: 30 },
     { label: 'Last 90 days', days: 90 },
   ];
 
-  const handlePreset = (days) => {
-    onRangeChange({ days, label: presets.find(p => p.days === days)?.label });
-    setIsOpen(false);
-  };
-
   return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-sm font-medium text-slate-700 bg-white"
-      >
-        <Calendar size={16} />
-        <span>{currentRange.label || 'Date Range'}</span>
-        <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-10">
-          <div className="p-3 space-y-2">
-            {presets.map(preset => (
-              <button
-                key={preset.days}
-                onClick={() => handlePreset(preset.days)}
-                className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-slate-700"
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2 h-9">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <span>{currentRange.label || 'Date Range'}</span>
+          <ChevronDown className="h-3 w-3 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-48">
+        <DropdownMenuLabel>Select Range</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuRadioGroup
+          value={currentRange.days.toString()}
+          onValueChange={(val) => {
+            const days = parseInt(val);
+            onRangeChange({ days, label: presets.find(p => p.days === days)?.label });
+          }}
+        >
+          {presets.map(preset => (
+            <DropdownMenuRadioItem key={preset.days} value={preset.days.toString()}>
+              {preset.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 
-const DepartmentFilter = ({ departments, selectedDept, onChange }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
+const DepartmentFilter = ({ departments, selectedDept, onChange }: { departments: string[]; selectedDept: string | null; onChange: (d: string | null) => void }) => {
   return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors text-sm font-medium text-slate-700 bg-white"
-      >
-        <Filter size={16} />
-        <span>{selectedDept || 'All Departments'}</span>
-        <ChevronDown size={14} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      {isOpen && (
-        <div className="absolute left-0 mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-lg z-10">
-          <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
-            <button
-              onClick={() => {
-                onChange(null);
-                setIsOpen(false);
-              }}
-              className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-indigo-50 hover:text-indigo-700 transition-colors text-slate-700 font-medium"
-            >
-              All Departments
-            </button>
-            {departments?.map(dept => (
-              <button
-                key={dept}
-                onClick={() => {
-                  onChange(dept);
-                  setIsOpen(false);
-                }}
-                className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${selectedDept === dept
-                  ? 'bg-indigo-100 text-indigo-700 font-medium'
-                  : 'hover:bg-slate-50 text-slate-700'
-                  }`}
-              >
-                {dept}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2 h-9">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <span>{selectedDept || 'All Departments'}</span>
+          <ChevronDown className="h-3 w-3 opacity-50" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuLabel>Departments</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuRadioGroup
+          value={selectedDept || "all"}
+          onValueChange={(val) => onChange(val === "all" ? null : val)}
+        >
+          <DropdownMenuRadioItem value="all">
+            All Departments
+          </DropdownMenuRadioItem>
+          {departments?.map(dept => (
+            <DropdownMenuRadioItem key={dept} value={dept}>
+              {dept}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
-};
-
-const CustomTooltip = ({ active, payload }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-slate-900 text-white p-3 px-4 rounded-lg shadow-xl text-xs font-semibold">
-        {payload[0].value.toLocaleString()} {payload[0].name}
-      </div>
-    );
-  }
-  return null;
 };
 
 const Dashboard = () => {
+  const { allStudents, loading: studentsLoading } = useStudents();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -195,7 +160,6 @@ const Dashboard = () => {
     userGrowth: true,
   });
 
-  // ── Modal state ────────────────────────────────────────────────────────────
   const [metricModal, setMetricModal] = useState<MetricModalMeta | null>(null);
   const [tallyModalOpen, setTallyModalOpen] = useState(false);
   const [tallyFocusDept, setTallyFocusDept] = useState<string | null>(null);
@@ -204,7 +168,6 @@ const Dashboard = () => {
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Fetch dashboard data with filters
   const fetchData = useCallback(async (isManualRefresh = false) => {
     try {
       if (isManualRefresh) setIsRefreshing(true);
@@ -227,7 +190,6 @@ const Dashboard = () => {
       setLastUpdate(new Date());
       setError(null);
 
-      // Extract available departments from response
       const depts = response.departments.full_list.map(d => d.name);
       setAvailableDepts(depts);
     } catch (err) {
@@ -241,7 +203,6 @@ const Dashboard = () => {
     }
   }, [dateRange.days, selectedDept]);
 
-  // Initial load
   useEffect(() => {
     fetchData();
     return () => {
@@ -251,7 +212,6 @@ const Dashboard = () => {
     };
   }, [fetchData]);
 
-  // Auto-refresh every 2 minutes
   useEffect(() => {
     const interval = setInterval(() => {
       fetchData(false);
@@ -289,6 +249,13 @@ const Dashboard = () => {
     }));
   };
 
+  const recentStudents = useMemo(() => {
+    if (!allStudents) return [];
+    return [...allStudents]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5);
+  }, [allStudents]);
+
   if (error) {
     return (
       <div className="p-8 bg-zinc-50 min-h-screen">
@@ -298,286 +265,259 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="bg-zinc-50 min-h-screen text-zinc-900 font-sans">
-      <div className="px-6 py-6 lg:px-8 lg:py-8 max-w-screen-2xl mx-auto">
+    <div className="bg-slate-50 min-h-screen text-slate-950 font-sans selection:bg-primary/10">
+      <div className="px-6 py-8 lg:px-12 lg:py-12 max-w-[1600px] mx-auto">
 
         {/* ── PAGE HEADER ────────────────────────────────────────── */}
-        <div className="mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-
-            {/* Left: breadcrumb + title */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Admin</span>
-                <span className="text-zinc-300">/</span>
-                <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-widest">Analytics</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-black tracking-tight text-zinc-950">Dashboard</h1>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold uppercase tracking-wide">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Live
-                </span>
-              </div>
-              <p className="text-xs text-zinc-400 font-medium mt-1">
-                Operational Intelligence · {new Date().getFullYear()}
-              </p>
+        <div className="mb-10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 relative">
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Overview</span>
+              <span className="w-1 h-1 rounded-full bg-slate-200" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Reports</span>
             </div>
-
-            {/* Right: status + icon */}
-            <div className="flex items-center gap-3 sm:self-start">
-              <DataFreshness timestamp={lastUpdate} isLoading={isRefreshing} />
-              <div className="h-9 w-9 rounded-xl bg-white border border-zinc-200 flex items-center justify-center shadow-sm">
-                <ShieldCheck size={16} className="text-indigo-600" />
+            <div className="flex items-center gap-5">
+              <h1 className="text-3xl font-black tracking-tight text-slate-900 uppercase">Dashboard</h1>
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 text-[9px] font-bold uppercase tracking-[0.1em]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live
               </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <DataFreshness timestamp={lastUpdate} isLoading={isRefreshing} />
+            <div className="h-12 w-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-lg group hover:border-primary/50 transition-all">
+              <ShieldCheck className="h-6 w-6 text-primary group-hover:scale-110 transition-transform" />
             </div>
           </div>
         </div>
 
         {/* ── TOOLBAR ─────────────────────────────────────────────── */}
-        <div className="bg-white border border-zinc-200 rounded-xl px-4 py-3 mb-6 flex flex-wrap items-center gap-2 shadow-sm">
-          <DateRangePicker onRangeChange={handleDateRangeChange} currentRange={dateRange} />
-          <DepartmentFilter
-            departments={availableDepts}
-            selectedDept={selectedDept}
-            onChange={handleDepartmentChange}
-          />
-
-          <div className="w-px h-5 bg-zinc-200 hidden sm:block mx-1" />
-
-          <button
-            onClick={handleExport}
-            disabled={loading || !data}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors text-xs font-semibold text-zinc-600 bg-white disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Download size={13} />
-            Export CSV
-          </button>
-
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
-            {isRefreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
-
-          {/* Metric visibility toggles */}
-          <div className="ml-auto flex items-center gap-1.5 flex-wrap">
-            {([
-              { key: 'totalRecords' as const, label: 'Records' },
-              { key: 'newThisWeek' as const, label: 'Weekly' },
-              { key: 'issuedCards' as const, label: 'Cards' },
-              { key: 'userGrowth' as const, label: 'Growth' },
-            ]).map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => toggleMetricVisibility(key)}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide transition-all border ${visibleMetrics[key]
-                  ? 'bg-zinc-900 text-white border-zinc-900'
-                  : 'bg-white text-zinc-400 border-zinc-200 hover:border-zinc-300'
-                  }`}
-              >
-                {visibleMetrics[key] ? <Eye size={9} className="inline mr-1" /> : null}{label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── SECTION LABEL ── */}
-        <div className="flex items-center gap-3 mb-3">
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Key Metrics</span>
-          <div className="flex-1 h-px bg-zinc-200" />
-        </div>
-
-        {/* ── METRIC CARDS ────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {loading ? (
-            <>
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-white rounded-xl p-5 border border-zinc-200 h-40">
-                  <SkeletonLoader count={3} />
-                </div>
-              ))}
-            </>
-          ) : data ? (
-            <>
-              {visibleMetrics.totalRecords && (
-                <div className="group relative">
-                  <button
-                    className="w-full text-left focus:outline-none focus:ring-2 focus:ring-blue-300 rounded-xl"
-                    onClick={() => setMetricModal({
-                      key: 'totalRecords', title: 'Total Records',
-                      value: data.summary.total_records, trendLabel: 'All-time enrollments',
-                      strokeColor: '#3b82f6', trends: data.trends,
-                    })}
-                  >
-                    <MetricCard
-                      title="Total Records"
-                      value={data.summary.total_records}
-                      icon={Users}
-                      color="bg-blue-600"
-                      chartData={data.trends}
-                      trendLabel="All-time records"
-                      trend="up"
-                    />
-                  </button>
-                </div>
-              )}
-              {visibleMetrics.newThisWeek && (
-                <div className="group relative">
-                  <button
-                    className="w-full text-left focus:outline-none focus:ring-2 focus:ring-amber-300 rounded-xl"
-                    onClick={() => setMetricModal({
-                      key: 'newThisWeek', title: 'New This Week',
-                      value: data.summary.new_this_week, trendLabel: 'Weekly intake',
-                      strokeColor: '#f59e0b', trends: data.trends,
-                    })}
-                  >
-                    <MetricCard
-                      title="New This Week"
-                      value={data.summary.new_this_week}
-                      icon={Inbox}
-                      color="bg-amber-500"
-                      chartData={data.trends.slice(-3)}
-                      trendLabel="Weekly intake"
-                      trend="up"
-                    />
-                  </button>
-                </div>
-              )}
-              {visibleMetrics.issuedCards && (
-                <div className="group relative">
-                  <button
-                    className="w-full text-left focus:outline-none focus:ring-2 focus:ring-emerald-300 rounded-xl"
-                    onClick={() => setMetricModal({
-                      key: 'issuedCards', title: 'Cards Issued',
-                      value: data.summary.issued_cards, trendLabel: 'Production status',
-                      strokeColor: '#10b981', trends: data.trends,
-                    })}
-                  >
-                    <MetricCard
-                      title="Cards Issued"
-                      value={data.summary.issued_cards}
-                      icon={Award}
-                      color="bg-emerald-500"
-                      chartData={data.trends}
-                      trendLabel="Production output"
-                      trend="neutral"
-                    />
-                  </button>
-                </div>
-              )}
-              {visibleMetrics.userGrowth && (
-                <div className="group relative">
-                  <button
-                    className="w-full text-left focus:outline-none focus:ring-2 focus:ring-indigo-300 rounded-xl"
-                    onClick={() => setMetricModal({
-                      key: 'userGrowth', title: 'User Growth',
-                      value: data.summary.user_growth, trendLabel: 'New users this week',
-                      strokeColor: '#6366f1', trends: data.trends,
-                    })}
-                  >
-                    <MetricCard
-                      title="User Growth"
-                      value={data.summary.user_growth}
-                      icon={TrendingUp}
-                      color="bg-indigo-600"
-                      chartData={data.trends}
-                      trendLabel="New users this week"
-                      trend="up"
-                    />
-                  </button>
-                </div>
-              )}
-            </>
-          ) : null}
-        </div>
-
-        {/* ── SECTION LABEL ── */}
-        <div className="flex items-center gap-3 mb-3">
-          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Analytics</span>
-          <div className="flex-1 h-px bg-zinc-200" />
-        </div>
-
-        {/* ── CHARTS ──────────────────────────────────────────────── */}
-        {loading ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
-            <div className="lg:col-span-5 bg-white rounded-xl p-5 border border-zinc-200 h-80">
-              <SkeletonLoader height="h-72" />
-            </div>
-            <div className="lg:col-span-5 bg-white rounded-xl p-5 border border-zinc-200 h-80">
-              <SkeletonLoader height="h-72" />
-            </div>
-            <div className="lg:col-span-2 bg-white rounded-xl p-5 border border-zinc-200 h-80">
-              <SkeletonLoader height="h-72" />
-            </div>
-          </div>
-        ) : data ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
-            <div className="lg:col-span-5">
-              <VelocityChart
-                data={data.trends}
-                onViewDetails={() => setVelocityModalOpen(true)}
-              />
-            </div>
-            <div className="lg:col-span-5">
-              <TallyChart
-                data={data.departments.full_list}
-                onViewDetails={() => { setTallyFocusDept(null); setTallyModalOpen(true); }}
-                onBarClick={(dept) => { setTallyFocusDept(dept); setTallyModalOpen(true); }}
-              />
-            </div>
-            <div className="lg:col-span-2">
-              <DistributionChart
-                data={data.departments.full_list}
-                onViewDetails={() => setDistModalOpen(true)}
-              />
-            </div>
-          </div>
-        ) : null}
-
-        {/* ── STATUS BAR ──────────────────────────────────────────── */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-6">
-            <div>
-              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Total Records</p>
-              <p className="text-sm font-black text-white tabular-nums flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                {data?.summary.total_records.toLocaleString() ?? '—'}
-              </p>
-            </div>
-            <div className="w-px h-8 bg-zinc-800" />
-            <div>
-              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Departments</p>
-              <p className="text-sm font-black text-blue-400 tabular-nums">
-                {data?.departments.full_list.length ?? 0} active
-              </p>
-            </div>
-            <div className="w-px h-8 bg-zinc-800" />
-            <div>
-              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-0.5">Cards Issued</p>
-              <p className="text-sm font-black text-emerald-400 tabular-nums">
-                {data?.summary.issued_cards.toLocaleString() ?? '—'}
-              </p>
-            </div>
+        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-10 p-2 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2">
+            <DateRangePicker onRangeChange={handleDateRangeChange} currentRange={dateRange} />
+            <DepartmentFilter
+              departments={availableDepts}
+              selectedDept={selectedDept}
+              onChange={handleDepartmentChange}
+            />
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-medium text-zinc-500">
-              💡 Click any metric card for details
-            </span>
-            <button
+          <div className="flex items-center gap-2 md:ml-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              disabled={loading || !data}
+              className="gap-2 h-9 bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+            >
+              <Download className="h-4 w-4" />
+              Spreadsheet
+            </Button>
+
+            <Button
+              variant="default"
+              size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest border border-zinc-700 px-4 py-2 rounded-lg hover:bg-zinc-800 transition-all disabled:opacity-50"
+              className="gap-2 h-9 px-6 bg-primary hover:bg-primary/90 text-white font-bold uppercase tracking-wider text-[10px]"
             >
-              <RefreshCw size={10} className={isRefreshing ? 'animate-spin text-white' : 'text-zinc-400'} />
-              <span className="text-zinc-300">{isRefreshing ? 'Refreshing' : 'Refresh'}</span>
-            </button>
+              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+              {isRefreshing ? 'Updating...' : 'Refresh'}
+            </Button>
+
+            <div className="w-px h-6 bg-slate-200 mx-1" />
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-900 hover:bg-slate-50">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-white border-slate-200 text-slate-950">
+                <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest opacity-40">Display Options</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-slate-100" />
+                {([
+                  { key: 'totalRecords' as const, label: 'Total Students' },
+                  { key: 'newThisWeek' as const, label: 'New activity' },
+                  { key: 'issuedCards' as const, label: 'Cards Printed' },
+                  { key: 'userGrowth' as const, label: 'Growth' },
+                ]).map(({ key, label }) => (
+                  <DropdownMenuItem
+                    key={key}
+                    onClick={() => toggleMetricVisibility(key)}
+                    className="flex items-center justify-between text-xs font-semibold py-2 hover:bg-slate-50"
+                  >
+                    {label}
+                    {visibleMetrics[key] && <div className="w-2 h-2 rounded-full bg-primary" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
+
+        {/* ── DASHBOARD CONTENT ───────────────────────────────────── */}
+        {loading ? (
+          <DashboardSkeleton />
+        ) : data ? (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+              {visibleMetrics.totalRecords && (
+                <MetricCard
+                  title="Total Students"
+                  value={data.summary.total_records}
+                  icon={Users}
+                  color="blue"
+                  chartData={data.trends}
+                  trendLabel="Records"
+                  trend="up"
+                  onClick={() => setMetricModal({
+                    key: 'totalRecords', title: 'Total Students',
+                    value: data.summary.total_records, trendLabel: 'Total count',
+                    strokeColor: '#3b82f6', trends: data.trends,
+                    distribution: data.departments.full_list.map(d => ({ name: d.name, value: d.total })),
+                  })}
+                />
+              )}
+              {visibleMetrics.newThisWeek && (
+                <MetricCard
+                  title="New Activity"
+                  value={data.summary.new_this_week}
+                  icon={Inbox}
+                  color="amber"
+                  chartData={data.trends.slice(-3)}
+                  trendLabel="Since Monday"
+                  trend="up"
+                  onClick={() => setMetricModal({
+                    key: 'newThisWeek', title: 'New Activity',
+                    value: data.summary.new_this_week, trendLabel: 'Weekly growth',
+                    strokeColor: '#f59e0b', trends: data.trends,
+                    distribution: data.departments.full_list.map(d => ({ name: d.name, value: Math.round(d.total * 0.15) })), // Mocking periodic activity
+                  })}
+                />
+              )}
+              {visibleMetrics.issuedCards && (
+                <MetricCard
+                  title="Cards Printed"
+                  value={data.summary.issued_cards}
+                  icon={Award}
+                  color="emerald"
+                  chartData={data.trends}
+                  trendLabel="Status"
+                  trend="neutral"
+                  onClick={() => setMetricModal({
+                    key: 'issuedCards', title: 'Cards Printed',
+                    value: data.summary.issued_cards, trendLabel: 'Processing status',
+                    strokeColor: '#10b981', trends: data.trends,
+                  })}
+                />
+              )}
+              {visibleMetrics.userGrowth && (
+                <MetricCard
+                  title="Growth"
+                  value={data.summary.user_growth}
+                  icon={TrendingUp}
+                  color="indigo"
+                  chartData={data.trends}
+                  trendLabel="Trend"
+                  trend="up"
+                  onClick={() => setMetricModal({
+                    key: 'userGrowth', title: 'Growth',
+                    value: data.summary.user_growth, trendLabel: 'Growth trend',
+                    strokeColor: '#6366f1', trends: data.trends,
+                  })}
+                />
+              )}
+            </div>
+
+            <div className="flex items-center gap-4 mb-5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Activity & Stats</span>
+              <div className="flex-1 h-px bg-slate-200" />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-10">
+              <div className="lg:col-span-5 h-[340px]">
+                <VelocityChart
+                  title="Student Activity"
+                  data={data.trends}
+                  onViewDetails={() => setVelocityModalOpen(true)}
+                />
+              </div>
+              <div className="lg:col-span-5 h-[340px]">
+                <TallyChart
+                  title="Departments"
+                  data={data.departments.full_list}
+                  onViewDetails={() => { setTallyFocusDept(null); setTallyModalOpen(true); }}
+                  onBarClick={(dept) => { setTallyFocusDept(dept); setTallyModalOpen(true); }}
+                />
+              </div>
+              <div className="lg:col-span-2 h-[340px]">
+                <DistributionChart
+                  title="Share"
+                  data={data.departments.full_list}
+                  onViewDetails={() => setDistModalOpen(true)}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 mb-5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Recent Students</span>
+              <div className="flex-1 h-px bg-slate-200" />
+            </div>
+
+            <Card className="border-slate-200 overflow-hidden shadow-sm shadow-slate-100">
+              <CardContent className="p-0">
+                <div className="overflow-x-auto text-slate-900 font-sans">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 border-b border-slate-100">
+                      <tr>
+                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Name</th>
+                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID Number</th>
+                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Joined</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {studentsLoading ? (
+                        [...Array(5)].map((_, i) => (
+                          <tr key={i} className="animate-pulse">
+                            <td className="px-6 py-4"><div className="h-4 w-32 bg-slate-50 rounded" /></td>
+                            <td className="px-6 py-4"><div className="h-4 w-24 bg-slate-50 rounded" /></td>
+                            <td className="px-6 py-4"><div className="h-4 w-16 bg-slate-50 rounded" /></td>
+                          </tr>
+                        ))
+                      ) : recentStudents.length > 0 ? (
+                        recentStudents.map((student: Students) => (
+                          <tr key={student.id} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold">
+                                  {student.first_name[0]}{student.last_name[0]}
+                                </div>
+                                <span className="text-xs font-bold text-slate-700">{student.first_name} {student.last_name}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-xs font-medium text-slate-500">{student.id_number}</td>
+                            <td className="px-6 py-4 text-[10px] font-bold text-primary uppercase">
+                              {new Date(student.created_at).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="px-6 py-12 text-center text-xs font-bold text-slate-300 uppercase italic">
+                            No recent activity found
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        ) : null}
 
       </div>
 
@@ -586,9 +526,15 @@ const Dashboard = () => {
           0%   { background-position: -200% 0; }
           100% { background-position:  200% 0; }
         }
+        .scrollbar-none::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-none {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
       `}</style>
 
-      {/* ── MODALS ── */}
       <MetricDetailModal
         open={!!metricModal}
         onClose={() => setMetricModal(null)}
@@ -598,6 +544,7 @@ const Dashboard = () => {
         open={velocityModalOpen}
         onClose={() => setVelocityModalOpen(false)}
         data={data?.trends ?? []}
+        auditLog={allStudents || []}
       />
       <TallyDetailModal
         open={tallyModalOpen}

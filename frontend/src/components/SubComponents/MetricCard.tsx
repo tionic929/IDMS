@@ -1,32 +1,21 @@
 import React from 'react';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 interface MetricCardProps {
   title: string;
   value: string | number;
   icon: React.ElementType;
-  color: string;        // bg-* class for tint
+  color: string;
   chartData?: any[];
   trendLabel?: string;
   trend?: 'up' | 'down' | 'neutral';
+  className?: string;
+  onClick?: () => void;
 }
 
-const COLOR_MAP: Record<string, { stroke: string; ring: string; bar: string; text: string }> = {
-  indigo: { stroke: '#6366f1', ring: 'ring-indigo-100', bar: 'bg-indigo-500', text: 'text-indigo-600' },
-  emerald: { stroke: '#10b981', ring: 'ring-emerald-100', bar: 'bg-emerald-500', text: 'text-emerald-600' },
-  amber: { stroke: '#f59e0b', ring: 'ring-amber-100', bar: 'bg-amber-500', text: 'text-amber-600' },
-  blue: { stroke: '#3b82f6', ring: 'ring-blue-100', bar: 'bg-blue-500', text: 'text-blue-600' },
-  violet: { stroke: '#8b5cf6', ring: 'ring-violet-100', bar: 'bg-violet-500', text: 'text-violet-600' },
-  rose: { stroke: '#f43f5e', ring: 'ring-rose-100', bar: 'bg-rose-500', text: 'text-rose-600' },
-};
-
-function resolveColor(colorClass: string) {
-  for (const key of Object.keys(COLOR_MAP)) {
-    if (colorClass.includes(key)) return COLOR_MAP[key];
-  }
-  return { stroke: '#64748b', ring: 'ring-slate-100', bar: 'bg-slate-400', text: 'text-slate-600' };
-}
 
 const MetricCard: React.FC<MetricCardProps> = ({
   title,
@@ -36,82 +25,76 @@ const MetricCard: React.FC<MetricCardProps> = ({
   chartData,
   trendLabel,
   trend = 'neutral',
+  className,
+  onClick,
 }) => {
-  const c = resolveColor(color);
-
   return (
-    <div
-      className={`relative bg-white border border-zinc-200 rounded-xl overflow-hidden flex flex-col h-full
-        transition-all duration-200 hover:shadow-md hover:border-zinc-300 group cursor-pointer`}
+    <Card
+      onClick={onClick}
+      className={cn(
+        "relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group cursor-pointer bg-white border-slate-100",
+        className
+      )}
     >
-      {/* Left accent bar */}
-      <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${c.bar}`} />
-
-      <div className="px-5 pt-5 pb-4 flex-1 flex flex-col">
-        {/* Top row: label + icon */}
-        <div className="flex items-start justify-between mb-3">
-          <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-widest leading-none">
-            {title}
-          </span>
-          <div className={`w-8 h-8 rounded-lg ${c.ring} ring-1 flex items-center justify-center flex-shrink-0`}>
-            <Icon size={15} style={{ color: c.stroke }} />
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1">{title}</p>
+            <div className="text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+              {typeof value === 'number' ? value.toLocaleString() : value}
+            </div>
+          </div>
+          <div className="p-2 rounded-xl border border-slate-100 bg-slate-50 transition-transform group-hover:scale-110 duration-500 text-primary">
+            <Icon size={16} strokeWidth={2.5} />
           </div>
         </div>
 
-        {/* Value */}
-        <div className="text-[28px] font-black text-zinc-900 tracking-tight leading-none mb-1">
-          {typeof value === 'number' ? value.toLocaleString() : value}
-        </div>
-
-        {/* Trend label */}
-        {trendLabel && (
-          <div className="flex items-center gap-1 mt-1">
-            {trend === 'up' && <TrendingUp size={11} className="text-emerald-500" />}
-            {trend === 'down' && <TrendingDown size={11} className="text-red-500" />}
-            <span className={`text-[10px] font-semibold ${trend === 'up' ? 'text-emerald-600'
-                : trend === 'down' ? 'text-red-500'
-                  : 'text-zinc-400'
-              }`}>
-              {trendLabel}
-            </span>
-          </div>
-        )}
-
-        {/* Sparkline */}
+        {/* Sparkline - Very minimal */}
         {chartData && chartData.length > 0 && (
-          <div className="h-12 w-full mt-auto pt-3 -mx-1">
+          <div className="h-10 w-full mt-2 opacity-40 group-hover:opacity-100 transition-opacity duration-700">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id={`mc-grad-${title}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={c.stroke} stopOpacity={0.18} />
-                    <stop offset="95%" stopColor={c.stroke} stopOpacity={0} />
-                  </linearGradient>
-                </defs>
                 <YAxis hide domain={['dataMin', 'dataMax']} />
                 <Area
                   type="monotone"
                   dataKey="count"
-                  stroke={c.stroke}
+                  stroke="currentColor"
                   strokeWidth={2}
-                  fill={`url(#mc-grad-${title})`}
+                  fill="transparent"
                   dot={false}
                   isAnimationActive
-                  animationDuration={800}
+                  className="text-primary"
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         )}
-      </div>
 
-      {/* Bottom hover hint */}
-      <div className="px-5 py-2 border-t border-zinc-100 bg-zinc-50/50">
-        <span className={`text-[9px] font-bold uppercase tracking-widest ${c.text} opacity-0 group-hover:opacity-100 transition-opacity`}>
-          Click to expand ↗
-        </span>
-      </div>
-    </div>
+        <div className="mt-4 flex items-center justify-between">
+          {trendLabel && (
+            <div className="flex items-center gap-1.5">
+              <div className={cn(
+                "px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider flex items-center gap-1",
+                trend === 'up' ? 'bg-emerald-50 text-emerald-600'
+                  : trend === 'down' ? 'bg-red-50 text-red-600'
+                    : 'bg-slate-50 text-slate-400'
+              )}>
+                {trend === 'up' && <TrendingUp size={10} />}
+                {trend === 'down' && <TrendingDown size={10} />}
+                {trendLabel.split(' ')[0]}
+              </div>
+            </div>
+          )}
+
+          <span className="text-[9px] font-bold uppercase tracking-wider transition-all duration-500 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 text-primary">
+            View details ↗
+          </span>
+        </div>
+      </CardContent>
+
+      {/* Very subtle bottom line */}
+      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-100" />
+    </Card>
   );
 };
 
