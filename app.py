@@ -118,8 +118,17 @@ def bridge_application():
             timeout=30
         )
 
-        # 4. Return Laravel's response back to original caller
-        return (response.content, response.status_code, response.headers.items())
+        # 4. Filter headers and return
+        excluded_headers = [
+            'content-encoding', 'content-length', 'transfer-encoding', 
+            'connection', 'keep-alive', 'proxy-authenticate', 
+            'proxy-authorization', 'te', 'trailers', 'upgrade'
+        ]
+        headers = [
+            (name, value) for (name, value) in response.headers.items()
+            if name.lower() not in excluded_headers
+        ]
+        return (response.content, response.status_code, headers)
 
     except Exception as e:
         print(f"[BRIDGE ERROR] {str(e)}")
