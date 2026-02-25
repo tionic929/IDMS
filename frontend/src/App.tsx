@@ -2,12 +2,13 @@ import React, { useEffect, useState, Suspense, lazy } from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 
 import Sidebar from "./layout/sidebar";
-import Welcome from './pages/welcome';
+// import Welcome from './pages/welcome'; // DELETED
 import Login from './pages/auth/login';
 import Register from './pages/auth/register';
 import { useAuth, type User } from './context/AuthContext';
 import ProtectedRoute from "./components/ProtectedRoute";
 import { ToastContainer } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css';
 import Header from './layout/header';
 
 // Lazy Load Admin Components
@@ -25,8 +26,8 @@ import { TemplateProvider } from "./context/TemplateContext";
 
 
 // Lazy Load Other Pages
-const ProfileDetails = lazy(() => import("./pages/profileDetails"));
-const Instructions = lazy(() => import("./pages/instructions"));
+// const ProfileDetails = lazy(() => import("./pages/profileDetails")); // DELETED
+// const Instructions = lazy(() => import("./pages/instructions")); // DELETED
 
 
 // Simple loading fallback for lazy components

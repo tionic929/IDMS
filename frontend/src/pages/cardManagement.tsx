@@ -20,7 +20,7 @@ import { type ApplicantCard } from '@/types/card';
 import { BsPersonFill } from 'react-icons/bs';
 
 import IDCardPreview from '@/components/IDCardPreview';
-import CardManagementSkeleton from '@/components/Skeletons/CardManagementSkeleton';
+import CardManagementSkeleton from '@/components/skeletons/CardManagementSkeleton';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
