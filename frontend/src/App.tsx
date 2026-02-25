@@ -76,9 +76,7 @@ function App() {
           {/* Suspense is REQUIRED when using lazy components */}
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/" element={<Welcome />} />
-              <Route path="/submit-details" element={<ProfileDetails />} />
-              <Route path="/how-to-submit" element={<Instructions />} />
+              <Route path="/" element={<Navigate to="/login" replace />} />
 
               <Route
                 path="/login"

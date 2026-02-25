@@ -3,6 +3,6 @@ authtoken: 323LputKN5zgEeNZCMi0XC8Kic5_53JdnDJuXVD5Q91gB5meD
 tunnels:
   app:
     proto: http
-    addr: 5173
+    addr: 5000
     domain: glacial-samiyah-presutural.ngrok-free.dev
     host_header: rewrite
