@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, Suspense, lazy } from 'react';
+import React, { useState, useMemo, useCallback, Suspense, lazy, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
     Search, Trash2, Printer, RefreshCw, CheckCircle2,
@@ -6,6 +6,7 @@ import {
     User as UserIcon, Ban,
     CreditCard
 } from 'lucide-react';
+import { echo } from '@/echo';
 
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -126,6 +127,23 @@ const Dashboard: React.FC = () => {
 
     const { allStudents, loading: studentsLoading, refreshStudents: refetchStudents } = useStudents();
 
+    useEffect(() => {
+        console.log('[CardManagement] Initializing Echo listener');
+        const channel = echo.channel('dashboard');
+
+        const handler = (data: any) => {
+            console.log('[CardManagement] Event RECEIVED:', data);
+            toast.success(`Broadcasting Update: ${data.student?.first_name} ${data.student?.last_name}`);
+            refetchStudents();
+        };
+
+        channel.listen('.new-submission', handler);
+
+        return () => {
+            console.log('[CardManagement] Stopping Echo listener');
+            channel.stopListening('.new-submission');
+        };
+    }, [refetchStudents]);
 
     const { templates: allTemplates, loading: templatesLoading } = useTemplates();
 

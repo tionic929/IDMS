@@ -3,6 +3,8 @@ import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 import axios from 'axios';
 
+console.log('[Echo] Module Evaluation - API URL:', import.meta.env.VITE_API_URL);
+
 (window as any).Pusher = Pusher;
 
 const apiBaseUrl = import.meta.env.VITE_API_URL || '';
@@ -21,13 +23,13 @@ export const echo = new Echo({
                     socket_id: socketId,
                     channel_name: channel.name
                 })
-                .then(response => {
-                    callback(false, response.data);
-                })
-                .catch(error => {
-                    console.error('Broadcasting Auth Failed:', error);
-                    callback(true, error);
-                });
+                    .then(response => {
+                        callback(false, response.data);
+                    })
+                    .catch(error => {
+                        console.error('Broadcasting Auth Failed:', error);
+                        callback(true, error);
+                    });
             }
         };
     },
