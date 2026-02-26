@@ -6,26 +6,31 @@ export const DESIGN_WIDTH = 320;
 export const DESIGN_HEIGHT = 500;
 
 // Print Output Dimensions (High Resolution at 300 DPI)
-// Physical size: 3.67" × 5.67" (93.218mm × 144.018mm)
-export const PRINT_WIDTH = 661;  // 3.67" × 300 DPI
-export const PRINT_HEIGHT = 1032; // 5.67" × 300 DPI
+// Standard CR80 Card: 2.125" × 3.375" (53.98mm × 85.6mm)
+export const PRINT_WIDTH = 638;  // 2.125" × 300 DPI (approx)
+export const PRINT_HEIGHT = 1013; // 3.375" × 300 DPI (approx)
 
 // Scale factors from design space to print space
-export const SCALE_X = PRINT_WIDTH / DESIGN_WIDTH;   // 3.4375
-export const SCALE_Y = PRINT_HEIGHT / DESIGN_HEIGHT; // 3.4
+export const SCALE_X = PRINT_WIDTH / DESIGN_WIDTH;   // ~1.99
+export const SCALE_Y = PRINT_HEIGHT / DESIGN_HEIGHT; // ~2.02
 
 // Grid settings
 export const GRID_SIZE = 10; // pixels
 export const SNAP_THRESHOLD = 5; // pixels
 
-export const SCALES_MATCH = Math.abs(SCALE_X - SCALE_Y) < 0.01;
+export const SCALES_MATCH = Math.abs(SCALE_X - SCALE_Y) < 0.05;
 export const SCALE_MATCH_DIFFERENCE = Math.abs(SCALE_X - SCALE_Y);
 
-export const CARD_WIDTH_MM = 48;
-export const CARD_HEIGHT_MM = 86;
+export const CARD_WIDTH_MM = 53.98;
+export const CARD_HEIGHT_MM = 85.6;
 export const DPI = 300;
 
-export const EXPORT_PIXEL_RATIO = 3.4375;
+/**
+ * EXPORT_PIXEL_RATIO=1 ensures that the pixel dimensions of the captured image
+ * exactly match the DRAWING units expected by the printer driver (300 units/inch).
+ * Higher values would cause the output to look "zoomed in" and clipped.
+ */
+export const EXPORT_PIXEL_RATIO = 1;
 
 export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 3;

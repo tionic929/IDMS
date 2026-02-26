@@ -117,10 +117,6 @@ def real_print(front_img, back_img, front_width, front_height, back_width, back_
     hprinter = win32print.OpenPrinter(PRINTER_NAME)
     try:
 
-
-
-
-
         hdc = win32ui.CreateDC()
         hdc.CreatePrinterDC(PRINTER_NAME)
 
