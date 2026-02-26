@@ -127,24 +127,6 @@ const Dashboard: React.FC = () => {
 
     const { allStudents, loading: studentsLoading, refreshStudents: refetchStudents } = useStudents();
 
-    useEffect(() => {
-        console.log('[CardManagement] Initializing Echo listener');
-        const channel = echo.channel('dashboard');
-
-        const handler = (data: any) => {
-            console.log('[CardManagement] Event RECEIVED:', data);
-            toast.success(`Broadcasting Update: ${data.student?.first_name} ${data.student?.last_name}`);
-            refetchStudents();
-        };
-
-        channel.listen('.new-submission', handler);
-
-        return () => {
-            console.log('[CardManagement] Stopping Echo listener');
-            channel.stopListening('.new-submission');
-        };
-    }, [refetchStudents]);
-
     const { templates: allTemplates, loading: templatesLoading } = useTemplates();
 
 
