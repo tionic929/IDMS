@@ -52,13 +52,18 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
   const currentLayout = layout?.[side.toLowerCase()];
   if (!currentLayout) return null;
 
-  const internalWidth = isPrinting ? PRINT_WIDTH : DESIGN_WIDTH;
-  const internalHeight = isPrinting ? PRINT_HEIGHT : DESIGN_HEIGHT;
-  const stageWidth = isPrinting ? internalWidth : internalWidth * scale;
-  const stageHeight = isPrinting ? internalHeight : internalHeight * scale;
+  const internalWidth = DESIGN_WIDTH;
+  const internalHeight = DESIGN_HEIGHT;
 
-  const printScaleX = isPrinting ? SCALE_X : 1;
-  const printScaleY = isPrinting ? SCALE_Y : 1;
+  // When printing, we always use the target PRINT dimensions
+  // When previewing, we scale the DESIGN dimensions by the 'scale' prop
+  const stageWidth = isPrinting ? PRINT_WIDTH : internalWidth * scale;
+  const stageHeight = isPrinting ? PRINT_HEIGHT : internalHeight * scale;
+
+  // IMPORTANT: For printing, we use the SCALE_X/Y constants to map Design units to Print units
+  // For previewing, we stay in Design units (scale 1:1) and let Stage handle the CSS scale
+  const drawScaleX = isPrinting ? SCALE_X : 1;
+  const drawScaleY = isPrinting ? SCALE_Y : 1;
 
   const renderElement = (key: string, config: any) => {
     const isPhoto = key === 'photo';
@@ -67,11 +72,11 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     const isCustomImage = key.startsWith('img_');
     const isShape = key.startsWith('rect') || key.startsWith('circle');
 
-    const scaledX = config.x * printScaleX;
-    const scaledY = config.y * printScaleY;
-    const scaledWidth = (config.width || 200) * printScaleX;
-    const scaledHeight = (config.height || 180) * printScaleY;
-    const scaledRadius = (config.radius || 0) * Math.min(printScaleX, printScaleY);
+    const scaledX = config.x * drawScaleX;
+    const scaledY = config.y * drawScaleY;
+    const scaledWidth = (config.width || 200) * drawScaleX;
+    const scaledHeight = (config.height || 180) * drawScaleY;
+    const scaledRadius = (config.radius || 0) * Math.min(drawScaleX, drawScaleY);
 
     const textComponentHeight = (config.fit === 'none') ? undefined : scaledHeight;
 
@@ -104,7 +109,6 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
                 image={img}
                 width={scaledWidth}
                 height={scaledHeight}
-                // sceneFunc ensures the image fits within the defined box while maintaining aspect ratio
                 sceneFunc={(context, shape) => {
                   const ratio = Math.min(scaledWidth / img.width, scaledHeight / img.height);
                   const w = img.width * ratio;
@@ -145,7 +149,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     const displayText = textMap[key] || (data as any)[key] || config.text || "";
 
     const configForLayout = isPrinting
-      ? { ...config, width: scaledWidth, height: scaledHeight, fontSize: config.fontSize * printScaleX }
+      ? { ...config, width: scaledWidth, height: scaledHeight, fontSize: config.fontSize * drawScaleX }
       : config;
 
     const resolved = resolveTextLayout(configForLayout, displayText);

@@ -1,14 +1,14 @@
 // Card Designer Canvas Dimensions (Design Space)
-export const DESIGN_WIDTH = 664; // 664 / 2
-export const DESIGN_HEIGHT = 1036; // 1036 / 2
+export const DESIGN_WIDTH = 664;
+export const DESIGN_HEIGHT = 1036;
 
 // Print Output Dimensions (Final Physical Size: 664x1036 px)
 export const PRINT_WIDTH = 664;
 export const PRINT_HEIGHT = 1036;
 
 // Scale factors from design space to print space
-export const SCALE_X = PRINT_WIDTH / DESIGN_WIDTH;   // Exactly 2.0
-export const SCALE_Y = PRINT_HEIGHT / DESIGN_HEIGHT; // Exactly 2.0
+export const SCALE_X = PRINT_WIDTH / DESIGN_WIDTH;   // Exactly 1.0
+export const SCALE_Y = PRINT_HEIGHT / DESIGN_HEIGHT; // Exactly 1.0
 
 // Grid settings
 export const GRID_SIZE = 10; // pixels
