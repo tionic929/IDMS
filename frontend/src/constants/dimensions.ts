@@ -7,8 +7,8 @@ export const DESIGN_HEIGHT = 500;
 
 // Print Output Dimensions (High Resolution at 300 DPI)
 // Physical size: 3.67" × 5.67" (93.218mm × 144.018mm)
-export const PRINT_WIDTH = 1100;  // 3.67" × 300 DPI
-export const PRINT_HEIGHT = 1700; // 5.67" × 300 DPI
+export const PRINT_WIDTH = 661;  // 3.67" × 300 DPI
+export const PRINT_HEIGHT = 1032; // 5.67" × 300 DPI
 
 // Scale factors from design space to print space
 export const SCALE_X = PRINT_WIDTH / DESIGN_WIDTH;   // 3.4375

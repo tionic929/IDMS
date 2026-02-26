@@ -23,9 +23,6 @@ PRINTER_NAME = "CX-D80 U1"
 SIMULATOR = False   # <<< TURN OFF WHEN PRINTER IS READY
 DPI = 300
 
-CARD_WIDTH_MM = 55.88
-CARD_HEIGHT_MM = 87.36
-
 # ==============================
 # MARGIN HANDLING
 # ==============================
@@ -72,12 +69,12 @@ def render_card(image_path, margins=None):
         raise FileNotFoundError(image_path)
 
     img = Image.open(image_path).convert("RGB")
-    
+
     # Read actual image dimensions
     width_px, height_px = img.size
     
     print(f"[render_card] Loaded image: {width_px}x{height_px}px")
-    
+
     # Apply margins if provided
     if margins:
         img = apply_margins(img, margins)
@@ -119,25 +116,33 @@ def real_print(front_img, back_img, front_width, front_height, back_width, back_
     
     hprinter = win32print.OpenPrinter(PRINTER_NAME)
     try:
+
+
+
+
+
         hdc = win32ui.CreateDC()
         hdc.CreatePrinterDC(PRINTER_NAME)
 
+
+
+
         hdc.StartDoc("PVC Card Print - Duplex")
-        
+
         # ===== PAGE 1: FRONT =====
         print("[real_print] Printing FRONT page...")
         hdc.StartPage()
         dib_front = ImageWin.Dib(front_img)
         dib_front.draw(hdc.GetHandleOutput(), (0, 0, front_width, front_height))
         hdc.EndPage()
-        
+
         # ===== PAGE 2: BACK =====
         print("[real_print] Printing BACK page...")
         hdc.StartPage()
         dib_back = ImageWin.Dib(back_img)
         dib_back.draw(hdc.GetHandleOutput(), (0, 0, back_width, back_height))
         hdc.EndPage()
-        
+
         hdc.EndDoc()
         hdc.DeleteDC()
         
