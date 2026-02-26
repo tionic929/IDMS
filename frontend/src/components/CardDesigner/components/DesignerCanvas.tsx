@@ -1,7 +1,7 @@
 
 ﻿import React, { useRef, useEffect, useState, useCallback } from 'react';
 
-import { Stage, Layer, Line, Transformer, Image as KonvaImage } from 'react-konva';
+import { Stage, Layer, Line, Transformer, Image as KonvaImage, Rect } from 'react-konva';
 import useImage from 'use-image';
 import { Grid3X3, Maximize, Magnet, Focus, Ruler } from 'lucide-react';
 
@@ -211,9 +211,9 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
                 >
                   <Layer ref={layerRef}>
                     {activeBg && (
-                      <KonvaImage
+                      <Rect
                         name="background"
-                        image={activeBg}
+                        fill="white"
                         width={DESIGN_WIDTH}
                         height={DESIGN_HEIGHT}
                         listening={false}

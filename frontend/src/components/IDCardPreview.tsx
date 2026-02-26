@@ -191,6 +191,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
           {Object.entries(currentLayout).map(([key, config]) => renderElement(key, config))}
         </Layer>
       </Stage>
+      <Rect width={180} height={200} fill="#f1f5f9" />
     </div>
   );
 };

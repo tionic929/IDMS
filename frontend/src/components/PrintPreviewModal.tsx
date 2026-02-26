@@ -167,11 +167,11 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
           @page { 
             margin: 0; 
             size: 2.125in 3.375in portrait;
+            background: white !important;
           }
           body, html {
             margin: 0 !important;
             padding: 0 !important;
-            background: white !important;
           }
           body * { visibility: hidden; }
           #print-root, #print-root * { visibility: visible; }
