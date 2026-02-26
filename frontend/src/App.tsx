@@ -24,12 +24,6 @@ import DesignerWorkspace from "./components/DesignerWorkspace";
 import { StudentProvider } from "./context/StudentContext";
 import { TemplateProvider } from "./context/TemplateContext";
 
-
-// Lazy Load Other Pages
-// const ProfileDetails = lazy(() => import("./pages/profileDetails")); // DELETED
-// const Instructions = lazy(() => import("./pages/instructions")); // DELETED
-
-
 // Simple loading fallback for lazy components
 const PageLoader = () => (
   <div className="flex h-full w-full items-center justify-center bg-white/80">

@@ -2,16 +2,11 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { toast } from "react-toastify";
-import { Lock, Mail, ArrowRight, Loader2, ShieldCheck, KeyRound } from "lucide-react";
+import { Lock, Mail, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// shadcn UI
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-
 import NCLOGO from '../../assets/nc_logo.png';
+import NCBG from '../../assets/ncbg.png';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -47,150 +42,163 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-zinc-950 relative overflow-hidden font-sans">
-      {/* Decorative Background Glows */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[70%] h-[40%] bg-blue-500/10 rounded-full blur-[120px]" />
-      <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-emerald-500/5 rounded-full blur-[100px]" />
+    <div className="h-screen w-full flex items-center justify-center bg-slate-50 relative overflow-hidden font-sans">
+      {/* Background Image with Overlay */}
+      <div className="absolute inset-0 bg-white backdrop-blur-[5px]" />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-[860px] z-10 px-6"
+        transition={{ duration: 0.5 }}
+        className="w-full max-w-[820px] z-10 px-6"
       >
-        <Card className="border-border/40 bg-zinc-900/90 rounded-[2.5rem] shadow-2xl overflow-hidden">
-          <CardContent className="p-0 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-border/40">
-            {/* Left / Branding */}
-            <div className="flex flex-col items-center justify-center text-center p-12 md:w-1/3 bg-zinc-900/30">
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.5 }}
-                className="relative"
-              >
-                <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full" />
-                <img src={NCLOGO} alt="NC Logo" className="w-28 h-28 relative z-10" />
-              </motion.div>
+        <div className="flex flex-col md:flex-row justify-between items-center bg-slate-50/5 backdrop-blur-md rounded-[2.5rem] border border-slate-300/60 shadow-[0_20px_60px_rgba(0,0,0,0.15)] overflow-hidden">
 
-              <div className="mt-8 space-y-1">
-                <h1 className="text-3xl font-black text-white tracking-tighter uppercase italic py-1">
-                  NC<span className="text-primary">nian</span>
-                </h1>
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/60 leading-none">
-                  Identity Core
-                </p>
-              </div>
+          {/* Left / Branding */}
+          <div className="flex flex-col items-center justify-center text-center p-10 md:min-w-[280px] border-b md:border-b-0 md:border-r border-slate-100">
+            <motion.div
+              initial={{ scale: 0.6 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 120 }}
+              className="relative"
+            >
+              <div className="absolute inset-0 bg-primary/5 blur-2xl rounded-full" />
+              <img src={NCLOGO} alt="NC Logo" className="w-32 h-32 relative z-10 drop-shadow-sm" />
+            </motion.div>
 
-              <div className="mt-auto pt-12 md:pt-24 opacity-40">
-                <ShieldCheck className="h-6 w-6 text-primary mx-auto mb-2" />
-                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Certified System</p>
-              </div>
-            </div>
+            <h1 className="mt-6 text-3xl font-black text-slate-900 tracking-regular uppercase">
+              NC<span className="text-slate-900"> ID TECH</span>
+            </h1>
 
-            {/* Right / Form */}
-            <div className="p-12 md:w-2/3">
-              <div className="mb-10">
-                <h2 className="text-2xl font-black text-white tracking-tight mb-2">Welcome Back</h2>
-                <p className="text-sm text-muted-foreground font-medium">Access the administrative command center.</p>
-              </div>
+            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.4em] text-slate-900">
+              by vizcarra
+            </p>
+          </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Email */}
-                <div className="space-y-2.5">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80 ml-1">
-                    Administrative Email
-                  </label>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors">
-                      <Mail size={16} />
-                    </div>
-                    <Input
-                      type="email"
-                      placeholder="admin@nc.edu.ph"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={isLoading}
-                      className={cn(
-                        "h-14 pl-12 bg-zinc-950/50 border-border/40 rounded-2xl text-white placeholder:text-muted-foreground/40 transition-all",
-                        errors.email && "border-destructive/50 ring-destructive/20 focus-visible:ring-destructive/20"
-                      )}
-                    />
+          {/* Right / Form */}
+          <div className="p-10 w-full">
+            <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase mb-2">Sign In</h2>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Email */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500 ml-1">
+                  Email
+                </label>
+
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary transition-colors">
+                    <Mail size={18} />
                   </div>
-                  <AnimatePresence>
-                    {errors.email && (
-                      <motion.p
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="text-[10px] font-bold text-destructive ml-1"
-                      >
-                        {errors.email?.[0]}
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
+
+                  <input
+                    type="email"
+                    placeholder="admin@nc.edu.ph"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
+                    className={`
+                    w-full pl-12 pr-4 py-4
+                    bg-slate-50/50
+                    border rounded-2xl
+                    text-slate-900
+                    placeholder:text-slate-400
+                    outline-none transition-all
+                    hover:border-slate-300
+                    focus:border-primary focus:bg-white
+                    ${errors.email ? 'border-destructive/60' : 'border-slate-200'}
+                  `}
+                  />
                 </div>
 
-                {/* Password */}
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between px-1">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/80">
-                      Secure Password
-                    </label>
-                    <Link to="/forgot-password" title="Forgot Password" className="text-[10px] font-black text-primary/60 hover:text-primary uppercase tracking-widest transition-colors">
-                      Recover
-                    </Link>
-                  </div>
-                  <div className="relative group">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors">
-                      <KeyRound size={16} />
-                    </div>
-                    <Input
-                      type="password"
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={isLoading}
-                      className={cn(
-                        "h-14 pl-12 bg-zinc-950/50 border-border/40 rounded-2xl text-white placeholder:text-muted-foreground/40 transition-all",
-                        errors.password && "border-destructive/50 ring-destructive/20 focus-visible:ring-destructive/20"
-                      )}
-                    />
-                  </div>
-                  <AnimatePresence>
-                    {errors.password && (
-                      <motion.p
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="text-[10px] font-bold text-destructive ml-1"
-                      >
-                        {errors.password?.[0]}
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {/* Submit */}
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full h-14 rounded-2xl bg-white hover:bg-zinc-200 text-black font-black text-xs uppercase tracking-[0.3em] shadow-xl shadow-white/5 transition-all active:scale-[0.98] gap-3 mt-4"
-                >
-                  {isLoading ? (
-                    <Loader2 className="animate-spin h-4 w-4" />
-                  ) : (
-                    <>
-                      Sign In <ArrowRight size={16} />
-                    </>
+                <AnimatePresence>
+                  {errors.email && (
+                    <motion.p
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="text-[10px] font-bold text-destructive ml-1"
+                    >
+                      {errors.email[0]}
+                    </motion.p>
                   )}
-                </Button>
+                </AnimatePresence>
+              </div>
 
-                <p className="text-center text-[10px] text-muted-foreground font-medium pt-4">
-                  New personnel? <Link to="/register" className="text-primary font-black hover:underline underline-offset-4 tracking-[0.1em]">Create Access Request</Link>
-                </p>
-              </form>
-            </div>
-          </CardContent>
-        </Card>
+              {/* Password */}
+              <div className="space-y-2">
+                <div className="flex justify-between items-center px-1">
+                  <label className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">
+                    Password
+                  </label>
+                  <Link to="/forgot-password" title="Forgot Password" className="text-[10px] font-black text-primary/60 hover:text-primary uppercase tracking-widest transition-colors">
+                    Forgot Password?
+                  </Link>
+                </div>
+
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary transition-colors">
+                    <Lock size={18} />
+                  </div>
+
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                    className={`
+                    w-full pl-12 pr-4 py-4
+                    bg-slate-50/50
+                    border rounded-2xl
+                    text-slate-900
+                    placeholder:text-slate-400
+                    outline-none transition-all
+                    hover:border-slate-300
+                    focus:border-primary focus:bg-white
+                    ${errors.password ? 'border-destructive/60' : 'border-slate-200'}
+                  `}
+                  />
+                </div>
+
+                <AnimatePresence>
+                  {errors.password && (
+                    <motion.p
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="text-[10px] font-bold text-destructive ml-1"
+                    >
+                      {errors.password[0]}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="
+                w-full py-4 rounded-2xl
+                bg-primary
+                hover:bg-primary/90
+                text-white font-black text-xs uppercase tracking-[0.25em]
+                flex items-center justify-center gap-3
+                transition-all active:scale-[0.97]
+                disabled:opacity-50
+                shadow-xl shadow-primary/10
+              "
+              >
+                {isLoading ? (
+                  <Loader2 className="animate-spin" size={18} />
+                ) : (
+                  <>
+                    Sign In <ArrowRight size={18} />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
       </motion.div>
     </div>
   );

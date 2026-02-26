@@ -23,8 +23,7 @@ function createWindow() {
     autoHideMenuBar: true,
   });
 
-  const isDev = false; 
-  const url = isDev ? 'http://localhost:5173' : 'https://ncnian-id.svizcarra.online';
+  const url = 'http://localhost:5173';
 
   mainWindow.loadURL(url);
 
@@ -82,9 +81,9 @@ ipcMain.on('print-card-images', async (event, options) => {
 
   req.on('error', (error) => {
     console.error('[main.cjs] Connection to Python Service failed:', error.message);
-    event.reply('print-reply', { 
-      success: false, 
-      failureReason: 'Python Service not running (Connection Refused)' 
+    event.reply('print-reply', {
+      success: false,
+      failureReason: 'Python Service not running (Connection Refused)'
     });
   });
 
