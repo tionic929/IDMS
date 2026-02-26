@@ -228,8 +228,8 @@ const Dashboard: React.FC = () => {
                         <div className="flex flex-col h-full overflow-hidden">
                             <div className="p-5 bg-zinc-50/50 dark:bg-zinc-900/30 border-b border-zinc-200 dark:border-zinc-900">
                                 <div className="flex flex-row gap-4 items-center justify-center">
-                                    <IDCardPreview data={previewData} layout={currentAutoLayout} side="FRONT" scale={0.9} />
-                                    <IDCardPreview data={previewData} layout={currentAutoLayout} side="BACK" scale={0.9} />
+                                    <IDCardPreview data={previewData} layout={currentAutoLayout} side="FRONT" scale={0.7} />
+                                    <IDCardPreview data={previewData} layout={currentAutoLayout} side="BACK" scale={0.7} />
                                 </div>
                             </div>
 
