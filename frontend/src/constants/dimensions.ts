@@ -22,11 +22,11 @@ export const CARD_HEIGHT_MM = 85.6;
 export const DPI = 300;
 
 /**
- * EXPORT_PIXEL_RATIO=1 ensures that the pixel dimensions of the captured image
- * exactly match the DRAWING units expected by the printer driver (300 units/inch).
- * Higher values would cause the output to look "zoomed in" and clipped.
+ * EXPORT_PIXEL_RATIO=2 ensures that the captured image has 2x the target resolution.
+ * This provides "super-sampling" for the printer, resulting in sharper output.
+ * The Python print script will automatically scale this down to fit the physical card.
  */
-export const EXPORT_PIXEL_RATIO = 1;
+export const EXPORT_PIXEL_RATIO = 2;
 
 export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 3;
