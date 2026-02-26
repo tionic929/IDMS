@@ -9,6 +9,7 @@ use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\DepartmentsController;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\CardLayoutController;
+use App\Http\Controllers\AnalyticsController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -44,6 +45,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/confirm-applicant/{studentId}', [ApplicantsController::class, 'updateApplicantsExcelFile']);
     Route::post('/confirm/{studentId}', [ApplicantsController::class, 'confirm']);
 
+    Route::get('/analytics/dashboard', [AnalyticsController::class, 'getDashboardStats']);
+
     // FOR ID CARD DESIGNER
 
     Route::prefix('card-layouts')->group(function () {
@@ -51,7 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/', [CardLayoutController::class, 'store']);
         Route::put('/{id}', [CardLayoutController::class, 'update']);
         Route::delete('/{id}', [CardLayoutController::class, 'destroy']);
-        Route::patch('/{id}/activate', [CardLayoutController::class, 'activate']);
+        Route::post('/{id}/duplicate', [CardLayoutController::class, 'duplicate']);
     });
 
     Route::get('/applicants/{id}/card-preview', [ApplicantsController::class, 'getPreview']);

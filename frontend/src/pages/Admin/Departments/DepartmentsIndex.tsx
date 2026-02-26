@@ -1,328 +1,447 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { getDepartmentsWithStudents } from '../../../api/departments';
-import { getFullName } from '../../../types/students';
-import { 
-    Loader2, Users, GraduationCap, MapPin, Search, 
-    LayoutDashboard, CheckCircle2, AlertCircle,
-    ChevronLeft, ChevronRight
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { getDepartmentsWithStudents } from '@/api/departments';
+import { getFullName } from '@/types/students';
+import {
+  Loader2, Users, GraduationCap, MapPin, Search,
+  CheckCircle2, AlertCircle,
+  ChevronLeft, ChevronRight, Eye, RefreshCw, ShieldCheck
 } from 'lucide-react';
-import { BsPerson } from "react-icons/bs";
-import { CgDetailsMore } from "react-icons/cg";
-import type { DepartmentSidebarItem } from '../../../types/departments';
+import type { DepartmentSidebarItem } from '@/types/departments';
+
+// shadcn UI
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+import MetricCard from "@/components/SubComponents/MetricCard";
+
+// for tanstack
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 // --- LOGO IMPORTS ---
-import ncLogo from '../../../assets/nc_logo.png';
-import abLogo from '../../../assets/dept_logo/ab.webp';
-import becLogo from '../../../assets/dept_logo/bec.webp';
-import bsbaLogo from '../../../assets/dept_logo/bsba.webp';
-import bscrimLogo from '../../../assets/dept_logo/bscrim.webp';
-import bsedLogo from '../../../assets/dept_logo/bsed.webp';
-import bsgeLogo from '../../../assets/dept_logo/bsge.webp';
-import bshmLogo from '../../../assets/dept_logo/bshm.webp';
-import bsitLogo from '../../../assets/dept_logo/bsit.webp';
-import bsnLogo from '../../../assets/dept_logo/bsn.webp';
-import colaLogo from '../../../assets/dept_logo/cola.webp';
-import masteralLogo from '../../../assets/dept_logo/masteral.webp';
-import midwiferyLogo from '../../../assets/dept_logo/midwifery.webp';
+import ncLogo from '@/assets/nc_logo.png';
+import abLogo from '@/assets/dept_logo/ab.webp';
+import becLogo from '@/assets/dept_logo/bec.webp';
+import bsbaLogo from '@/assets/dept_logo/bsba.webp';
+import bscrimLogo from '@/assets/dept_logo/bscrim.webp';
+import bsedLogo from '@/assets/dept_logo/bsed.webp';
+import bsgeLogo from '@/assets/dept_logo/bsge.webp';
+import bshmLogo from '@/assets/dept_logo/bshm.webp';
+import bsitLogo from '@/assets/dept_logo/bsit.webp';
+import bsnLogo from '@/assets/dept_logo/bsn.webp';
+import colaLogo from '@/assets/dept_logo/cola.webp';
+import masteralLogo from '@/assets/dept_logo/masteral.webp';
+import midwiferyLogo from '@/assets/dept_logo/midwifery.webp';
 
-// Mapping object to link department strings to imported images
 const LOGO_MAP: Record<string, string> = {
-    'AB': abLogo,
-    'BEC': becLogo,
-    'BSBA': bsbaLogo,
-    'BSCRIM': bscrimLogo,
-    'BSED': bsedLogo,
-    'BSGE': bsgeLogo,
-    'BSHM': bshmLogo,
-    'BSIT': bsitLogo,
-    'BSN': bsnLogo,
-    'JD': colaLogo,
-    'MASTERAL': masteralLogo,
-    'MIDWIFERY': midwiferyLogo,
-    'EMPLOYEE': ncLogo, // Fallback for Employee if no logo exists
+  'AB': abLogo, 'BEC': becLogo, 'BSBA': bsbaLogo, 'BSCRIM': bscrimLogo,
+  'BSED': bsedLogo, 'BSGE': bsgeLogo, 'BSHM': bshmLogo, 'BSIT': bsitLogo,
+  'BSN': bsnLogo, 'JD': colaLogo, 'MASTERAL': masteralLogo,
+  'MIDWIFERY': midwiferyLogo, 'EMPLOYEE': ncLogo,
 };
 
 // --- SKELETONS ---
 const NavItemSkeleton = () => (
-  <div className="flex items-center justify-between px-4 py-4 rounded-2xl animate-pulse bg-slate-50">
+  <div className="flex items-center justify-between px-4 py-3 rounded-xl animate-pulse bg-slate-50 border border-slate-100 mb-1">
     <div className="flex items-center gap-3">
-      <div className="w-9 h-9 rounded-xl bg-slate-200" />
-      <div className="h-3 w-24 bg-slate-200 rounded" />
+      <div className="w-8 h-8 rounded-lg bg-slate-100" />
+      <div className="h-2 w-20 bg-slate-100 rounded" />
     </div>
-    <div className="w-6 h-4 bg-slate-200 rounded" />
+    <div className="w-5 h-3 bg-slate-100 rounded" />
   </div>
 );
 
 const MetricSkeleton = () => (
-  <div className="bg-white p-6 rounded-2xl border border-slate-100 flex items-center justify-between animate-pulse">
-    <div className="space-y-3">
-      <div className="h-2 w-20 bg-slate-100 rounded" />
-      <div className="h-8 w-16 bg-slate-200 rounded" />
-    </div>
-    <div className="w-12 h-12 bg-slate-100 rounded-2xl" />
-  </div>
+  <Card className="h-28 overflow-hidden bg-white border-slate-100 shadow-sm animate-pulse">
+    <CardContent className="p-6 flex items-center justify-between">
+      <div className="space-y-3">
+        <div className="h-2 w-20 bg-slate-100 rounded" />
+        <div className="h-8 w-16 bg-slate-100 rounded-lg" />
+      </div>
+      <div className="w-12 h-12 bg-slate-50 rounded-xl" />
+    </CardContent>
+  </Card>
 );
 
 const TableRowSkeleton = () => (
-  <tr className="animate-pulse">
-    <td className="px-10 py-7"><div className="h-4 bg-slate-100 rounded w-24" /></td>
-    <td className="px-10 py-7"><div className="space-y-2"><div className="h-4 bg-slate-200 rounded w-40" /><div className="h-3 bg-slate-100 rounded w-20" /></div></td>
-    <td className="px-10 py-7"><div className="h-7 bg-slate-100 rounded-xl w-20 mx-auto" /></td>
-    <td className="px-10 py-7"><div className="space-y-2"><div className="h-3 bg-slate-200 rounded w-32" /><div className="h-2 bg-slate-100 rounded w-48" /></div></td>
-    <td className="px-10 py-7"><div className="h-11 w-11 bg-slate-100 rounded-2xl mx-auto" /></td>
-  </tr>
-);
-
-const MetricCard: React.FC<{ title: string; value: string; icon: React.ElementType; color: string }> = ({ title, value, icon: Icon, color }) => (
-  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between transition-all hover:shadow-md hover:border-indigo-100">
-    <div className="flex flex-col">
-      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{title}</span>
-      <span className="text-3xl font-black text-slate-900 mt-1">{value}</span>
-    </div>
-    <div className={`p-3 rounded-2xl ${color} bg-opacity-10`}>
-      <Icon className={`w-6 h-6 ${color.replace("bg-", "text-")}`} />
-    </div>
-  </div>
+  <TableRow className="animate-pulse">
+    <TableCell className="pl-8 py-6"><div className="h-3 bg-slate-50 rounded w-20" /></TableCell>
+    <TableCell className="py-6"><div className="space-y-2"><div className="h-3 bg-slate-50 rounded w-40" /><div className="h-2 bg-slate-50 rounded w-24" /></div></TableCell>
+    <TableCell className="py-6"><div className="h-6 bg-slate-50 rounded-md w-16 mx-auto" /></TableCell>
+    <TableCell className="py-6"><div className="space-y-2"><div className="h-2 bg-slate-50 rounded w-32" /><div className="h-1 bg-slate-50 rounded w-48" /></div></TableCell>
+    <TableCell className="pr-8 py-6"><div className="h-8 w-8 bg-slate-50 rounded-lg ml-auto" /></TableCell>
+  </TableRow>
 );
 
 const DepartmentList: React.FC = () => {
-  const [sidebarDepts, setSidebarDepts] = useState<DepartmentSidebarItem[]>([]);
-  const [students, setStudents] = useState<any[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [prevCursor, setPrevCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
   const [selectedDeptName, setSelectedDeptName] = useState<string>("EMPLOYEE");
-  const selectedDeptObj = sidebarDepts.find(d => d.department === selectedDeptName);
   const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [tableLoading, setTableLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const fetchData = useCallback(async (isInitial = false) => {
-    try {
-      if (isInitial) setLoading(true);
-      else setTableLoading(true);
-
-      const response = await getDepartmentsWithStudents(selectedDeptName, cursor || '', searchQuery);
-
-      if (response.success) {
-        const sidebarData = Array.isArray(response.sidebar) ? response.sidebar : [response.sidebar];
-        setSidebarDepts(sidebarData);
-        setStudents(response.students || []);
-        setNextCursor(response.pagination.next_cursor || null);
-        setPrevCursor(response.pagination.prev_cursor || null);
-        setHasMore(response.pagination.has_more || false);
-      }
-    } catch (err) {
-      setError('Failed to load department data.');
-    } finally {
-      setLoading(false);
-      setTableLoading(false);
-    }
-  }, [selectedDeptName, cursor, searchQuery]);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      fetchData(sidebarDepts.length === 0);
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [selectedDeptName, cursor, searchQuery, fetchData]);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCursor(null);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const {
+    data,
+    isLoading,
+    isFetching,
+    isPlaceholderData,
+    error,
+    refetch
+  } = useQuery({
+    queryKey: ['departments', selectedDeptName, cursor, debouncedSearch],
+    queryFn: () => getDepartmentsWithStudents(selectedDeptName, cursor || '', debouncedSearch),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const sidebarDepts = (data?.sidebar ? (Array.isArray(data.sidebar) ? data.sidebar : [data.sidebar]) : []) as DepartmentSidebarItem[];
+  const students = data?.students || [];
+  const selectedDeptObj = sidebarDepts.find(d => d.department === selectedDeptName);
+
+  const globalTotal = sidebarDepts.reduce((acc, d) => acc + d.applicant_count, 0);
+  const parityPercent = (selectedDeptObj && globalTotal > 0)
+    ? Math.round((selectedDeptObj.applicant_count / globalTotal) * 100)
+    : 0;
+
+  const nextCursor = data?.pagination?.next_cursor || null;
+  const prevCursor = data?.pagination?.prev_cursor || null;
+  const hasMore = data?.pagination?.has_more || false;
 
   const handleDeptChange = (name: string) => {
     setSelectedDeptName(name);
     setCursor(null);
-    setNextCursor(null);
-    setPrevCursor(null);
   };
 
   const handleNext = () => nextCursor && setCursor(nextCursor);
   const handlePrev = () => prevCursor && setCursor(prevCursor);
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+  };
+
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <div className="bg-white p-8 rounded-3xl shadow-xl text-center max-w-sm border border-rose-100">
-          <AlertCircle className="text-rose-500 mx-auto mb-4" size={48} />
-          <h3 className="text-xl font-black text-slate-800 uppercase">Error Occurred</h3>
-          <p className="text-slate-500 text-sm mt-2 font-medium">{error}</p>
-          <button onClick={() => window.location.reload()} className="mt-6 px-6 py-3 bg-rose-500 text-white rounded-2xl font-bold uppercase text-xs tracking-widest">Retry</button>
-        </div>
+      <div className="flex h-screen items-center justify-center p-8 bg-slate-50">
+        <Card className="max-w-md w-full border-red-100 shadow-xl rounded-[2.5rem] bg-white">
+          <CardContent className="p-8 text-center space-y-6">
+            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-red-500/10">
+              <AlertCircle size={32} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-black uppercase tracking-tight text-slate-900">Sync Failed</h3>
+              <p className="text-slate-500 text-sm font-medium">Failed to establish connection with department records.</p>
+            </div>
+            <Button onClick={handleRefresh} variant="destructive" className="w-full h-12 rounded-xl font-bold uppercase tracking-wider text-xs bg-red-600 hover:bg-red-700">
+              Retry Synchronization
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-slate-50/60 overflow-hidden">
-      <aside className="w-[320px] bg-white border-r border-slate-200 flex flex-col h-full shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10">
-        <nav className="flex-1 overflow-y-auto px-4 space-y-1.5 pt-2 pb-8 custom-scrollbar">
-          {loading ? (
-             [...Array(8)].map((_, i) => <NavItemSkeleton key={i} />)
-          ) : (
-            sidebarDepts.map((dept) => {
+    <div className="flex h-full bg-slate-50 text-slate-950 overflow-hidden font-sans selection:bg-primary/10">
+      {/* SIDEBAR */}
+      <aside className="w-[320px] bg-white border-r border-slate-200 flex flex-col h-full z-10 shadow-sm relative">
+        <div className="p-8 border-b border-slate-50">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Registry</span>
+            <span className="w-1 h-1 rounded-full bg-slate-200" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Units</span>
+          </div>
+          <h2 className="text-xl font-black uppercase tracking-tight text-slate-900">Directory</h2>
+        </div>
+
+        <ScrollArea className="flex-1 px-4 py-6 scrollbar-none">
+          <div className="space-y-1 pb-10">
+            {isLoading && !sidebarDepts.length ? (
+              [...Array(12)].map((_, i) => <NavItemSkeleton key={i} />)
+            ) : (
+              sidebarDepts.map((dept) => {
                 const isActive = selectedDeptName === dept.department;
-                // Get logo from map or default to GraduationCap icon if not found
                 const deptLogo = LOGO_MAP[dept.department.toUpperCase()];
 
                 return (
                   <button
                     key={dept.department}
                     onClick={() => handleDeptChange(dept.department)}
-                    className={`w-full flex items-center justify-between px-4 py-4 rounded-2xl transition-all duration-300 relative group
-                      ${isActive 
-                        ? "bg-indigo-600 text-white shadow-xl shadow-indigo-100 scale-[1.02]" 
-                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                      }`}
+                    className={cn(
+                      "w-full flex items-center justify-between p-3.5 rounded-2xl transition-all duration-300 group text-left relative overflow-hidden",
+                      isActive
+                        ? "bg-primary text-white shadow-lg shadow-primary/25 border-none"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
+                    )}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden transition-colors shadow-sm
-                        ${isActive ? "bg-white" : "bg-slate-100 group-hover:bg-white"}`}>
+                    <div className="flex items-center gap-4 min-w-0 z-10">
+                      <div className={cn(
+                        "w-9 h-9 shrink-0 rounded-xl flex items-center justify-center overflow-hidden transition-all duration-300",
+                        isActive ? "bg-white shadow-sm scale-105" : "bg-slate-100 border border-slate-200"
+                      )}>
                         {deptLogo ? (
-                            <img src={deptLogo} alt={dept.department} className="w-full h-full object-cover p-1.5" />
+                          <img src={deptLogo} alt={dept.department} className={cn("w-full h-full object-contain p-1", !isActive && "opacity-60")} />
                         ) : (
-                            <GraduationCap size={18} className={isActive ? "text-indigo-600" : "text-slate-400"} />
+                          <GraduationCap size={18} className={cn(!isActive && "text-slate-400")} />
                         )}
                       </div>
-                      <span className="text-sm font-black truncate w-36 text-left tracking-tight">{dept.department}</span>
+                      <span className="text-[11px] font-bold truncate uppercase tracking-tight">{dept.department}</span>
                     </div>
-                    <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black transition-all
-                      ${isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"}`}>
+                    <div className={cn(
+                      "px-2.5 py-1 rounded-lg text-[9px] font-black shrink-0 z-10 tabular-nums shadow-sm",
+                      isActive ? "bg-white/20 text-white" : "bg-slate-50 text-slate-400"
+                    )}>
                       {dept.applicant_count}
                     </div>
+                    {isActive && (
+                      <div className="absolute inset-0 bg-zinc-900 opacity-50" />
+                    )}
                   </button>
                 );
-            })
-          )}
-        </nav>
+              })
+            )}
+          </div>
+        </ScrollArea>
       </aside>
 
-      <main className="flex-1 h-screen p-10 space-y-10 overflow-y-auto custom-scrollbar">
-        <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-          <div className="space-y-1">
-            <h1 className="text-6xl font-black tracking-tighter text-slate-900 uppercase">{selectedDeptName}</h1>
-            <p className="text-xs font-bold tracking-[0.4em] uppercase text-slate-400 pl-1">applicants</p>
-          </div>
+      {/* MAIN CONTENT */}
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+        <div className="flex-1 overflow-y-auto p-10 space-y-10 custom-scrollbar">
 
-          <div className="relative group">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
-            <input
-              type="text"
-              placeholder="Filter by name or ID..."
-              value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCursor(null); }}
-              className="w-96 p-4 rounded-2xl border-none bg-white px-14 py-4.5 text-sm font-bold shadow-xl shadow-slate-200/50 focus:ring-2 focus:ring-indigo-500 outline-none placeholder:text-slate-300 transition-all"
-            />
-          </div>
-        </header>
-
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {loading ? (
-             <><MetricSkeleton /><MetricSkeleton /><div className="h-32 bg-slate-100 rounded-2xl animate-pulse" /></>
-          ) : (
-            <>
-              <MetricCard icon={BsPerson} title="Total Applicants" value={selectedDeptObj?.applicant_count.toString() || "0"} color="bg-indigo-600" />
-              <MetricCard icon={Users} title="Current Page" value={students.length.toString()} color="bg-emerald-500" />
-              <div className="bg-indigo-900 p-6 rounded-2xl shadow-xl flex flex-col justify-center relative overflow-hidden">
-                  <div className="relative z-10">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Active Selection</span>
-                    <p className="text-white font-black text-xl mt-1 tracking-tight">{selectedDeptName} Records</p>
-                  </div>
-                  {/* Bottom Right Dynamic Logo */}
-                  {LOGO_MAP[selectedDeptName.toUpperCase()] ? (
-                     <img 
-                        src={LOGO_MAP[selectedDeptName.toUpperCase()]} 
-                        className="absolute -right-4 -bottom-4 w-32 h-32 opacity-20 grayscale brightness-200" 
-                        alt="" 
-                     />
-                  ) : (
-                    <GraduationCap className="absolute -right-4 -bottom-4 text-white/10" size={100} />
-                  )}
+          {/* HEADER */}
+          <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-10">
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Unit</span>
+                <span className="w-1 h-1 rounded-full bg-slate-200" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Profile</span>
               </div>
-            </>
-          )}
-        </section>
+              <div className="flex items-baseline gap-4">
+                <h1 className="text-5xl font-black tracking-tighter text-slate-950 uppercase leading-none">{selectedDeptName}</h1>
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary/5 text-primary text-[9px] font-bold uppercase tracking-[0.1em]">
+                  {selectedDeptObj?.applicant_count} ACTIVE RECORDS
+                </div>
+              </div>
+            </div>
 
-        <div className="relative overflow-hidden rounded-[2.5rem] border border-white bg-white/70 shadow-2xl shadow-slate-200/60">
-          {tableLoading && (
-            <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] z-20 flex items-center justify-center">
-                <Loader2 className="animate-spin text-indigo-600" size={40} />
+            <div className="flex items-center gap-4 w-full lg:w-auto">
+              <div className="relative flex-1 lg:w-96 group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={18} />
+                <Input
+                  placeholder="Find record by name or ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-10 border-slate-200 bg-white shadow-sm shadow-slate-100 focus-visible:ring-primary/20 focus-visible:border-primary transition-all rounded-xl"
+                />
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="h-10 w-10 min-w-[40px] rounded-xl bg-white border-slate-200 text-slate-400 hover:text-primary transition-all shadow-sm"
+              >
+                <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+              </Button>
             </div>
-          )}
-          
-          <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full border-separate border-spacing-0 text-left table-fixed">
-              <thead>
-                <tr className="bg-slate-100/50 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">
-                  <th className="px-10 py-6 border-b border-slate-200 w-[20%]">ID Number</th>
-                  <th className="px-10 py-6 border-b border-slate-200 w-[30%]">Full Name</th>
-                  <th className="px-10 py-6 border-b border-slate-200 w-[15%] text-center">Status</th>
-                  <th className="px-10 py-6 border-b border-slate-200 w-[25%]">Contact & Address</th>
-                  <th className="px-10 py-6 border-b border-slate-200 w-[10%] text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  [...Array(6)].map((_, i) => <TableRowSkeleton key={i} />)
-                ) : students.length > 0 ? (
-                  students.map((s) => (
-                    <tr key={s.id} className="group transition-all hover:bg-white">
-                      <td className="px-10 py-7 font-mono text-sm font-bold text-slate-500">{s.id_number}</td>
-                      <td className="px-10 py-7">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-black text-slate-900">{getFullName(s)}</span>
-                          <span className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">{s.course}</span>
-                        </div>
-                      </td>
-                      <td className="px-10 py-7 text-center">
-                        <span className={`inline-flex items-center gap-2 rounded-xl px-4 py-1.5 text-[9px] font-black uppercase tracking-widest
-                          ${s.has_card ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100" : "bg-rose-50 text-rose-500 ring-1 ring-rose-100"}`}>
-                          {s.has_card ? <CheckCircle2 size={10} /> : null}
-                          {s.has_card ? "Issued" : "No ID"}
-                        </span>
-                      </td>
-                      <td className="px-10 py-7">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-xs font-bold text-slate-700 truncate">{s.guardian_name}</span>
-                          <span className="text-[10px] text-slate-400 flex items-center gap-1 font-bold uppercase italic">
-                            <MapPin size={10} className="text-indigo-300" /> {s.address || 'Unset'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-10 py-7 text-center">
-                        <button className="w-11 h-11 border border-slate-100 rounded-2xl bg-white shadow-sm hover:border-indigo-200 transition-all flex items-center justify-center mx-auto group/btn">
-                          <CgDetailsMore size={22} className="text-slate-400 group-hover/btn:text-indigo-600" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr><td colSpan={5} className="py-32 text-center bg-slate-50/30"><p className="text-sm font-black text-slate-400 uppercase tracking-[0.3em]">No Applicants Found</p></td></tr>
+          </header>
+
+          {/* UNIT CONTEXT METRICS */}
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {isLoading && !sidebarDepts.length ? (
+              <><MetricSkeleton /><MetricSkeleton /><MetricSkeleton /></>
+            ) : (
+              <>
+                <MetricCard
+                  icon={Users}
+                  title={`${selectedDeptName} Census`}
+                  value={selectedDeptObj?.applicant_count || 0}
+                  color="blue"
+                  trend="neutral"
+                  trendLabel="Active Records"
+                />
+                <MetricCard
+                  icon={ShieldCheck}
+                  title="ID Coverage"
+                  value={`${students.length > 0 ? Math.round((students.filter((s: any) => s.has_card).length / students.length) * 100) : 0}%`}
+                  color="emerald"
+                  trend="up"
+                  trendLabel="Unit Completion"
+                />
+
+                <Card className="bg-primary/95 overflow-hidden border-none text-white shadow-lg shadow-primary/20 rounded-[2rem] relative group cursor-default">
+                  <CardContent className="p-8 flex flex-col justify-center h-full">
+                    <div className="relative z-10">
+                      <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">UNIT PARITY</span>
+                      <p className="text-xl font-black mt-1 tracking-tight uppercase">
+                        {parityPercent}% OF GLOBAL
+                      </p>
+                    </div>
+                    <GraduationCap className="absolute -right-6 -bottom-6 text-white/10 group-hover:scale-110 transition-transform duration-700" size={160} />
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </section>
+
+          {/* DATA TABLE */}
+          <div className="space-y-5">
+            <div className="flex items-center gap-4">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Listing Log</span>
+              <div className="flex-1 h-px bg-slate-200" />
+            </div>
+
+            <Card className="border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-sm shadow-slate-100 bg-white">
+              <div className="relative overflow-hidden flex flex-col">
+                {(isFetching && isPlaceholderData) && (
+                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex items-center justify-center">
+                    <Loader2 className="animate-spin text-primary" size={32} />
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
-          
-          <div className="bg-slate-50/50 px-10 py-6 border-t border-slate-100 flex items-center justify-between">
-            <div></div>
-            <div className="flex items-center gap-3">
-                <button 
-                    disabled={!prevCursor || tableLoading}
+
+                <div className="overflow-x-auto text-slate-900 font-sans">
+                  <Table>
+                    <TableHeader className="bg-slate-50/80 border-b border-slate-100">
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="pl-8 w-[150px] text-[10px] font-bold text-slate-400 uppercase tracking-widest py-4">ID Number</TableHead>
+                        <TableHead className="w-[280px] text-[10px] font-bold text-slate-400 uppercase tracking-widest py-4">Identity</TableHead>
+                        <TableHead className="text-center w-[120px] text-[10px] font-bold text-slate-400 uppercase tracking-widest py-4">Status</TableHead>
+                        <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-4">Location</TableHead>
+                        <TableHead className="text-right pr-8 w-[120px] text-[10px] font-bold text-slate-400 uppercase tracking-widest py-4">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {isLoading && !sidebarDepts.length ? (
+                        [...Array(10)].map((_, i) => <TableRowSkeleton key={i} />)
+                      ) : students.length > 0 ? (
+                        students.map((s: any) => (
+                          <TableRow key={s.id} className="group hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">
+                            <TableCell className="pl-8 font-mono text-[11px] font-bold text-primary">{s.id_number}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-primary/5 flex items-center justify-center text-primary text-[11px] font-bold border border-primary/10">
+                                  {s.first_name[0]}{s.last_name[0]}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-xs font-bold text-slate-700">{getFullName(s)}</span>
+                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter opacity-70">{s.course}</span>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className={cn(
+                                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border",
+                                s.has_card
+                                  ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                                  : "bg-red-50 text-red-600 border-red-100"
+                              )}>
+                                <div className={cn("h-1.5 w-1.5 rounded-full", s.has_card ? "bg-emerald-500" : "bg-red-500")} />
+                                {s.has_card ? "Issued" : "No ID"}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-bold text-slate-600 truncate max-w-[200px]">{s.guardian_name}</span>
+                                <span className="text-[9px] text-slate-400 flex items-center gap-1 font-medium italic opacity-80">
+                                  <MapPin size={9} /> {s.address || 'Location Unknown'}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right pr-8">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary hover:bg-primary/10 transition-all active:scale-90">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="h-80 text-center text-slate-300 text-[11px] font-black uppercase tracking-[0.3em] bg-slate-50/20 italic">
+                            No records found in this unit directory
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* FOOTER / PAGINATION */}
+              <div className="bg-slate-50/50 px-10 py-5 border-t border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    {isFetching ? 'Synchronizing records...' : 'Systems nominal'}
+                  </span>
+                  <div className="h-1 w-1 rounded-full bg-slate-200" />
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                    {data?.pagination?.total || 0} Records Found
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    disabled={!prevCursor || isFetching}
                     onClick={handlePrev}
-                    className="p-3 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-30 transition-all"
-                >
-                    <ChevronLeft size={20} />
-                </button>
-                <button 
-                    disabled={!hasMore || tableLoading}
+                    className="h-10 w-10 border-slate-200 bg-white hover:text-primary hover:border-primary/30 transition-all shadow-sm rounded-xl"
+                  >
+                    <ChevronLeft size={18} />
+                  </Button>
+                  <Button
+                    variant="default"
+                    disabled={!hasMore || isFetching}
                     onClick={handleNext}
-                    className="flex items-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 text-white font-bold text-xs uppercase tracking-widest hover:bg-indigo-700 disabled:opacity-30 transition-all shadow-lg shadow-indigo-100"
-                >
-                    Next <ChevronRight size={18} />
-                </button>
-            </div>
+                    className="h-10 px-8 gap-2 font-black text-[10px] uppercase tracking-widest bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 rounded-xl"
+                  >
+                    Next Page <ChevronRight size={16} />
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </div>
         </div>
       </main>
+
+      <style>{`
+        .scrollbar-none::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-none {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #e2e8f0;
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #cbd5e1;
+        }
+      `}</style>
     </div>
   );
 };

@@ -1,112 +1,94 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const http = require('http'); // Using native http to avoid extra dependencies
 
 let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
+    icon: path.join(__dirname, 'icon.ico'),
     width: 1280,
     height: 800,
+    titleBarOverlay: {
+      symbolColor: '#ffffff',
+      height: 40
+    },
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      webSecurity: true,
+      webSecurity: false,
     },
     autoHideMenuBar: true,
   });
 
-  const { session } = require('electron');
+  const url = 'http://localhost:5173';
+
+  mainWindow.loadURL(url);
+
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    details.requestHeaders['Origin'] = 'http://localhost:5173';
+    details.requestHeaders['Origin'] = url;
     callback({ requestHeaders: details.requestHeaders });
   });
-
-  mainWindow.loadURL('http://localhost:5173');
 }
 
 app.whenReady().then(createWindow);
 
+/**
+ * IPC: Print via Python API Service
+ */
 ipcMain.on('print-card-images', async (event, options) => {
-  const { frontImage, backImage, deviceName } = options;
+  const { frontImage, backImage, margins } = options;
 
-  try {
-    const tempDir = os.tmpdir();
-    const htmlPath = path.join(tempDir, `print_portrait_${Date.now()}.html`);
-    
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          @page { 
-            margin: 0; 
-            size: 54mm 86mm; /* Exact CR80 */
-          }
-          html, body { 
-            margin: 0; 
-            padding: 0; 
-            width: 54mm; 
-            height: 86mm;
-            overflow: hidden;
-            background-color: white;
-          }
-          .page { 
-            position: relative;
-            width: 54mm; 
-            height: 86mm; 
-            page-break-after: always; 
-          }
-          img { 
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 54mm; 
-            height: 86mm; 
-            display: block;
-            margin: 0;
-            padding: 0;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="page"><img src="${frontImage}" /></div>
-        <div class="page"><img src="${backImage}" /></div>
-      </body>
-      </html>`;
+  console.log('[main.cjs] Forwarding print request to Python API...');
 
-    fs.writeFileSync(htmlPath, htmlContent);
+  const postData = JSON.stringify({
+    frontImage,
+    backImage,
+    margins: margins || { top: 0, bottom: 0, left: 0, right: 0 }
+  });
 
-    // Default width 200 and height 180 as requested
-    const printWindow = new BrowserWindow({ 
-      show: false, 
-      width: 200, 
-      height: 180, 
-      webPreferences: { nodeIntegration: false } 
+  const requestOptions = {
+    hostname: 'localhost',
+    port: 5000,
+    path: '/print_card',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(postData)
+    }
+  };
+
+  const req = http.request(requestOptions, (res) => {
+    let data = '';
+    res.on('data', (chunk) => { data += chunk; });
+    res.on('end', () => {
+      try {
+        const response = JSON.parse(data);
+        if (response.success) {
+          console.log('[main.cjs] Print API Success');
+          event.reply('print-reply', { success: true });
+        } else {
+          console.error('[main.cjs] Print API Error:', response.error);
+          event.reply('print-reply', { success: false, failureReason: response.error });
+        }
+      } catch (e) {
+        event.reply('print-reply', { success: false, failureReason: 'Invalid API response' });
+      }
     });
+  });
 
-    printWindow.webContents.on('did-finish-load', () => {
-      printWindow.webContents.print({
-        silent: true, // Margin issue usually happens here
-        deviceName: deviceName || '',
-        printBackground: true,
-        margins: { marginType: 'none' },
-        pageSize: { width: 54000, height: 86000 },
-        scaleFactor: 100,
-        preferCSSPageSize: true // This tells Electron to respect the @page CSS above
-      }, (success, failureReason) => {
-        printWindow.close();
-        if (fs.existsSync(htmlPath)) fs.unlinkSync(htmlPath);
-        event.reply('print-reply', { success, failureReason });
-      });
+  req.on('error', (error) => {
+    console.error('[main.cjs] Connection to Python Service failed:', error.message);
+    event.reply('print-reply', {
+      success: false,
+      failureReason: 'Python Service not running (Connection Refused)'
     });
+  });
 
-    printWindow.loadFile(htmlPath);
-
-  } catch (error) {
-    event.reply('print-reply', { success: false, failureReason: error.message });
-  }
+  req.write(postData);
+  req.end();
 });
 
 app.on('window-all-closed', () => {

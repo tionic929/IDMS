@@ -1,16 +1,23 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { Stage, Layer, Text, Rect, Image as KonvaImage, Group, Circle } from 'react-konva';
 import useImage from 'use-image';
 import { type ApplicantCard } from '../types/card';
+import FRONT_DEFAULT_BG from '../assets/ID/NEWFRONT.png';
+import BACK_DEFAULT_BG from '../assets/ID/BACK.png';
 import { resolveTextLayout } from '../utils/designerUtils';
 
+// Dimensions and Constants
+import { 
+  DESIGN_WIDTH, 
+  DESIGN_HEIGHT, 
+  PRINT_WIDTH, 
+  PRINT_HEIGHT,
+  SCALE_X,
+  SCALE_Y,
+  EXPORT_PIXEL_RATIO
+} from '../constants/dimensions';
+
 const VITE_API_URL = import.meta.env.VITE_API_URL;
-
-const DESIGN_WIDTH = 320;
-const DESIGN_HEIGHT = 508; // Updated to match your high-res target
-
-const PRINT_WIDTH = 648; 
-const PRINT_HEIGHT = 1028; // Updated to match your high-res target
 
 interface Props {
   data: ApplicantCard;
@@ -19,49 +26,39 @@ interface Props {
   scale?: number;
   isPrinting?: boolean;
 }
-
-const DynamicImage = ({ src, common }: { src: string; common: any }) => {
+  
+const DynamicImage = memo(({ src, common }: { src: string; common: any }) => {
   const [img] = useImage(src, 'anonymous');
   if (!img) return null;
   return <KonvaImage {...common} image={img} />;
-};
+});
 
 const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrinting = false }) => {
   const isFront = side === 'FRONT';
 
+  // Improved URL generation: Ensure we get a valid path for the proxy
   const getProxyUrl = (path: string | null | undefined) => {
     if (!path) return '';
     if (path.startsWith('data:') || path.startsWith('blob:')) return path;
     const storagePath = `${VITE_API_URL}/storage/`;
     let cleanPath = path;
-    if (path.startsWith(storagePath)) {
-      cleanPath = path.replace(storagePath, '');
-    }
+    if (path.startsWith(storagePath)) cleanPath = path.replace(storagePath, '');
     return `${VITE_API_URL}/api/proxy-image?path=${encodeURIComponent(cleanPath)}`;
   };
 
   const [photoImage] = useImage(getProxyUrl(data.photo), 'anonymous');
   const [sigImage] = useImage(getProxyUrl(data.signature), 'anonymous');
 
-  const preRenderedImage = isFront ? layout?.previewImages?.front : layout?.previewImages?.back;
   const currentLayout = layout?.[side.toLowerCase()];
-
-  const canvasWidth = isPrinting ? PRINT_WIDTH : DESIGN_WIDTH;
-  const canvasHeight = isPrinting ? PRINT_HEIGHT : DESIGN_HEIGHT;
-  
-  const printScaleX = isPrinting ? (PRINT_WIDTH / DESIGN_WIDTH) : 1;
-  const printScaleY = isPrinting ? (PRINT_HEIGHT / DESIGN_HEIGHT) : 1;
-
-  if (preRenderedImage && !isPrinting) {
-    return (
-      <div className="id-card-preview-container overflow-hidden"
-        style={{ width: `${DESIGN_WIDTH * scale}px`, height: `${DESIGN_HEIGHT * scale}px`, backgroundColor: 'transparent' }}>
-        <img src={preRenderedImage} className="w-full h-full object-contain" alt="Final Render" />
-      </div>
-    );
-  }
-
   if (!currentLayout) return null;
+
+  const internalWidth = isPrinting ? PRINT_WIDTH : DESIGN_WIDTH;
+  const internalHeight = isPrinting ? PRINT_HEIGHT : DESIGN_HEIGHT;
+  const stageWidth = isPrinting ? internalWidth : internalWidth * scale;
+  const stageHeight = isPrinting ? internalHeight : internalHeight * scale;
+
+  const printScaleX = isPrinting ? SCALE_X : 1;
+  const printScaleY = isPrinting ? SCALE_Y : 1;
 
   const renderElement = (key: string, config: any) => {
     const isPhoto = key === 'photo';
@@ -74,7 +71,10 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     const scaledY = config.y * printScaleY;
     const scaledWidth = (config.width || 200) * printScaleX;
     const scaledHeight = (config.height || 180) * printScaleY;
+    const scaledRadius = (config.radius || 0) * Math.min(printScaleX, printScaleY);
     
+    const textComponentHeight = (config.fit === 'none') ? undefined : scaledHeight;
+
     const common = {
       key: key,
       x: scaledX,
@@ -87,26 +87,37 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     if (isAsset) {
       const img = isPhoto ? photoImage : sigImage;
       return (
-        <Group {...common} height={scaledHeight}>
-          {img && (
-            <KonvaImage
-              image={img}
-              width={scaledWidth}
-              height={scaledHeight}
-              sceneFunc={(context, shape) => {
-                const nodeW = shape.width();
-                const nodeH = shape.height();
-                const ratio = Math.min(nodeW / img.width, nodeH / img.height);
-                context.drawImage(
-                  img,
-                  (nodeW - img.width * ratio) / 2,
-                  (nodeH - img.height * ratio) / 2,
-                  img.width * ratio,
-                  img.height * ratio
-                );
-              }}
-            />
-          )}
+        <Group {...common} height={scaledHeight} key={key}>
+          <Group 
+            clipFunc={(ctx) => {
+              ctx.beginPath();
+              if (scaledRadius > 0 && (ctx as any).roundRect) {
+                (ctx as any).roundRect(0, 0, scaledWidth, scaledHeight, scaledRadius);
+              } else {
+                ctx.rect(0, 0, scaledWidth, scaledHeight);
+              }
+              ctx.closePath();
+            }}
+          >
+            {img ? (
+              <KonvaImage
+                image={img}
+                width={scaledWidth}
+                height={scaledHeight}
+                // sceneFunc ensures the image fits within the defined box while maintaining aspect ratio
+                sceneFunc={(context, shape) => {
+                  const ratio = Math.min(scaledWidth / img.width, scaledHeight / img.height);
+                  const w = img.width * ratio;
+                  const h = img.height * ratio;
+                  const x = (scaledWidth - w) / 2;
+                  const y = (scaledHeight - h) / 2;
+                  context.drawImage(img, x, y, w, h);
+                }}
+              />
+            ) : (
+              <Rect width={scaledWidth} height={scaledHeight} fill="#f1f5f9" />
+            )}
+          </Group>
         </Group>
       );
     }
@@ -117,9 +128,9 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
 
     if (isShape) {
       if (config.type === 'circle') {
-        return <Circle {...common} width={scaledWidth} height={scaledHeight} radius={scaledWidth / 2} fill={config.fill || '#00ffe1ff'} />;
+        return <Circle {...common} height={scaledHeight} radius={scaledWidth / 2} fill={config.fill || '#00ffe1ff'} key={key} />;
       }
-      return <Rect {...common} width={scaledWidth} height={scaledHeight} fill={config.fill || '#00ffe1ff'} />;
+      return <Rect {...common} height={scaledHeight} fill={config.fill || '#00ffe1ff'} cornerRadius={scaledRadius} key={key} />;
     }
 
     const textMap: Record<string, any> = {
@@ -133,70 +144,55 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
 
     const displayText = textMap[key] || (data as any)[key] || config.text || "";
     
-    let fontSize: number;
-    let wrap: 'none' | 'word';
+    const configForLayout = isPrinting 
+      ? { ...config, width: scaledWidth, height: scaledHeight, fontSize: config.fontSize * printScaleX }
+      : config;
     
-    if (isPrinting) {
-      const scaledConfig = {
-        ...config,
-        width: scaledWidth,
-        height: scaledHeight,
-        fontSize: config.fontSize * Math.max(printScaleX, printScaleY)
-      };
-      const resolved = resolveTextLayout(scaledConfig, displayText);
-      fontSize = resolved.fontSize;
-      wrap = resolved.wrap;
-    } else {
-      const resolved = resolveTextLayout(config, displayText);
-      fontSize = resolved.fontSize;
-      wrap = resolved.wrap;
-    }
+    const resolved = resolveTextLayout(configForLayout, displayText);
 
     return (
       <Text
         {...common}
-        height={config.fit === 'none' ? undefined : scaledHeight}
+        key={key}
+        height={textComponentHeight}
         text={displayText}
-        fontSize={fontSize}
+        fontSize={resolved.fontSize}
         fontFamily={config.fontFamily || 'Arial'}
         fontStyle={config.fontStyle || 'bold'}
         fill={config.fill || '#1e293b'}
         align={config.align || 'center'}
         verticalAlign="middle"
-        wrap={wrap as any}
+        wrap={resolved.wrap as any}
         ellipsis={config.overflow === 'ellipsis'}
       />
     );
   };
 
   return (
-    <div 
-      className={`relative overflow-hidden ${isPrinting ? 'bg-white' : 'rounded-xl bg-white shadow-2xl'}`}
+    <div
       style={{ 
-        width: isPrinting ? `${PRINT_WIDTH}px` : `${DESIGN_WIDTH * scale}px`, 
-        height: isPrinting ? `${PRINT_HEIGHT}px` : `${DESIGN_HEIGHT * scale}px` 
+        width: `${stageWidth}px`, 
+        height: `${stageHeight}px`,
+        position: 'relative',
+        backgroundColor: 'white',
+        borderRadius: isPrinting ? '0' : '12px',
+        overflow: 'hidden',
+        boxShadow: isPrinting ? 'none' : '0 10px 15px -3px rgb(0 0 0 / 0.1)'
       }}
     >
       <Stage 
-        width={canvasWidth * (isPrinting ? 1 : scale)} 
-        height={canvasHeight * (isPrinting ? 1 : scale)} 
-        scaleX={isPrinting ? 1 : scale} 
+        width={stageWidth} 
+        height={stageHeight}
+        scaleX={isPrinting ? 1 : scale}
         scaleY={isPrinting ? 1 : scale}
-        pixelRatio={isPrinting ? 2 : 1}
+        pixelRatio={isPrinting ? EXPORT_PIXEL_RATIO : 1}
       >
         <Layer>
-          {/* Photos/Sigs first */}
-          {Object.entries(currentLayout).map(([key, config]) =>
-            (key === 'photo' || key === 'signature') ? renderElement(key, config) : null
-          )}
-          {/* Rest of the elements */}
-          {Object.entries(currentLayout).map(([key, config]) =>
-            (key !== 'photo' && key !== 'signature') ? renderElement(key, config) : null
-          )}
+          {Object.entries(currentLayout).map(([key, config]) => renderElement(key, config))}
         </Layer>
       </Stage>
     </div>
   );
 };
 
-export default IDCardPreview;
+export default memo(IDCardPreview);

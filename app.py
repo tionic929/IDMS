@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import torch
 import threading
+import requests
 from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
 from rembg import remove, new_session
@@ -20,7 +21,8 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024 # Allow up to 32MB
 CORS(app)
 
-# Safeguard: Max dimension before AI processing
+# Configuration
+LARAVEL_API_URL = "http://localhost:8000/api/students"
 MAX_INPUT_DIM = 1200 
 
 upsampler = None
@@ -45,86 +47,109 @@ def init_models():
 
 threading.Thread(target=init_models, daemon=True).start()
 
-@app.route('/remove-bg', methods=['POST'])
-def process_image():
+def process_id_picture(file_bytes):
+    """Enhance face and remove background."""
+    img = cv2.imdecode(np.frombuffer(file_bytes, np.uint8), cv2.IMREAD_COLOR)
+    h, w = img.shape[:2]
+    if max(h, w) > MAX_INPUT_DIM:
+        scale = MAX_INPUT_DIM / max(h, w)
+        img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_LANCZOS4)
+    
+    _, _, restored_img = face_restorer.enhance(img, has_aligned=False, only_center_face=False, paste_back=True)
+    restored_rgb = cv2.cvtColor(restored_img, cv2.COLOR_BGR2RGB)
+    
+    no_bg_img = remove(restored_rgb, session=rembg_session, alpha_matting=False)
+    final_pil = Image.fromarray(no_bg_img)
+    
+    buf = io.BytesIO()
+    final_pil.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
+
+def process_sig_picture(file_bytes):
+    """Clean and sharpen signature."""
+    img = cv2.imdecode(np.frombuffer(file_bytes, np.uint8), cv2.IMREAD_COLOR)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    thresh = cv2.adaptiveThreshold(
+        blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY_INV, 21, 10
+    )
+    kernel = np.ones((3, 3), np.uint8)
+    thick_thresh = cv2.dilate(thresh, kernel, iterations=1)
+    black_ink = np.zeros_like(gray)
+    rgba = cv2.merge([black_ink, black_ink, black_ink, thick_thresh])
+    
+    clean_kernel = np.ones((2, 2), np.uint8)
+    rgba = cv2.morphologyEx(rgba, cv2.MORPH_OPEN, clean_kernel)
+    
+    is_success, buffer = cv2.imencode(".png", rgba)
+    return io.BytesIO(buffer)
+
+@app.route('/application-submit', methods=['POST'])
+def bridge_application():
     if face_restorer is None:
         return jsonify({"error": "AI models loading..."}), 503
 
     try:
-        # 1. Read and Debug Input
-        raw_data = request.files['image'].read()
-        print(f"\n[DEBUG] Incoming file size: {len(raw_data) / (1024*1024):.2f} MB")
+        # 1. Extract form data
+        form_data = request.form.to_dict()
+        print(f"\n[BRIDGE] Received application for: {form_data.get('firstName')} {form_data.get('lastName')}")
 
-        file_bytes = np.frombuffer(raw_data, np.uint8)
-        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-
-        # 2. Resize massive inputs for stability
-        h, w = img.shape[:2]
-        if max(h, w) > MAX_INPUT_DIM:
-            scale = MAX_INPUT_DIM / max(h, w)
-            img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_LANCZOS4)
-            print(f"[DEBUG] Resized input to {img.shape[1]}x{img.shape[0]}")
-
-        # 3. AI Upscaling & Face Restoration
-        # This doubles the size, so a 1200px image becomes 2400px
-        _, _, restored_img = face_restorer.enhance(img, has_aligned=False, only_center_face=False, paste_back=True)
-        restored_rgb = cv2.cvtColor(restored_img, cv2.COLOR_BGR2RGB)
+        # 2. Process Pictures if they exist
+        files_to_forward = {}
         
-        # 4. Background Removal (FIXED TO PREVENT CHOLESKY ERROR)
-        # We disable alpha_matting here because it's unstable with upscaled AI images
-        no_bg_img = remove(
-            restored_rgb, 
-            session=rembg_session, 
-            alpha_matting=False # Set to False to stop the error
+        if 'id_picture' in request.files:
+            print("[BRIDGE] Processing ID Picture...")
+            id_buf = process_id_picture(request.files['id_picture'].read())
+            files_to_forward['id_picture'] = ('id.png', id_buf, 'image/png')
+
+        if 'signature_picture' in request.files:
+            print("[BRIDGE] Processing Signature...")
+            sig_buf = process_sig_picture(request.files['signature_picture'].read())
+            files_to_forward['signature_picture'] = ('sig.png', sig_buf, 'image/png')
+
+        # 3. Forward to Laravel
+        print(f"[BRIDGE] Forwarding to Laravel: {LARAVEL_API_URL}")
+        response = requests.post(
+            LARAVEL_API_URL,
+            data=form_data,
+            files=files_to_forward,
+            timeout=30
         )
 
-        # 5. Post-Process Edges (Softens the cut without the math error)
-        final_pil = Image.fromarray(no_bg_img)
-        
-        # 6. Save and Debug Output
-        buf = io.BytesIO()
-        # Using format="PNG" is high quality, but if files are too big, 
-        # you can try format="WEBP", quality=85
-        final_pil.save(buf, format="PNG")
-        
-        output_size_mb = buf.tell() / (1024 * 1024)
-        print(f"[DEBUG] Final AI image size: {output_size_mb:.2f} MB")
-        
-        buf.seek(0)
-        return send_file(buf, mimetype='image/png')
+        # 4. Filter headers and return
+        excluded_headers = [
+            'content-encoding', 'content-length', 'transfer-encoding', 
+            'connection', 'keep-alive', 'proxy-authenticate', 
+            'proxy-authorization', 'te', 'trailers', 'upgrade'
+        ]
+        headers = [
+            (name, value) for (name, value) in response.headers.items()
+            if name.lower() not in excluded_headers
+        ]
+        return (response.content, response.status_code, headers)
 
     except Exception as e:
-        print(f"[ERROR] {str(e)}")
+        print(f"[BRIDGE ERROR] {str(e)}")
         return jsonify({"error": str(e)}), 500
-    
-@app.route('/scan-signature', methods=['POST'])
-def scan_signature():
+
+@app.route('/remove-bg', methods=['POST'])
+def api_remove_bg():
+    # Legacy support (internal use)
+    if face_restorer is None: return jsonify({"error": "AI models loading..."}), 503
     try:
-        file = request.files['image'].read()
-        npimg = np.frombuffer(file, np.uint8)
-        img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
+        buf = process_id_picture(request.files['image'].read())
+        return send_file(buf, mimetype='image/png')
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-        # Clean signature logic
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-        thresh = cv2.adaptiveThreshold(
-            blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY_INV, 21, 10
-        )
-
-        # Thicken lines slightly for better printing
-        kernel = np.ones((3, 3), np.uint8)
-        thick_thresh = cv2.dilate(thresh, kernel, iterations=1)
-
-        black_ink = np.zeros_like(gray)
-        rgba = cv2.merge([black_ink, black_ink, black_ink, thick_thresh])
-
-        # Remove noise
-        clean_kernel = np.ones((2, 2), np.uint8)
-        rgba = cv2.morphologyEx(rgba, cv2.MORPH_OPEN, clean_kernel)
-
-        is_success, buffer = cv2.imencode(".png", rgba)
-        return send_file(io.BytesIO(buffer), mimetype='image/png')
+@app.route('/scan-signature', methods=['POST'])
+def api_scan_signature():
+    # Legacy support (internal use)
+    try:
+        buf = process_sig_picture(request.files['image'].read())
+        return send_file(buf, mimetype='image/png')
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

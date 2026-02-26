@@ -20,20 +20,20 @@ const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({
   allStudents
 }) => {
   return (
-    <div className="flex h-[90vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+    <div className="flex h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
       {/* LEFT SIDEBAR: Template Library */}
       <div className="w-46 border-r border-slate-100 dark:border-slate-800 shrink-0">
-        <Templates 
-          activeId={selectedTemplate?.id} 
-          onSelect={(t) => setSelectedTemplate(t)} 
+        <Templates
+          activeId={selectedTemplate?.id}
+          onSelect={(t) => setSelectedTemplate(t)}
           refreshTrigger={saveCount}
         />
       </div>
 
       {/* MAIN AREA: Card Designer */}
-      <div className="flex-1 relative min-w-0 bg-zinc-950">
+      <div className="flex-1 relative min-w-0">
         {selectedTemplate ? (
-          <CardDesigner 
+          <CardDesigner
             templateId={selectedTemplate.id}
             templateName={selectedTemplate.name}
             currentLayout={{
@@ -51,8 +51,8 @@ const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({
             }}
           />
         ) : (
-          <div className="h-full flex flex-col items-center justify-center bg-zinc-900">
-            <div className="p-8 rounded-full bg-zinc-800 mb-4 text-zinc-600">
+          <div className="h-full flex flex-col items-center justify-center">
+            <div className="p-8 rounded-full bg-zinc-100 mb-4 text-zinc-600">
               <Layout size={48} strokeWidth={1} />
             </div>
             <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">

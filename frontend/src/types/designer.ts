@@ -2,6 +2,7 @@ export type FitMode = 'none' | 'wrap' | 'shrink' | 'stretch';
 export type OverflowMode = 'clip' | 'ellipsis';
 
 export interface LayoutItemSchema {
+  radius: number;
   x: number;
   y: number;
   width: number;
@@ -12,6 +13,7 @@ export interface LayoutItemSchema {
   align: 'left' | 'center' | 'right';
 
   locked?: boolean;
+  visible?: boolean;
 
   fit: FitMode;
   maxLines: number | null;
