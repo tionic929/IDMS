@@ -125,18 +125,36 @@ def real_print(front_img, back_img, front_width, front_height, back_width, back_
 
         hdc.StartDoc("PVC Card Print - Duplex")
 
+        # Get actual paper dimensions for centering
+        # 8 = HORZRES, 10 = VERTRES
+        printable_w = hdc.GetDeviceCaps(8)
+        printable_h = hdc.GetDeviceCaps(10)
+        print(f"[real_print] Detected paper size: {printable_w}x{printable_h}px")
+
         # ===== PAGE 1: FRONT =====
         print("[real_print] Printing FRONT page...")
         hdc.StartPage()
+        
+        # Calculate centering offsets
+        off_x = max(0, (printable_w - front_width) // 2)
+        off_y = max(0, (printable_h - front_height) // 2)
+        print(f"[real_print] Front offsets: x={off_x}, y={off_y}")
+
         dib_front = ImageWin.Dib(front_img)
-        dib_front.draw(hdc.GetHandleOutput(), (0, 0, front_width, front_height))
+        dib_front.draw(hdc.GetHandleOutput(), (off_x, off_y, off_x + front_width, off_y + front_height))
         hdc.EndPage()
 
         # ===== PAGE 2: BACK =====
         print("[real_print] Printing BACK page...")
         hdc.StartPage()
+
+        # Calculate centering offsets for back
+        off_x_back = max(0, (printable_w - back_width) // 2)
+        off_y_back = max(0, (printable_h - back_height) // 2)
+        print(f"[real_print] Back offsets: x={off_x_back}, y={off_y_back}")
+        
         dib_back = ImageWin.Dib(back_img)
-        dib_back.draw(hdc.GetHandleOutput(), (0, 0, back_width, back_height))
+        dib_back.draw(hdc.GetHandleOutput(), (off_x_back, off_y_back, off_x_back + back_width, off_y_back + back_height))
         hdc.EndPage()
 
         hdc.EndDoc()
