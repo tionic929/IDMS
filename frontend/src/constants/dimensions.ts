@@ -3,7 +3,7 @@
 
 // Card Designer Canvas Dimensions (Design Space)
 export const DESIGN_WIDTH = 320;
-export const DESIGN_HEIGHT = 500;
+export const DESIGN_HEIGHT = 508; // Calibrated to match 638x1013 aspect ratio
 
 // Print Output Dimensions (High Resolution at 300 DPI)
 // Standard CR80 Card: 2.125" × 3.375" (53.98mm × 85.6mm)

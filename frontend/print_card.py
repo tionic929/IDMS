@@ -145,8 +145,8 @@ def real_print(front_img, back_img, front_width, front_height, back_width, back_
         
         # Calculate centering offsets relative to physical paper
         # Then subtract the hard-coded printable offset (phys_off)
-        off_x = max(0, (phys_w - front_width) // 2 - phys_off_x)
-        off_y = max(0, (phys_h - front_height) // 2 - phys_off_y)
+        off_x = max(0, int(round((phys_w - front_width) / 2)) - phys_off_x)
+        off_y = max(0, int(round((phys_h - front_height) / 2)) - phys_off_y)
         print(f"[real_print] Front offsets: x={off_x}, y={off_y}")
 
         dib_front = ImageWin.Dib(front_img)
@@ -158,8 +158,8 @@ def real_print(front_img, back_img, front_width, front_height, back_width, back_
         hdc.StartPage()
 
         # Calculate centering offsets for back
-        off_x_back = max(0, (phys_w - back_width) // 2 - phys_off_x)
-        off_y_back = max(0, (phys_h - back_height) // 2 - phys_off_y)
+        off_x_back = max(0, int(round((phys_w - back_width) / 2)) - phys_off_x)
+        off_y_back = max(0, int(round((phys_h - back_height) / 2)) - phys_off_y)
         print(f"[real_print] Back offsets: x={off_x_back}, y={off_y_back}")
         
         dib_back = ImageWin.Dib(back_img)
