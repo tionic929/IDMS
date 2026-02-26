@@ -126,18 +126,27 @@ def real_print(front_img, back_img, front_width, front_height, back_width, back_
         hdc.StartDoc("PVC Card Print - Duplex")
 
         # Get actual paper dimensions for centering
-        # 8 = HORZRES, 10 = VERTRES
+        # 8 = HORZRES, 10 = VERTRES, 110 = PHYSICALWIDTH, 111 = PHYSICALHEIGHT
+        # 112 = PHYSICALOFFSETX, 113 = PHYSICALOFFSETY
         printable_w = hdc.GetDeviceCaps(8)
         printable_h = hdc.GetDeviceCaps(10)
-        print(f"[real_print] Detected paper size: {printable_w}x{printable_h}px")
+        phys_w = hdc.GetDeviceCaps(110)
+        phys_h = hdc.GetDeviceCaps(111)
+        phys_off_x = hdc.GetDeviceCaps(112)
+        phys_off_y = hdc.GetDeviceCaps(113)
+        
+        print(f"[real_print] Printable Area: {printable_w}x{printable_h}px")
+        print(f"[real_print] Physical Paper: {phys_w}x{phys_h}px")
+        print(f"[real_print] Physical Offsets: x={phys_off_x}, y={phys_off_y}")
 
         # ===== PAGE 1: FRONT =====
         print("[real_print] Printing FRONT page...")
         hdc.StartPage()
         
-        # Calculate centering offsets
-        off_x = max(0, (printable_w - front_width) // 2)
-        off_y = max(0, (printable_h - front_height) // 2)
+        # Calculate centering offsets relative to physical paper
+        # Then subtract the hard-coded printable offset (phys_off)
+        off_x = max(0, (phys_w - front_width) // 2 - phys_off_x)
+        off_y = max(0, (phys_h - front_height) // 2 - phys_off_y)
         print(f"[real_print] Front offsets: x={off_x}, y={off_y}")
 
         dib_front = ImageWin.Dib(front_img)
@@ -149,8 +158,8 @@ def real_print(front_img, back_img, front_width, front_height, back_width, back_
         hdc.StartPage()
 
         # Calculate centering offsets for back
-        off_x_back = max(0, (printable_w - back_width) // 2)
-        off_y_back = max(0, (printable_h - back_height) // 2)
+        off_x_back = max(0, (phys_w - back_width) // 2 - phys_off_x)
+        off_y_back = max(0, (phys_h - back_height) // 2 - phys_off_y)
         print(f"[real_print] Back offsets: x={off_x_back}, y={off_y_back}")
         
         dib_back = ImageWin.Dib(back_img)
