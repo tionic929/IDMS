@@ -1,6 +1,3 @@
-
-
-
 // Card Designer Canvas Dimensions (Design Space)
 export const DESIGN_WIDTH = 332; // 664 / 2
 export const DESIGN_HEIGHT = 518; // 1036 / 2
@@ -17,8 +14,8 @@ export const SCALE_Y = PRINT_HEIGHT / DESIGN_HEIGHT; // Exactly 2.0
 export const GRID_SIZE = 10; // pixels
 export const SNAP_THRESHOLD = 5; // pixels
 
-export const SCALES_MATCH = Math.abs(SCALE_X - SCALE_Y) < 0.05;
-export const SCALE_MATCH_DIFFERENCE = Math.abs(SCALE_X - SCALE_Y);
+export const SCALES_MATCH = Math.abs(SCALE_X - SCALE_Y) < 0.05; // true
+export const SCALE_MATCH_DIFFERENCE = Math.abs(SCALE_X - SCALE_Y); // 0
 
 export const CARD_WIDTH_MM = 53.98;
 export const CARD_HEIGHT_MM = 85.6;

@@ -166,7 +166,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         @media print {
           @page { 
             margin: 0; 
-            size: 2.125in 3.375in portrait;
           }
           body, html {
             margin: 0 !important;
