@@ -7,10 +7,10 @@ import BACK_DEFAULT_BG from '../assets/ID/BACK.png';
 import { resolveTextLayout } from '../utils/designerUtils';
 
 // Dimensions and Constants
-import { 
-  DESIGN_WIDTH, 
-  DESIGN_HEIGHT, 
-  PRINT_WIDTH, 
+import {
+  DESIGN_WIDTH,
+  DESIGN_HEIGHT,
+  PRINT_WIDTH,
   PRINT_HEIGHT,
   SCALE_X,
   SCALE_Y,
@@ -26,7 +26,7 @@ interface Props {
   scale?: number;
   isPrinting?: boolean;
 }
-  
+
 const DynamicImage = memo(({ src, common }: { src: string; common: any }) => {
   const [img] = useImage(src, 'anonymous');
   if (!img) return null;
@@ -72,7 +72,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     const scaledWidth = (config.width || 200) * printScaleX;
     const scaledHeight = (config.height || 180) * printScaleY;
     const scaledRadius = (config.radius || 0) * Math.min(printScaleX, printScaleY);
-    
+
     const textComponentHeight = (config.fit === 'none') ? undefined : scaledHeight;
 
     const common = {
@@ -88,7 +88,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
       const img = isPhoto ? photoImage : sigImage;
       return (
         <Group {...common} height={scaledHeight} key={key}>
-          <Group 
+          <Group
             clipFunc={(ctx) => {
               ctx.beginPath();
               if (scaledRadius > 0 && (ctx as any).roundRect) {
@@ -123,7 +123,7 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     }
 
     if (isCustomImage && config.src) {
-      return <DynamicImage key={key} src={config.src} common={{...common, height: scaledHeight}} />;
+      return <DynamicImage key={key} src={config.src} common={{ ...common, height: scaledHeight }} />;
     }
 
     if (isShape) {
@@ -143,11 +143,11 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
     };
 
     const displayText = textMap[key] || (data as any)[key] || config.text || "";
-    
-    const configForLayout = isPrinting 
+
+    const configForLayout = isPrinting
       ? { ...config, width: scaledWidth, height: scaledHeight, fontSize: config.fontSize * printScaleX }
       : config;
-    
+
     const resolved = resolveTextLayout(configForLayout, displayText);
 
     return (
@@ -170,8 +170,8 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
 
   return (
     <div
-      style={{ 
-        width: `${stageWidth}px`, 
+      style={{
+        width: `${stageWidth}px`,
         height: `${stageHeight}px`,
         position: 'relative',
         backgroundColor: 'white',
@@ -180,18 +180,19 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
         boxShadow: isPrinting ? 'none' : '0 10px 15px -3px rgb(0 0 0 / 0.1)'
       }}
     >
-      <Stage 
-        width={stageWidth} 
+      <Stage
+        width={stageWidth}
         height={stageHeight}
         scaleX={isPrinting ? 1 : scale}
         scaleY={isPrinting ? 1 : scale}
         pixelRatio={isPrinting ? EXPORT_PIXEL_RATIO : 1}
       >
         <Layer>
+          {/* Ensure a solid white background for printing (prevents transparency being turned black by PIL) */}
+          <Rect width={internalWidth} height={internalHeight} fill="white" />
           {Object.entries(currentLayout).map(([key, config]) => renderElement(key, config))}
         </Layer>
       </Stage>
-      <Rect width={180} height={200} fill="#f1f5f9" />
     </div>
   );
 };
