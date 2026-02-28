@@ -77,10 +77,6 @@ function App() {
                 path="/login"
                 element={user ? <Navigate to="/dashboard" replace /> : <Login />}
               />
-              <Route
-                path="/register"
-                element={user ? <Navigate to="/dashboard" replace /> : <Register />}
-              />
 
               <Route element={<ProtectedRoute />}>
                 <Route
