@@ -67,15 +67,15 @@ export const calculateShrinkFontSize = (
     const words = text.split(' ');
     let currentLine = words[0];
     let lines = 1;
-    
+
     // We subtract a larger padding (10px) to be safe against Konva's internal anti-aliasing/padding
     // This prevents the "last word cut off" issue.
-    const maxWidth = width - 10; 
+    const maxWidth = width - 10;
 
     for (let i = 1; i < words.length; i++) {
       const word = words[i];
       const width = ctx.measureText(currentLine + " " + word).width;
-      
+
       if (width < maxWidth) {
         currentLine += " " + word;
       } else {
@@ -113,12 +113,12 @@ export const resolveTextLayout = (config: LayoutItemSchema, text: string) => {
   if (mode === 'shrink') {
     // PASS HEIGHT TO CALCULATOR
     resolvedFontSize = calculateShrinkFontSize(
-      text, 
-      width, 
-      height, 
-      baseSize, 
-      maxLines, 
-      config.fontFamily, 
+      text,
+      width,
+      height,
+      baseSize,
+      maxLines,
+      config.fontFamily,
       config.fontStyle
     );
     // If maxLines > 1, we must enable wrapping so it actually uses the lines
@@ -131,13 +131,7 @@ export const resolveTextLayout = (config: LayoutItemSchema, text: string) => {
 };
 
 export const getEnabledAnchors = (config: LayoutItemSchema | null): string[] => {
-    if (!config) return [];
-    if (config.type === 'circle') { return ['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right']; }
-    if (config.type === 'rect') { return ['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right']; }
-    if (config.fit === 'none') return [];
-    if (config.fit === 'wrap') return ['middle-left', 'middle-right'];
-    // Shrink mode now cares about Height, so we enable corner anchors
-    if (config.fit === 'shrink') return ['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right'];
-    if (config.fit === 'stretch') return ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
-    return ['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right'];
+  if (!config) return [];
+  // Flexible Photoshop-style handles: Always provide all 8 anchors
+  return ['top-left', 'top-center', 'top-right', 'middle-right', 'middle-left', 'bottom-left', 'bottom-center', 'bottom-right'];
 };

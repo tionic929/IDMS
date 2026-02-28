@@ -1,5 +1,5 @@
 
-﻿import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 
 import { toast } from 'react-toastify';
 import { useDesignerContext } from './DesignerContext';
@@ -9,6 +9,8 @@ import { DESIGN_WIDTH, DESIGN_HEIGHT } from '../../../constants/dimensions';
 interface LayerContextType {
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
+  hoveredId: string | null;
+  setHoveredId: (id: string | null) => void;
   addShape: (type: 'rect' | 'circle') => void;
   addText: () => void;
   handleDelete: (id?: string) => void;
@@ -17,6 +19,7 @@ interface LayerContextType {
   handleToggleVisibility: (id: string) => void;
   moveLayer: (direction: 'up' | 'down' | 'top' | 'bottom') => void;
   handleImageUpload: (file: File) => void;
+  handleAutoFitLayer: (id: string) => void;
 }
 
 const LayerContext = createContext<LayerContextType | undefined>(undefined);
@@ -24,6 +27,7 @@ const LayerContext = createContext<LayerContextType | undefined>(undefined);
 export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { editSide, tempLayout, setTempLayout } = useDesignerContext();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   const addShape = useCallback((type: 'rect' | 'circle') => {
     const side = editSide.toLowerCase();
@@ -194,6 +198,62 @@ export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }));
   }, [selectedId, editSide, setTempLayout]);
 
+  const handleAutoFitLayer = useCallback((id: string) => {
+    const side = editSide.toLowerCase();
+    const item = tempLayout[side][id];
+    if (!item) return;
+
+    let updates: any = {};
+
+    if (id.includes('text') || item.type === 'text') {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const text = item.text || '';
+        ctx.font = `${item.fontStyle || 'bold'} ${item.fontSize || 20}px ${item.fontFamily || 'Arial'}`;
+        const metrics = ctx.measureText(text);
+        updates.width = Math.ceil(metrics.width + 10);
+        if (item.fit !== 'none') {
+          updates.fit = 'none';
+        }
+        toast.info(`Auto-fitted text to ${updates.width}px`);
+      }
+    } else if (id.includes('img') || item.type === 'image') {
+      // Fit to full canvas as requested
+      setTempLayout((prev: any) => ({
+        ...prev,
+        [side]: {
+          ...prev[side],
+          [id]: {
+            ...prev[side][id],
+            x: 0,
+            y: 0,
+            width: DESIGN_WIDTH,
+            height: DESIGN_HEIGHT,
+            rotation: 0
+          }
+        }
+      }));
+      toast.info("Image fitted to full canvas");
+      return;
+    } else if (id.includes('rect') || id.includes('circle')) {
+      const size = Math.max(item.width || 100, item.height || 100);
+      updates.width = size;
+      updates.height = size;
+      toast.info("Shape proportions reset");
+    }
+
+    if (Object.keys(updates).length > 0) {
+      setTempLayout((prev: any) => ({
+        ...prev,
+        [side]: {
+          ...prev[side],
+          [id]: { ...prev[side][id], ...updates }
+        }
+      }));
+    }
+  }, [editSide, tempLayout, setTempLayout]);
+
   const value = {
     selectedId,
     setSelectedId,
@@ -204,7 +264,10 @@ export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     handleRename,
     handleToggleVisibility,
     moveLayer,
-    handleImageUpload
+    handleImageUpload,
+    handleAutoFitLayer,
+    hoveredId,
+    setHoveredId
   };
 
   return (

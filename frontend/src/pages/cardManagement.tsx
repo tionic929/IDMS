@@ -25,6 +25,10 @@ import CardManagementSkeleton from '@/components/skeletons/CardManagementSkeleto
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+    MIN_ZOOM,
+    MAX_ZOOM
+} from '@/constants/dimensions';
+import {
     Table,
     TableBody,
     TableCell,
@@ -124,6 +128,43 @@ const Dashboard: React.FC = () => {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [selectedViewingId, setSelectedViewingId] = useState<number | null>(null);
     const [printData, setPrintData] = useState<{ student: ApplicantCard, layout: any } | null>(null);
+    const [previewScale, setPreviewScale] = useState(0.4); // Smaller default for sidebar
+    const [isResizing, setIsResizing] = useState(false);
+
+    const resizeRef = React.useRef<{ startX: number; startScale: number } | null>(null);
+
+    const handleResizeStart = (e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsResizing(true);
+        resizeRef.current = {
+            startX: e.clientX,
+            startScale: previewScale
+        };
+    };
+
+    useEffect(() => {
+        if (!isResizing) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!resizeRef.current) return;
+            const deltaX = e.clientX - resizeRef.current.startX;
+            // Sensitivity: 500px movement = 1.0 scale change
+            const newScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, resizeRef.current.startScale + deltaX / 500));
+            setPreviewScale(newScale);
+        };
+
+        const handleMouseUp = () => {
+            setIsResizing(false);
+            resizeRef.current = null;
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isResizing, previewScale]);
 
     const { allStudents, loading: studentsLoading, refreshStudents: refetchStudents } = useStudents();
 
@@ -223,14 +264,45 @@ const Dashboard: React.FC = () => {
             </Suspense>
 
             <main className="flex-1 flex overflow-hidden">
-                <aside className="bg-white dark:bg-zinc-950 flex flex-col border-r border-zinc-200 dark:border-zinc-900 shadow-2xl shrink-0">
+                <aside className="bg-white dark:bg-zinc-950 flex flex-col border-r border-zinc-200 dark:border-zinc-900 shadow-2xl shrink-0 overflow-hidden" style={{ minWidth: '320px' }}>
                     {activeStudent && previewData && currentAutoLayout ? (
                         <div className="flex flex-col h-full overflow-hidden">
-                            <div className="p-5 bg-zinc-50/50 dark:bg-zinc-900/30 border-b border-zinc-200 dark:border-zinc-900">
-                                <div className="flex flex-row gap-4 items-center justify-center">
-                                    <IDCardPreview data={previewData} layout={currentAutoLayout} side="FRONT" />
-                                    <IDCardPreview data={previewData} layout={currentAutoLayout} side="BACK" />
+                            <div className="p-5 bg-zinc-50/50 dark:bg-zinc-900/30 border-b border-zinc-200 dark:border-zinc-900 relative group/resize">
+                                <div className="flex flex-row gap-4 items-center justify-center overflow-auto custom-scrollbar p-2">
+                                    <div className="relative shadow-lg rounded-sm overflow-hidden shrink-0">
+                                        <IDCardPreview data={previewData} layout={currentAutoLayout} side="FRONT" scale={previewScale} />
+                                    </div>
+                                    <div className="relative shadow-lg rounded-sm overflow-hidden shrink-0">
+                                        <IDCardPreview data={previewData} layout={currentAutoLayout} side="BACK" scale={previewScale} />
+                                    </div>
                                 </div>
+
+                                {/* Resize Handle */}
+                                <div
+                                    onMouseDown={handleResizeStart}
+                                    className={cn(
+                                        "absolute bottom-2 right-2 w-6 h-6 flex items-center justify-center cursor-nwse-resize rounded-lg transition-all",
+                                        isResizing ? "bg-teal-500 text-white scale-110 shadow-lg" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500 opacity-0 group-hover/resize:opacity-100 hover:bg-zinc-300 dark:hover:bg-zinc-700"
+                                    )}
+                                >
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className="flex gap-0.5">
+                                            <div className="w-1 h-1 bg-current rounded-full opacity-40" />
+                                            <div className="w-1 h-1 bg-current rounded-full" />
+                                        </div>
+                                        <div className="flex gap-0.5">
+                                            <div className="w-1 h-1 bg-current rounded-full" />
+                                            <div className="w-1 h-1 bg-current rounded-full" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Scale Indicator */}
+                                {isResizing && (
+                                    <div className="absolute top-2 right-2 px-2 py-1 bg-teal-500 text-white text-[9px] font-black rounded-full shadow-lg z-10">
+                                        {Math.round(previewScale * 100)}%
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">

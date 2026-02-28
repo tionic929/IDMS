@@ -11,6 +11,7 @@ export interface LayoutItemSchema {
   fontFamily: string;
   fontStyle: string;
   align: 'left' | 'center' | 'right';
+  verticalAlign?: 'top' | 'middle' | 'bottom';
 
   locked?: boolean;
   visible?: boolean;

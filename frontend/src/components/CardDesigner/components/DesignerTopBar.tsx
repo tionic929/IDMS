@@ -1,8 +1,8 @@
 
-﻿import React from 'react';
+import React from 'react';
 import {
   Save, Minus, Plus, ChevronRight, Magnet, Download, RefreshCw, Maximize,
-  Grid3X3, Focus, Ruler
+  Grid3X3, Focus, Ruler, Minimize
 
 } from 'lucide-react';
 import { useDesignerContext } from '../context/DesignerContext';
@@ -99,6 +99,11 @@ export const DesignerTopBar: React.FC<DesignerTopBarProps> = ({ stageRef }) => {
             icon={Maximize}
             onClick={() => window.dispatchEvent(new CustomEvent('recenter-canvas'))}
             label="Recenter View"
+          />
+          <IconButton
+            icon={Minimize}
+            onClick={() => window.dispatchEvent(new CustomEvent('autofit-canvas'))}
+            label="Fit to Screen"
           />
         </div>
 

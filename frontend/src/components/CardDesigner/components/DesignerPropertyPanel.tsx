@@ -1,5 +1,5 @@
 
-﻿import React from 'react';
+import React from 'react';
 
 import { useDesignerContext } from '../context/DesignerContext';
 import { useLayerContext } from '../context/LayerContext';
@@ -8,11 +8,48 @@ import PropertyPanel from '../../../components/Designer/PropertyPanel';
 
 import {
   AlignLeft, AlignCenter, AlignRight,
+  AlignStartVertical, AlignCenterVertical, AlignEndVertical,
   ArrowUp, ArrowDown, Trash2, MousePointer2,
   ArrowUpToLine, ArrowDownToLine, Unlock, Lock,
   Type, Image as ImageIcon, Layers, Move,
-  ChevronDown, Hexagon
+  ChevronDown, Hexagon, Maximize2
 } from 'lucide-react';
+
+const SliderLabelWrapper = ({ label, value, min, max, step = 1, onChange, suffix = "" }: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  onChange: (val: number) => void;
+  suffix?: string;
+}) => (
+  <div className="space-y-2">
+    <div className="flex justify-between items-center px-0.5">
+      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{label}</span>
+      <span className="text-[10px] font-black text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded-md border border-slate-200">
+        {value}{suffix}
+      </span>
+    </div>
+    <div className="flex items-center gap-3">
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        className="flex-1 h-1 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-slate-900"
+      />
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+        className="w-12 bg-slate-50 border border-slate-200 rounded-lg px-1.5 py-1 text-[10px] font-bold text-slate-900 outline-none focus:border-slate-900 text-center"
+      />
+    </div>
+  </div>
+);
 
 const PropertyGroup = ({ title, children, icon: Icon }: { title: string; children: React.ReactNode; icon?: any }) => (
   <div className="border-b border-slate-100 pb-5 mb-5 last:border-0">
@@ -91,28 +128,49 @@ export const DesignerPropertyPanel: React.FC = () => {
       </PropertyGroup>
 
       <PropertyGroup title="Layout" icon={Move}>
-        <div className="grid grid-cols-2 gap-4">
-          <LabelWrapper label="Position X">
-            <input type="number" value={Math.round(config.x || 0)} onChange={(e) => updateItem(selectedId, { x: parseInt(e.target.value) })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors" />
-          </LabelWrapper>
-          <LabelWrapper label="Position Y">
-            <input type="number" value={Math.round(config.y || 0)} onChange={(e) => updateItem(selectedId, { y: parseInt(e.target.value) })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors" />
-          </LabelWrapper>
-          <LabelWrapper label="Width (W)">
-            <input type="number" value={Math.round(config.width || 0)} onChange={(e) => updateItem(selectedId, { width: parseInt(e.target.value) })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors" />
-          </LabelWrapper>
-          <LabelWrapper label="Height (H)">
-            <input type="number" value={Math.round(config.height || 0)} onChange={(e) => updateItem(selectedId, { height: parseInt(e.target.value) })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors" />
-          </LabelWrapper>
-          <LabelWrapper label="Rotation">
-            <input type="number" value={config.rotation || 0} onChange={(e) => updateItem(selectedId, { rotation: parseInt(e.target.value) })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors" />
-          </LabelWrapper>
-          <LabelWrapper label="Opacity">
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-              <input type="number" min="0" max="100" value={Math.round((config.opacity ?? 1) * 100)} onChange={(e) => updateItem(selectedId, { opacity: parseInt(e.target.value) / 100 })} className="w-full bg-transparent text-xs font-bold text-slate-900 outline-none" />
-              <span className="text-[10px] font-black text-slate-400">%</span>
-            </div>
-          </LabelWrapper>
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+            <SliderLabelWrapper
+              label="Position X"
+              value={Math.round(config.x || 0)}
+              min={-500} max={1500}
+              onChange={(v) => updateItem(selectedId, { x: v })}
+            />
+            <SliderLabelWrapper
+              label="Position Y"
+              value={Math.round(config.y || 0)}
+              min={-500} max={1500}
+              onChange={(v) => updateItem(selectedId, { y: v })}
+            />
+            <SliderLabelWrapper
+              label="Width (W)"
+              value={Math.round(config.width || 0)}
+              min={1} max={2000}
+              onChange={(v) => updateItem(selectedId, { width: v })}
+            />
+            <SliderLabelWrapper
+              label="Height (H)"
+              value={Math.round(config.height || 0)}
+              min={1} max={2000}
+              onChange={(v) => updateItem(selectedId, { height: v })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+            <SliderLabelWrapper
+              label="Rotation"
+              value={config.rotation || 0}
+              min={0} max={360}
+              onChange={(v) => updateItem(selectedId, { rotation: v })}
+              suffix="°"
+            />
+            <SliderLabelWrapper
+              label="Opacity"
+              value={Math.round((config.opacity ?? 1) * 100)}
+              min={0} max={100}
+              onChange={(v) => updateItem(selectedId, { opacity: v / 100 })}
+              suffix="%"
+            />
+          </div>
         </div>
       </PropertyGroup>
 
@@ -127,17 +185,31 @@ export const DesignerPropertyPanel: React.FC = () => {
             />
           </LabelWrapper>
 
-          <div className="grid grid-cols-2 gap-4">
-            <LabelWrapper label="Font Size">
-              <input type="number" value={config.fontSize || 18} onChange={(e) => updateItem(selectedId, { fontSize: parseInt(e.target.value) })} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none" />
-            </LabelWrapper>
-            <LabelWrapper label="Alignment">
-              <div className="flex gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
-                <button onClick={() => updateItem(selectedId, { align: 'left' })} className={`flex-1 flex items-center justify-center p-1.5 rounded-lg ${config.align === 'left' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}><AlignLeft size={14} /></button>
-                <button onClick={() => updateItem(selectedId, { align: 'center' })} className={`flex-1 flex items-center justify-center p-1.5 rounded-lg ${config.align === 'center' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}><AlignCenter size={14} /></button>
-                <button onClick={() => updateItem(selectedId, { align: 'right' })} className={`flex-1 flex items-center justify-center p-1.5 rounded-lg ${config.align === 'right' ? 'bg-white shadow-sm text-slate-900' : 'text-slate-400'}`}><AlignRight size={14} /></button>
-              </div>
-            </LabelWrapper>
+          <div className="space-y-4">
+            <SliderLabelWrapper
+              label="Font Size"
+              value={config.fontSize || 18}
+              min={6} max={120}
+              onChange={(v) => updateItem(selectedId, { fontSize: v })}
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <LabelWrapper label="H-Align">
+                <div className="flex gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
+                  <button onClick={() => updateItem(selectedId, { align: 'left' })} className={`flex-1 flex items-center justify-center p-1.5 rounded-lg transition-all ${config.align === 'left' ? 'bg-white shadow-sm text-slate-900 border border-slate-200/50' : 'text-slate-400 hover:text-slate-600'}`}><AlignLeft size={14} /></button>
+                  <button onClick={() => updateItem(selectedId, { align: 'center' })} className={`flex-1 flex items-center justify-center p-1.5 rounded-lg transition-all ${config.align === 'center' ? 'bg-white shadow-sm text-slate-900 border border-slate-200/50' : 'text-slate-400 hover:text-slate-600'}`}><AlignCenter size={14} /></button>
+                  <button onClick={() => updateItem(selectedId, { align: 'right' })} className={`flex-1 flex items-center justify-center p-1.5 rounded-lg transition-all ${config.align === 'right' ? 'bg-white shadow-sm text-slate-900 border border-slate-200/50' : 'text-slate-400 hover:text-slate-600'}`}><AlignRight size={14} /></button>
+                </div>
+              </LabelWrapper>
+
+              <LabelWrapper label="V-Align">
+                <div className="flex gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
+                  <button onClick={() => updateItem(selectedId, { verticalAlign: 'top' })} className={`flex-1 flex items-center justify-center p-1.5 rounded-lg transition-all ${config.verticalAlign === 'top' ? 'bg-white shadow-sm text-slate-900 border border-slate-200/50' : 'text-slate-400 hover:text-slate-600'}`}><AlignStartVertical size={14} /></button>
+                  <button onClick={() => updateItem(selectedId, { verticalAlign: 'middle' })} className={`flex-1 flex items-center justify-center p-1.5 rounded-lg transition-all ${(config.verticalAlign === 'middle' || !config.verticalAlign) ? 'bg-white shadow-sm text-slate-900 border border-slate-200/50' : 'text-slate-400 hover:text-slate-600'}`}><AlignCenterVertical size={14} /></button>
+                  <button onClick={() => updateItem(selectedId, { verticalAlign: 'bottom' })} className={`flex-1 flex items-center justify-center p-1.5 rounded-lg transition-all ${config.verticalAlign === 'bottom' ? 'bg-white shadow-sm text-slate-900 border border-slate-200/50' : 'text-slate-400 hover:text-slate-600'}`}><AlignEndVertical size={14} /></button>
+                </div>
+              </LabelWrapper>
+            </div>
           </div>
 
           <LabelWrapper label="Fill Color">

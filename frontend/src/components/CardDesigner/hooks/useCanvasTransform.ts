@@ -1,5 +1,5 @@
 
-﻿import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 
 import { useCanvasContext } from '../context/CanvasContext';
 import { useDesignerContext } from '../context/DesignerContext';
@@ -31,11 +31,18 @@ export const useCanvasTransform = (
       scaleY: 1
     });
 
+    // Explicitly update transformer to ensure it sticks to the node during manual resize
+    const transformer = node.getStage()?.findOne('.primary-transformer');
+    if (transformer) {
+      transformer.forceUpdate();
+    }
+
     // Update internal elements
     const textNode = node.findOne('Text');
     const imageNode = node.findOne('Image');
     const shapeNode = node.findOne('.Shape');
     const boundsNode = node.findOne('.Bounds');
+    const hitAreaNode = node.findOne('.HitArea');
 
     if (textNode) {
       textNode.width(newWidth);
@@ -48,6 +55,10 @@ export const useCanvasTransform = (
     if (boundsNode) {
       boundsNode.width(newWidth);
       boundsNode.height(newHeight);
+    }
+    if (hitAreaNode) {
+      hitAreaNode.width(newWidth);
+      hitAreaNode.height(newHeight);
     }
 
     if (shapeNode) {

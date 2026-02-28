@@ -1,5 +1,5 @@
 
-﻿import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 
 import { Stage, Layer, Line, Transformer, Image as KonvaImage, Rect } from 'react-konva';
 import useImage from 'use-image';
@@ -34,9 +34,10 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
     showSnapGuides, snapLines, setSnapLines
 
   } = useCanvasContext();
-  const { selectedId, setSelectedId } = useLayerContext();
+  const { selectedId, setSelectedId, hoveredId, setHoveredId } = useLayerContext();
 
   const trRef = useRef<any>(null);
+  const hoverTrRef = useRef<any>(null);
   const layerRef = useRef<any>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -70,6 +71,32 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
       behavior: 'smooth'
     });
   }, []);
+
+  const handleAutoFit = useCallback(() => {
+    if (!scrollContainerRef.current) return;
+    const container = scrollContainerRef.current;
+
+    // We target about 85% of the viewport to leave room for padding/UI
+    const padding = 60;
+    const availableWidth = container.clientWidth - padding;
+    const availableHeight = container.clientHeight - padding;
+
+    if (availableWidth <= 0 || availableHeight <= 0) return;
+
+    const scaleX = availableWidth / DESIGN_WIDTH;
+    const scaleY = availableHeight / DESIGN_HEIGHT;
+
+    // Use the smaller scale to ensure it fits both directions
+    let newScale = Math.min(scaleX, scaleY);
+
+    // Clamp to existing MIN/MAX zoom
+    newScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newScale));
+
+    setZoom(newScale);
+
+    // Trigger recenter after scale change
+    setTimeout(handleRecenter, 50);
+  }, [handleRecenter, setZoom]);
 
   useEffect(() => {
     const timer = setTimeout(handleRecenter, 100);
@@ -129,8 +156,67 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
     return () => window.removeEventListener('recenter-canvas', listener);
   }, [handleRecenter]);
 
+  useEffect(() => {
+    const listener = () => handleAutoFit();
+    window.addEventListener('autofit-canvas', listener);
+    return () => window.removeEventListener('autofit-canvas', listener);
+  }, [handleAutoFit]);
+
+
+  const selectedIdRef = useRef<string | null>(selectedId);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
+  const getIntersectingIds = (stage: any, pos: any): string[] => {
+    if (!pos) return [];
+    const intersections = stage.getAllIntersections(pos);
+    const candidateIds: string[] = [];
+
+    intersections.forEach((shape: any) => {
+      let node = shape;
+      while (node && node !== stage) {
+        const name = node.name();
+        if (name && currentSideData?.[name]) {
+          if (!candidateIds.includes(name)) {
+            candidateIds.push(name);
+          }
+          break;
+        }
+        node = node.getParent();
+      }
+    });
+
+    return candidateIds;
+  };
+
+  const getSmallestElement = (candidateIds: string[]) => {
+    if (candidateIds.length === 0) return null;
+
+    const sorted = [...candidateIds].sort((idA, idB) => {
+      const itemA = currentSideData[idA];
+      const itemB = currentSideData[idB];
+      const areaA = (itemA.width || 1) * (itemA.height || 1);
+      const areaB = (itemB.width || 1) * (itemB.height || 1);
+
+      if (Math.abs(areaA - areaB) < 0.1) return 0;
+      return areaA - areaB;
+    });
+
+    return sorted[0];
+  };
 
   const handleContainerMouseDown = (e: React.MouseEvent) => {
+    const targetElement = e.target as HTMLElement;
+    // If we click on the outer wrapper (grey area) or the padding zone, deselect the selected element
+    if (
+      targetElement === scrollContainerRef.current ||
+      targetElement.classList?.contains('bg-slate-50') ||
+      targetElement.id === 'canvas-padding-wrapper'
+    ) {
+      setSelectedId(null);
+    }
+
     if (isPanning || e.button === 1) {
       e.preventDefault();
       const container = scrollContainerRef.current;
@@ -150,11 +236,70 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
     }
   };
 
+  const handleStageMouseMove = (e: any) => {
+    if (isPanning) return;
+
+    const stage = e.target.getStage();
+    const pos = stage.getPointerPosition();
+    if (!pos) return;
+
+    // Independent hover select priority based on smallest area
+    const candidateIds = getIntersectingIds(stage, pos);
+    const targetId = getSmallestElement(candidateIds);
+
+    if (targetId && targetId !== hoveredId && targetId !== selectedIdRef.current) {
+      setHoveredId(targetId);
+    } else if (!targetId && hoveredId !== null) {
+      setHoveredId(null);
+    }
+  };
+
+  const handleStageMouseLeave = () => {
+    if (hoveredId !== null) setHoveredId(null);
+  };
+
   useEffect(() => {
-    if (!stageRef.current || !trRef.current) return;
-    const selectedNode = stageRef.current.findOne('.' + selectedId);
-    trRef.current.nodes(selectedNode ? [selectedNode] : []);
-  }, [selectedId, editSide, stageRef]);
+    if (!stageRef.current) return;
+    const stage = stageRef.current;
+
+    // Primary Transformer
+    if (trRef.current) {
+      const selectedNode = selectedId ? stage.findOne('.' + selectedId) : null;
+      if (selectedNode) {
+        trRef.current.nodes([selectedNode]);
+
+        // Fix for "Transformer Dominance":
+        // Konva's Transformer renders a transparent back plate ('_back' or 'back') that sits on top of EVERYTHING
+        // and catches clicks. We disable it so you can click elements inside the selected item's bounds.
+        const back1 = trRef.current.findOne('._back');
+        const back2 = trRef.current.findOne('.back');
+        if (back1) back1.listening(false);
+        if (back2) back2.listening(false);
+
+        trRef.current.getLayer()?.batchDraw();
+      } else {
+        trRef.current.nodes([]);
+      }
+    }
+
+    // Hover Transformer
+    if (hoverTrRef.current) {
+      const showHover = hoveredId && hoveredId !== selectedId;
+      const hoveredNode = showHover ? stage.findOne('.' + hoveredId) : null;
+      if (hoveredNode) {
+        hoverTrRef.current.nodes([hoveredNode]);
+
+        const hoverBack1 = hoverTrRef.current.findOne('._back');
+        const hoverBack2 = hoverTrRef.current.findOne('.back');
+        if (hoverBack1) hoverBack1.listening(false);
+        if (hoverBack2) hoverBack2.listening(false);
+
+        hoverTrRef.current.getLayer()?.batchDraw();
+      } else {
+        hoverTrRef.current.nodes([]);
+      }
+    }
+  }, [selectedId, hoveredId, editSide, stageRef]);
 
 
   return (
@@ -174,6 +319,7 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
               }`}
           >
             <div
+              id="canvas-padding-wrapper"
               className="flex items-center justify-center min-w-full min-h-full"
               style={{ padding: '2000px' }}
             >
@@ -205,8 +351,71 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
                   height={DESIGN_HEIGHT * zoom}
                   scaleX={zoom}
                   scaleY={zoom}
+                  onMouseMove={handleStageMouseMove}
+                  onMouseLeave={handleStageMouseLeave}
                   onMouseDown={(e) => {
-                    if (e.target === e.target.getStage()) setSelectedId(null);
+                    const stage = e.target.getStage();
+                    if (!stage) return;
+
+                    if (e.target.getParent()?.className === 'Transformer') {
+                      return;
+                    }
+
+                    const pos = stage.getPointerPosition();
+                    const candidateIds = pos ? getIntersectingIds(stage, pos) : [];
+
+                    if (candidateIds.length > 0) {
+                      if (selectedIdRef.current && candidateIds.includes(selectedIdRef.current)) {
+                        // Sticky Selection: the click intersects the currently selected element.
+                        // Do not change the selection. Allow normal drag to proceed.
+                      } else {
+                        // Clicked outside the current selection, pick the smallest overlapping
+                        const targetId = getSmallestElement(candidateIds);
+                        selectedIdRef.current = targetId;
+                        setSelectedId(targetId);
+                      }
+                    } else if (e.target === stage) {
+                      selectedIdRef.current = null;
+                      setSelectedId(null);
+                    }
+                  }}
+                  onDblClick={(e) => {
+                    const stage = e.target.getStage();
+                    if (!stage) return;
+
+                    if (e.target.getParent()?.className === 'Transformer') {
+                      return;
+                    }
+
+                    const pos = stage.getPointerPosition();
+                    const candidateIds = pos ? getIntersectingIds(stage, pos) : [];
+
+                    if (candidateIds.length > 0) {
+                      // Force selection change on Double Click to grab the smallest overlapping element
+                      const targetId = getSmallestElement(candidateIds);
+                      if (targetId) {
+                        selectedIdRef.current = targetId;
+                        setSelectedId(targetId);
+                      }
+                    }
+                  }}
+                  // Intercept drag to allow grabbing a covered selected element natively
+                  onDragStart={(e) => {
+                    if (e.target.name() === 'background') e.cancelBubble = true;
+
+                    const name = e.target.name();
+                    if (name && currentSideData[name] && name !== selectedIdRef.current) {
+                      // A non-selected element intercepted the native drag!
+                      e.target.stopDrag();
+
+                      // Reroute the drag exactly to the correctly selected sticky element
+                      if (selectedIdRef.current) {
+                        const selectedNode = e.target.getStage()?.findOne('.' + selectedIdRef.current);
+                        if (selectedNode && !currentSideData[selectedIdRef.current]?.locked) {
+                          selectedNode.startDrag();
+                        }
+                      }
+                    }
                   }}
                 >
                   <Layer ref={layerRef}>
@@ -260,18 +469,43 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
 
                     <Transformer
                       ref={trRef}
+                      name="primary-transformer"
                       rotateEnabled={true}
+                      flipEnabled={false}
                       enabledAnchors={getEnabledAnchors(selectedId ? currentSideData[selectedId] : null)}
-
-                      anchorSize={6 / zoom}
-                      anchorCornerRadius={10}
-                      borderStrokeWidth={1.5 / zoom}
-                      anchorStroke="#0f172a"
+                      boundBoxFunc={(oldBox, newBox) => {
+                        // Prevent too small elements
+                        if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
+                          return oldBox;
+                        }
+                        return newBox;
+                      }}
+                      // Photoshop Accurate Styles
+                      padding={0}
+                      anchorSize={8 / zoom}
+                      anchorCornerRadius={1}
                       anchorFill="#fff"
-                      borderStroke="#0f172a"
+                      anchorStroke="#6366f1"
+                      anchorStrokeWidth={1 / zoom}
+                      borderStroke="#6366f1"
+                      borderStrokeWidth={1 / zoom}
+                      // Smooth drag experience
                       ignoreStroke={true}
-                      padding={4}
+                    />
 
+                    <Transformer
+                      ref={hoverTrRef}
+                      name="hover-transformer"
+                      rotateEnabled={false}
+                      flipEnabled={false}
+                      enabledAnchors={[]}
+                      // Markedly more visible Hover Styles
+                      padding={0}
+                      borderStroke="#4f46e5"
+                      borderStrokeWidth={3 / zoom}
+                      opacity={0.8}
+                      listening={false}
+                      ignoreStroke={true}
                     />
                   </Layer>
                 </Stage>

@@ -1,8 +1,8 @@
 
-﻿import React from 'react';
+import React from 'react';
 import { useDesignerContext } from '../context/DesignerContext';
 import { useLayerContext } from '../context/LayerContext';
-import { Layers, Type, Square, Circle as CircleIcon, Image as ImageIcon, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Layers, Type, Square, Circle as CircleIcon, Image as ImageIcon, Eye, EyeOff, Trash2, Focus } from 'lucide-react';
 
 export const DesignerLayersSidebar: React.FC = () => {
   const { currentSideData, editSide, setEditSide } = useDesignerContext();
@@ -10,7 +10,8 @@ export const DesignerLayersSidebar: React.FC = () => {
     selectedId,
     setSelectedId,
     handleDelete,
-    handleToggleVisibility
+    handleToggleVisibility,
+    handleAutoFitLayer
   } = useLayerContext();
 
   const layers = currentSideData ? Object.entries(currentSideData) : [];
@@ -28,8 +29,8 @@ export const DesignerLayersSidebar: React.FC = () => {
                 setSelectedId(null);
               }}
               className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${editSide === s
-                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
-                  : 'text-slate-400 hover:text-slate-600'
+                ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
+                : 'text-slate-400 hover:text-slate-600'
                 }`}
             >
               {s}
@@ -79,6 +80,16 @@ export const DesignerLayersSidebar: React.FC = () => {
                   title={config.visible !== false ? "Hide Layer" : "Show Layer"}
                 >
                   {config.visible !== false ? <Eye size={12} /> : <EyeOff size={12} />}
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleAutoFitLayer(id); }}
+                  className={`p-1.5 rounded-lg transition-colors ${selectedId === id
+                    ? 'hover:bg-white/20 text-white/70 hover:text-white'
+                    : 'hover:bg-slate-200 text-slate-400 hover:text-slate-900'
+                    }`}
+                  title="Auto-fit Layer"
+                >
+                  <Focus size={12} />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(id); }}
