@@ -11,6 +11,8 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Exception;
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -88,7 +90,8 @@ class ApplicantsController extends Controller
             return response()->json([
                 'message' => 'An internal error occurred while updating the card status.'
             ], 500);
-        }    }
+        }
+    }
 
     public function getPreview($id)
     {
@@ -106,7 +109,8 @@ class ApplicantsController extends Controller
             return $student;
         });
     }
-    public function store(Request $request)    {
+    public function store(Request $request)
+    {
         try {
             // Log the incoming request to see what's being received
             \Log::info('New ID Application Request received', [
@@ -195,7 +199,8 @@ class ApplicantsController extends Controller
                 'message' => 'Error saving student',
                 'error' => $e->getMessage(),
             ], 500);
-        }    }
+        }
+    }
 
     public function toggleHasCard(Request $request, Student $student)
     {
@@ -346,9 +351,9 @@ class ApplicantsController extends Controller
             ->first();
 
         return response()->json([
-            'applicantsReport' => (int)$stats->total,
-            'pendingCount' => (int)$stats->pending,
-            'issuedCount' => (int)$stats->issued,
+            'applicantsReport' => (int)($stats->total ?? 0),
+            'pendingCount' => (int)($stats->pending ?? 0),
+            'issuedCount' => (int)($stats->issued ?? 0),
         ]);
     }
 
