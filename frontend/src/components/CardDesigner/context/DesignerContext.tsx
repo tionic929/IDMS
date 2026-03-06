@@ -1,5 +1,5 @@
 
-﻿import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { saveLayout } from '../../../api/templates';
 import { EXPORT_PIXEL_RATIO } from '../../../constants/dimensions';

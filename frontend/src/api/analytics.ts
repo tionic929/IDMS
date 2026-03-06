@@ -16,7 +16,7 @@ export interface DashboardFilters {
 export const fetchDashboardData = async (filters?: DashboardFilters): Promise<DashboardData> => {
   try {
     const params = new URLSearchParams();
-    
+
     if (filters?.days) {
       params.append('days', filters.days.toString());
     }
@@ -57,7 +57,7 @@ export const refreshDashboardData = async (filters?: DashboardFilters): Promise<
 };
 
 /**
- * Export dashboard data to CSV format
+ * Export dashboard data to CSV format (legacy, kept for compatibility)
  * @param data - Dashboard data to export
  * @param filters - Optional filters applied
  */
@@ -99,6 +99,67 @@ export const exportDashboardAsCSV = (
     document.body.removeChild(link);
   } catch (error) {
     console.error('Failed to export CSV:', error);
+    throw error;
+  }
+};
+
+/**
+ * Export a formatted XLSX spreadsheet from the backend.
+ * Includes full student records with names, status, course, and date range.
+ */
+export const exportSpreadsheet = async (
+  filters?: DashboardFilters
+): Promise<void> => {
+  try {
+    const params = new URLSearchParams();
+
+    if (filters?.startDate) {
+      params.append('start_date', filters.startDate);
+    }
+    if (filters?.endDate) {
+      params.append('end_date', filters.endDate);
+    }
+    if (filters?.department) {
+      params.append('department', filters.department);
+    }
+    if (filters?.days && !filters?.startDate) {
+      // Compute start_date from days if no explicit start_date
+      const d = new Date();
+      d.setDate(d.getDate() - filters.days);
+      params.append('start_date', d.toISOString().split('T')[0]);
+      params.append('end_date', new Date().toISOString().split('T')[0]);
+    }
+
+    const response = await api.get('/analytics/export', {
+      params: Object.fromEntries(params.entries()),
+      responseType: 'blob',
+    });
+
+    // Extract filename from content-disposition header or use fallback
+    const disposition = response.headers['content-disposition'];
+    let fileName = `IDMS-Export-${new Date().toISOString().split('T')[0]}.xlsx`;
+    if (disposition) {
+      const match = disposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (match?.[1]) {
+        fileName = match[1].replace(/['"]/g, '');
+      }
+    }
+
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Failed to export spreadsheet:', error);
     throw error;
   }
 };

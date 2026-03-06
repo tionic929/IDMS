@@ -4,7 +4,7 @@ import {
   Calendar, Download, RefreshCw, AlertCircle, TrendingUp, Clock, Eye,
   Filter, ChevronDown, MoreHorizontal
 } from 'lucide-react';
-import { fetchDashboardData, exportDashboardAsCSV, type DashboardFilters } from '@/api/analytics';
+import { fetchDashboardData, exportSpreadsheet, type DashboardFilters } from '@/api/analytics';
 import { type DashboardData } from '@/types/analytics';
 import { type Students } from '@/types/students';
 import MetricCard from '@/components/SubComponents/MetricCard';
@@ -82,22 +82,38 @@ const DateRangePicker = ({ onRangeChange, currentRange }: { onRangeChange: (r: a
     { label: 'Last 90 days', days: 90 },
   ];
 
+  const [showCustom, setShowCustom] = useState(false);
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+
+  const applyCustomRange = () => {
+    if (customStart && customEnd) {
+      onRangeChange({
+        days: 0,
+        label: `${customStart} — ${customEnd}`,
+        startDate: customStart,
+        endDate: customEnd,
+      });
+    }
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2 h-9">
           <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span>{currentRange.label || 'Date Range'}</span>
+          <span className="max-w-[180px] truncate">{currentRange.label || 'Date Range'}</span>
           <ChevronDown className="h-3 w-3 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-48">
-        <DropdownMenuLabel>Select Range</DropdownMenuLabel>
+      <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuLabel>Quick Presets</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuRadioGroup
-          value={currentRange.days.toString()}
+          value={currentRange.days?.toString() || ''}
           onValueChange={(val) => {
             const days = parseInt(val);
+            setShowCustom(false);
             onRangeChange({ days, label: presets.find(p => p.days === days)?.label });
           }}
         >
@@ -107,6 +123,37 @@ const DateRangePicker = ({ onRangeChange, currentRange }: { onRangeChange: (r: a
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Custom Range</DropdownMenuLabel>
+        <div className="px-2 pb-2 space-y-2">
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase w-10 shrink-0">From</label>
+            <input
+              type="date"
+              value={customStart}
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="flex-1 h-8 px-2 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase w-10 shrink-0">To</label>
+            <input
+              type="date"
+              value={customEnd}
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="flex-1 h-8 px-2 text-xs border border-input rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+          <Button
+            size="sm"
+            className="w-full h-8 text-[10px] font-bold uppercase tracking-widest"
+            disabled={!customStart || !customEnd}
+            onClick={applyCustomRange}
+          >
+            Apply Range
+          </Button>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -150,7 +197,8 @@ const Dashboard = () => {
   const [error, setError] = useState<Error | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [dateRange, setDateRange] = useState({ label: 'Last 30 days', days: 30 });
+  const [isExporting, setIsExporting] = useState(false);
+  const [dateRange, setDateRange] = useState<any>({ label: 'Last 30 days', days: 30 });
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [availableDepts, setAvailableDepts] = useState<string[]>([]);
   const [visibleMetrics, setVisibleMetrics] = useState({
@@ -231,14 +279,21 @@ const Dashboard = () => {
     setSelectedDept(dept);
   };
 
-  const handleExport = () => {
-    if (data) {
-      try {
-        exportDashboardAsCSV(data);
-      } catch (err) {
-        console.error('Export failed:', err);
-        alert('Failed to export data');
-      }
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const filters: DashboardFilters = {
+        days: dateRange.days || undefined,
+        ...(selectedDept && { department: selectedDept }),
+        ...(dateRange.startDate && { startDate: dateRange.startDate }),
+        ...(dateRange.endDate && { endDate: dateRange.endDate }),
+      };
+      await exportSpreadsheet(filters);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Failed to export spreadsheet');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -309,11 +364,11 @@ const Dashboard = () => {
               variant="outline"
               size="sm"
               onClick={handleExport}
-              disabled={loading || !data}
+              disabled={loading || isExporting}
               className="gap-2 h-9 bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             >
-              <Download className="h-4 w-4" />
-              Spreadsheet
+              <Download className={cn("h-4 w-4", isExporting && "animate-bounce")} />
+              {isExporting ? 'Exporting...' : 'Spreadsheet'}
             </Button>
 
             <Button

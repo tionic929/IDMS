@@ -1,5 +1,5 @@
 
-﻿import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 import { DEFAULT_ZOOM } from '../../../constants/dimensions';
 
@@ -66,6 +66,23 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     isTransforming,
     setIsTransforming
   };
+
+  // ── Custom event listeners for command palette / keyboard shortcuts ───────────
+  useEffect(() => {
+    const onToggleGrid = () => setShowGrid(g => !g);
+    const onToggleSnap = () => setSnapEnabled(s => !s);
+    const onSetTool = (e: Event) => setActiveTool((e as CustomEvent).detail);
+
+    window.addEventListener('designer:toggle-grid', onToggleGrid);
+    window.addEventListener('designer:toggle-snap', onToggleSnap);
+    window.addEventListener('designer:set-tool', onSetTool);
+
+    return () => {
+      window.removeEventListener('designer:toggle-grid', onToggleGrid);
+      window.removeEventListener('designer:toggle-snap', onToggleSnap);
+      window.removeEventListener('designer:set-tool', onSetTool);
+    };
+  }, []);
 
   return (
     <CanvasContext.Provider value={value}>

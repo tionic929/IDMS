@@ -1,6 +1,6 @@
 import React from 'react';
-import { 
-  AlignLeft, ArrowUp, ArrowDown, Trash2, MousePointer2, 
+import {
+  AlignLeft, ArrowUp, ArrowDown, Trash2, MousePointer2,
   ArrowUpToLine, ArrowDownToLine, Unlock, Lock,
   Move, Type, Layers, Maximize, List, Hash, Palette, RotateCw
 } from 'lucide-react';
@@ -62,7 +62,7 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
             <p className="text-[9px] text-zinc-500 font-mono">ID: {selectedId.slice(0, 8)}</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={() => onUpdate(selectedId, { locked: !config.locked })}
           className={`p-2 rounded-lg transition-all ${config.locked ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'}`}
         >
@@ -108,13 +108,13 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
         <section>
           <SectionHeader icon={Palette} label="Appearance" />
           <div className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 flex items-center justify-between group hover:border-zinc-700 transition-colors">
-             <div className="flex items-center gap-3">
-               <div className="relative w-6 h-6 rounded-md border border-zinc-700 overflow-hidden shadow-inner">
-                 <input type="color" value={config.fill || '#000000'} onChange={(e) => onUpdate(selectedId, { fill: e.target.value })} className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 cursor-pointer" />
-               </div>
-               <span className="text-[11px] font-mono uppercase text-zinc-400 group-hover:text-zinc-200 transition-colors">{config.fill || '#000000'}</span>
-             </div>
-             <span className="text-[9px] text-zinc-600 font-bold">100%</span>
+            <div className="flex items-center gap-3">
+              <div className="relative w-6 h-6 rounded-md border border-zinc-700 overflow-hidden shadow-inner">
+                <input type="color" value={config.fill || '#000000'} onChange={(e) => onUpdate(selectedId, { fill: e.target.value })} className="absolute inset-0 w-[200%] h-[200%] -translate-x-1/4 -translate-y-1/4 cursor-pointer" />
+              </div>
+              <span className="text-[11px] font-mono uppercase text-zinc-400 group-hover:text-zinc-200 transition-colors">{config.fill || '#000000'}</span>
+            </div>
+            <span className="text-[9px] text-zinc-600 font-bold">100%</span>
           </div>
         </section>
 
@@ -123,8 +123,8 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
           <section className="space-y-6">
             <SectionHeader icon={Type} label="Typography" />
             <InputGroup label="Content">
-              <textarea 
-                value={config.text || ''} 
+              <textarea
+                value={config.text || ''}
                 onChange={(e) => onUpdate(selectedId, { text: e.target.value })}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs text-zinc-200 outline-none focus:border-indigo-500/50 h-24 resize-none leading-relaxed transition-all"
                 placeholder="Enter text..."
@@ -168,11 +168,11 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
 
         {/* Danger Zone */}
         <div className="pt-6">
-          <button 
-            onClick={onDelete} 
+          <button
+            onClick={onDelete}
             className="w-full py-3 text-[11px] font-bold text-zinc-500 hover:text-red-400 hover:bg-red-500/5 rounded-xl border border-zinc-800 hover:border-red-500/20 flex items-center justify-center gap-2 transition-all group"
           >
-            <Trash2 size={14} className="group-hover:scale-110 transition-transform" /> 
+            <Trash2 size={14} className="group-hover:scale-110 transition-transform" />
             Delete Layer
           </button>
         </div>
@@ -182,9 +182,9 @@ const PropertyPanel: React.FC<PropertyPanelProps> = ({
 };
 
 const ArrangementBtn = ({ onClick, icon, title }: { onClick: () => void, icon: any, title: string }) => (
-  <button 
-    onClick={onClick} 
-    title={title} 
+  <button
+    onClick={onClick}
+    title={title}
     className="flex-1 flex items-center justify-center p-2.5 hover:bg-zinc-800 text-zinc-500 hover:text-zinc-200 rounded-lg transition-all active:scale-90"
   >
     {icon}
