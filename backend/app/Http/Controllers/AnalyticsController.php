@@ -265,52 +265,71 @@ class AnalyticsController extends Controller
     }
 
     /**
-     * Export a formatted XLSX spreadsheet with summary + full student records.
+     * Export a formatted XLSX spreadsheet.
      *
      * Query Parameters:
+     *  - type:       'summary' | 'full' | 'students' (default: full)
      *  - start_date: Y-m-d
      *  - end_date:   Y-m-d
-     *  - department:  string (course filter)
+     *  - department: string (course filter)
+     *  - sort_by:    'name' | 'date' | 'course' | 'status' (default: name)
+     *  - sort_dir:   'asc' | 'desc' (default: asc)
      */
     public function exportSpreadsheet(Request $request)
     {
         try {
             // --- Parse filters ---
+            $type = $request->query('type', 'full'); // 'summary' or 'full'
             $startDate = $request->query('start_date');
             $endDate = $request->query('end_date');
             $department = $request->query('department');
+            $sortBy = $request->query('sort_by', 'name');
+            $sortDir = $request->query('sort_dir', 'asc');
 
             $dateFrom = $startDate
                 ?Carbon::createFromFormat('Y-m-d', $startDate)->startOfDay()
-                : Carbon::now()->subDays(30)->startOfDay();
+                : null;
 
             $dateTo = $endDate
                 ?Carbon::createFromFormat('Y-m-d', $endDate)->endOfDay()
-                : Carbon::now()->endOfDay();
+                : null;
+
+            // If no dates provided, use all-time
+            $isAllTime = !$dateFrom && !$dateTo;
+            if (!$dateFrom)
+                $dateFrom = Carbon::create(2000, 1, 1)->startOfDay();
+            if (!$dateTo)
+                $dateTo = Carbon::now()->endOfDay();
+
+            // --- Sort mapping ---
+            $orderColumn = match ($sortBy) {
+                    'date' => 'created_at',
+                    'course' => 'course',
+                    'status' => 'has_card',
+                    default => 'last_name',
+                };
 
             // --- Query students ---
-            $query = Student::whereBetween('created_at', [$dateFrom, $dateTo])
+            $students = Student::whereBetween('created_at', [$dateFrom, $dateTo])
                 ->when($department, fn($q) => $q->where('course', $department))
-                ->orderBy('created_at', 'asc');
+                ->orderBy($orderColumn, $sortDir)
+                ->when($sortBy === 'name', fn($q) => $q->orderBy('first_name', $sortDir))
+                ->get();
 
-            $students = $query->get();
-
-            // --- Aggregate stats ---
+            // --- Aggregates ---
             $totalRecords = $students->count();
             $issuedCount = $students->where('has_card', true)->count();
             $pendingCount = $totalRecords - $issuedCount;
-
-            $deptTally = $students->groupBy('course')->map(fn($group) => $group->count())->sortDesc();
+            $grouped = $students->groupBy('course');
 
             // ============================================================
-            //  BUILD WORKBOOK
+            //  REUSABLE STYLES
             // ============================================================
             $spreadsheet = new Spreadsheet();
 
-            // Reusable styles
             $headerFill = [
                 'fillType' => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => '1E293B'], // slate-800
+                'startColor' => ['rgb' => '1E293B'],
             ];
             $headerFont = [
                 'bold' => true,
@@ -319,148 +338,185 @@ class AnalyticsController extends Controller
             ];
             $thinBorder = [
                 'borderStyle' => Border::BORDER_THIN,
-                'color' => ['rgb' => 'CBD5E1'], // slate-300
+                'color' => ['rgb' => 'CBD5E1'],
             ];
             $allBorders = [
                 'outline' => $thinBorder,
                 'inside' => $thinBorder,
             ];
+            $zebraFill = [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['rgb' => 'F8FAFC'],
+            ];
+
+            // Helper closure: write a student table on any sheet
+            $writeStudentTable = function ($sheet, $studentList, $startRow) use ($headerFont, $headerFill, $allBorders, $zebraFill) {
+                $cols = ['A' => '#', 'B' => 'ID NUMBER', 'C' => 'FULL NAME', 'D' => 'COURSE', 'E' => 'STATUS', 'F' => 'DATE APPLIED'];
+                foreach ($cols as $col => $label) {
+                    $sheet->setCellValue("{$col}{$startRow}", $label);
+                }
+                $sheet->getStyle("A{$startRow}:F{$startRow}")->applyFromArray([
+                    'font' => $headerFont, 'fill' => $headerFill,
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
+                ]);
+
+                $row = $startRow + 1;
+                foreach ($studentList as $idx => $student) {
+                    $fullName = trim(
+                        $student->first_name . ' ' .
+                        ($student->middle_initial ? $student->middle_initial . '. ' : '') .
+                        $student->last_name
+                    );
+                    $sheet->setCellValue("A{$row}", $idx + 1);
+                    $sheet->setCellValue("B{$row}", $student->id_number);
+                    $sheet->setCellValue("C{$row}", $fullName);
+                    $sheet->setCellValue("D{$row}", $student->course ?: 'Unassigned');
+                    $sheet->setCellValue("E{$row}", $student->has_card ? 'ISSUED' : 'PENDING');
+                    $sheet->setCellValue("F{$row}", $student->created_at ? $student->created_at->format('M d, Y') : 'N/A');
+
+                    if ($idx % 2 === 1) {
+                        $sheet->getStyle("A{$row}:F{$row}")->applyFromArray(['fill' => $zebraFill]);
+                    }
+                    $row++;
+                }
+                if ($row > $startRow + 1) {
+                    $sheet->getStyle("A{$startRow}:F" . ($row - 1))->applyFromArray(['borders' => $allBorders]);
+                }
+                foreach (['A', 'B', 'C', 'D', 'E', 'F'] as $col) {
+                    $sheet->getColumnDimension($col)->setAutoSize(true);
+                }
+                $sheet->freezePane('A' . ($startRow + 1));
+                return $row;
+            };
 
             // ──────────────────────────────────────────────────────
-            //  SHEET 1 — SUMMARY
+            //  SHEET 1 — SUMMARY  (always included)
             // ──────────────────────────────────────────────────────
             $summary = $spreadsheet->getActiveSheet();
             $summary->setTitle('Summary');
 
-            // Title row
-            $summary->setCellValue('A1', 'IDMS Export Report');
+            $summary->setCellValue('A1', 'IDMS EXPORT REPORT');
             $summary->getStyle('A1')->getFont()->setBold(true)->setSize(16);
-            $summary->mergeCells('A1:D1');
+            $summary->mergeCells('A1:E1');
 
-            // Date range row
-            $summary->setCellValue('A2', 'Date Range:');
-            $summary->setCellValue('B2', $dateFrom->format('M d, Y') . '  —  ' . $dateTo->format('M d, Y'));
+            $summary->setCellValue('A2', 'Generated:');
+            $summary->setCellValue('B2', Carbon::now()->format('M d, Y  g:i A'));
             $summary->getStyle('A2')->getFont()->setBold(true);
+
+            $summary->setCellValue('A3', 'Date Range:');
+            $summary->setCellValue('B3', $isAllTime ? 'All Time' : ($dateFrom->format('M d, Y') . '  —  ' . $dateTo->format('M d, Y')));
+            $summary->getStyle('A3')->getFont()->setBold(true);
+
+            $r = 4;
             if ($department) {
-                $summary->setCellValue('A3', 'Department:');
-                $summary->setCellValue('B3', $department);
-                $summary->getStyle('A3')->getFont()->setBold(true);
+                $summary->setCellValue("A{$r}", 'Department:');
+                $summary->setCellValue("B{$r}", $department);
+                $summary->getStyle("A{$r}")->getFont()->setBold(true);
+                $r++;
             }
 
-            // Summary stats
-            $statsStart = $department ? 5 : 4;
-            $summary->setCellValue("A{$statsStart}", 'Total Records');
-            $summary->setCellValue("B{$statsStart}", $totalRecords);
-            $summary->setCellValue("A" . ($statsStart + 1), 'Issued');
-            $summary->setCellValue("B" . ($statsStart + 1), $issuedCount);
-            $summary->setCellValue("A" . ($statsStart + 2), 'Pending');
-            $summary->setCellValue("B" . ($statsStart + 2), $pendingCount);
+            // Overall statistics
+            $r++;
+            $summary->setCellValue("A{$r}", 'OVERALL STATISTICS');
+            $summary->getStyle("A{$r}")->getFont()->setBold(true)->setSize(12);
+            $summary->mergeCells("A{$r}:C{$r}");
+            $r++;
+            foreach ([['Total Applicants', $totalRecords], ['Issued (Card Printed)', $issuedCount], ['Pending', $pendingCount]] as [$label, $val]) {
+                $summary->setCellValue("A{$r}", $label);
+                $summary->setCellValue("B{$r}", $val);
+                $summary->getStyle("A{$r}")->getFont()->setBold(true);
+                $r++;
+            }
 
-            // Style stats
-            $summary->getStyle("A{$statsStart}:A" . ($statsStart + 2))->getFont()->setBold(true);
-            $summary->getStyle("B{$statsStart}:B" . ($statsStart + 2))
-                ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+            // Department breakdown with issued/pending per dept
+            $r += 2;
+            $summary->setCellValue("A{$r}", 'DEPARTMENT BREAKDOWN');
+            $summary->getStyle("A{$r}")->getFont()->setBold(true)->setSize(12);
+            $summary->mergeCells("A{$r}:E{$r}");
+            $r++;
 
-            // Department Tally Table
-            $tallyStart = $statsStart + 4;
-            $summary->setCellValue("A{$tallyStart}", 'DEPARTMENT');
-            $summary->setCellValue("B{$tallyStart}", 'COUNT');
-            $summary->setCellValue("C{$tallyStart}", 'PERCENTAGE');
-
-            $summary->getStyle("A{$tallyStart}:C{$tallyStart}")->applyFromArray([
-                'font' => $headerFont,
-                'fill' => $headerFill,
+            $deptHeaderRow = $r;
+            foreach (['A' => 'DEPARTMENT', 'B' => 'TOTAL', 'C' => 'ISSUED', 'D' => 'PENDING', 'E' => 'PERCENTAGE'] as $col => $label) {
+                $summary->setCellValue("{$col}{$r}", $label);
+            }
+            $summary->getStyle("A{$r}:E{$r}")->applyFromArray([
+                'font' => $headerFont, 'fill' => $headerFill,
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
             ]);
+            $r++;
 
-            $row = $tallyStart + 1;
-            foreach ($deptTally as $deptName => $count) {
-                $pct = $totalRecords > 0 ? round(($count / $totalRecords) * 100, 1) : 0;
-                $summary->setCellValue("A{$row}", $deptName ?: 'Unassigned');
-                $summary->setCellValue("B{$row}", $count);
-                $summary->setCellValue("C{$row}", $pct . '%');
-                $row++;
+            foreach ($grouped as $deptName => $deptStudents) {
+                $dt = $deptStudents->count();
+                $di = $deptStudents->where('has_card', true)->count();
+                $pct = $totalRecords > 0 ? round(($dt / $totalRecords) * 100, 1) : 0;
+                $summary->setCellValue("A{$r}", $deptName ?: 'Unassigned');
+                $summary->setCellValue("B{$r}", $dt);
+                $summary->setCellValue("C{$r}", $di);
+                $summary->setCellValue("D{$r}", $dt - $di);
+                $summary->setCellValue("E{$r}", $pct . '%');
+                $r++;
             }
-
-            // Borders on tally table
-            if ($row > $tallyStart + 1) {
-                $summary->getStyle("A{$tallyStart}:C" . ($row - 1))->applyFromArray([
-                    'borders' => $allBorders,
-                ]);
+            if ($r > $deptHeaderRow + 1) {
+                $summary->getStyle("A{$deptHeaderRow}:E" . ($r - 1))->applyFromArray(['borders' => $allBorders]);
             }
-
-            // Auto-size columns
-            foreach (['A', 'B', 'C', 'D'] as $col) {
+            foreach (['A', 'B', 'C', 'D', 'E'] as $col) {
                 $summary->getColumnDimension($col)->setAutoSize(true);
             }
 
             // ──────────────────────────────────────────────────────
-            //  SHEET 2 — STUDENT RECORDS
+            //  STUDENT / FULL REPORT — additional sheets
             // ──────────────────────────────────────────────────────
-            $records = $spreadsheet->createSheet();
-            $records->setTitle('Student Records');
-
-            $columns = ['A' => '#', 'B' => 'ID NUMBER', 'C' => 'FULL NAME', 'D' => 'COURSE', 'E' => 'STATUS', 'F' => 'DATE APPLIED'];
-
-            foreach ($columns as $col => $label) {
-                $records->setCellValue("{$col}1", $label);
+            if ($type === 'full' || $type === 'students') {
+                $allSheet = $spreadsheet->createSheet();
+                $allSheet->setTitle('All Students');
+                $writeStudentTable($allSheet, $students->values(), 1);
             }
 
-            $records->getStyle('A1:F1')->applyFromArray([
-                'font' => $headerFont,
-                'fill' => $headerFill,
-                'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
-            ]);
+            if ($type === 'full') {
+                // Per-Department sheets
+                foreach ($grouped as $deptName => $deptStudents) {
+                    $title = mb_substr($deptName ?: 'Unassigned', 0, 31);
+                    $title = preg_replace('/[\\\\\/*\?\[\]\:]/', '-', $title);
 
-            $row = 2;
-            foreach ($students as $idx => $student) {
-                $fullName = trim(
-                    $student->first_name . ' ' .
-                    ($student->middle_initial ? $student->middle_initial . ' ' : '') .
-                    $student->last_name
-                );
+                    $deptSheet = $spreadsheet->createSheet();
+                    $deptSheet->setTitle($title);
 
-                $records->setCellValue("A{$row}", $idx + 1);
-                $records->setCellValue("B{$row}", $student->id_number);
-                $records->setCellValue("C{$row}", $fullName);
-                $records->setCellValue("D{$row}", $student->course);
-                $records->setCellValue("E{$row}", $student->has_card ? 'ISSUED' : 'PENDING');
-                $records->setCellValue("F{$row}", $student->created_at ? $student->created_at->format('M d, Y') : 'N/A');
+                    $dt = $deptStudents->count();
+                    $di = $deptStudents->where('has_card', true)->count();
 
-                // Alternate row shading
-                if ($idx % 2 === 1) {
-                    $records->getStyle("A{$row}:F{$row}")->applyFromArray([
-                        'fill' => [
-                            'fillType' => Fill::FILL_SOLID,
-                            'startColor' => ['rgb' => 'F8FAFC'], // slate-50
-                        ],
-                    ]);
+                    $deptSheet->setCellValue('A1', strtoupper($deptName ?: 'UNASSIGNED'));
+                    $deptSheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+                    $deptSheet->mergeCells('A1:F1');
+
+                    $deptSheet->setCellValue('A2', 'Total: ' . $dt);
+                    $deptSheet->setCellValue('B2', 'Issued: ' . $di);
+                    $deptSheet->setCellValue('C2', 'Pending: ' . ($dt - $di));
+                    $deptSheet->getStyle('A2:C2')->getFont()->setBold(true)->setSize(10);
+
+                    $writeStudentTable($deptSheet, $deptStudents->values(), 4);
                 }
-
-                $row++;
             }
 
-            // Borders on data
-            if ($row > 2) {
-                $records->getStyle('A1:F' . ($row - 1))->applyFromArray([
-                    'borders' => $allBorders,
-                ]);
+            // For students-only, remove the Summary sheet
+            if ($type === 'students') {
+                $spreadsheet->removeSheetByIndex(0);
+                $spreadsheet->setActiveSheetIndex(0);
             }
-
-            // Auto-size columns
-            foreach (['A', 'B', 'C', 'D', 'E', 'F'] as $col) {
-                $records->getColumnDimension($col)->setAutoSize(true);
-            }
-
-            // Freeze header row
-            $records->freezePane('A2');
 
             // ============================================================
             //  OUTPUT
             // ============================================================
-            $spreadsheet->setActiveSheetIndex(0);
+            if ($type !== 'students') {
+                $spreadsheet->setActiveSheetIndex(0);
+            }
 
-            $fileName = 'IDMS-Export-' . $dateFrom->format('Ymd') . '-' . $dateTo->format('Ymd') . '.xlsx';
+            $prefix = match ($type) {
+                    'summary' => 'IDMS-Summary',
+                    'students' => 'IDMS-Students',
+                    default => 'IDMS-Report',
+                };
+            $dateSuffix = $isAllTime ? 'AllTime' : ($dateFrom->format('Ymd') . '-' . $dateTo->format('Ymd'));
+            $fileName = $prefix . '-' . $dateSuffix . '.xlsx';
 
             $temp = tempnam(sys_get_temp_dir(), 'xlsx');
             $writer = new Xlsx($spreadsheet);

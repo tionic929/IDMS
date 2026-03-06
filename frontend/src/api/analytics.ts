@@ -133,7 +133,18 @@ export const exportSpreadsheet = async (
     const response = await api.get('/analytics/export', {
       params: Object.fromEntries(params.entries()),
       responseType: 'blob',
+      headers: {
+        Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
     });
+
+    // Check if the response is actually JSON (error) instead of a binary file
+    const contentType = response.headers['content-type'] || '';
+    if (contentType.includes('application/json')) {
+      const text = await (response.data as Blob).text();
+      const errorData = JSON.parse(text);
+      throw new Error(errorData.error || 'Server returned an error');
+    }
 
     // Extract filename from content-disposition header or use fallback
     const disposition = response.headers['content-disposition'];

@@ -4,7 +4,7 @@ import {
   Calendar, Download, RefreshCw, AlertCircle, TrendingUp, Clock, Eye,
   Filter, ChevronDown, MoreHorizontal
 } from 'lucide-react';
-import { fetchDashboardData, exportSpreadsheet, type DashboardFilters } from '@/api/analytics';
+import { fetchDashboardData, type DashboardFilters } from '@/api/analytics';
 import { type DashboardData } from '@/types/analytics';
 import { type Students } from '@/types/students';
 import MetricCard from '@/components/SubComponents/MetricCard';
@@ -15,6 +15,7 @@ import { MetricDetailModal, type MetricModalMeta } from '@/components/dashboard/
 import { TallyDetailModal } from '@/components/dashboard/TallyDetailModal';
 import { VelocityDetailModal } from '@/components/dashboard/VelocityDetailModal';
 import { DistributionDetailModal } from '@/components/dashboard/DistributionDetailModal';
+import { ExportModal } from '@/components/dashboard/ExportModal';
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -80,6 +81,8 @@ const DateRangePicker = ({ onRangeChange, currentRange }: { onRangeChange: (r: a
     { label: 'Last 7 days', days: 7 },
     { label: 'Last 30 days', days: 30 },
     { label: 'Last 90 days', days: 90 },
+    { label: 'Last 6 months', days: 180 },
+    { label: 'Last 1 year', days: 365 },
   ];
 
   const [showCustom, setShowCustom] = useState(false);
@@ -197,7 +200,7 @@ const Dashboard = () => {
   const [error, setError] = useState<Error | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [dateRange, setDateRange] = useState<any>({ label: 'Last 30 days', days: 30 });
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [availableDepts, setAvailableDepts] = useState<string[]>([]);
@@ -279,22 +282,8 @@ const Dashboard = () => {
     setSelectedDept(dept);
   };
 
-  const handleExport = async () => {
-    setIsExporting(true);
-    try {
-      const filters: DashboardFilters = {
-        days: dateRange.days || undefined,
-        ...(selectedDept && { department: selectedDept }),
-        ...(dateRange.startDate && { startDate: dateRange.startDate }),
-        ...(dateRange.endDate && { endDate: dateRange.endDate }),
-      };
-      await exportSpreadsheet(filters);
-    } catch (err) {
-      console.error('Export failed:', err);
-      alert('Failed to export spreadsheet');
-    } finally {
-      setIsExporting(false);
-    }
+  const handleExport = () => {
+    setExportModalOpen(true);
   };
 
   const toggleMetricVisibility = (metric: keyof typeof visibleMetrics) => {
@@ -364,11 +353,11 @@ const Dashboard = () => {
               variant="outline"
               size="sm"
               onClick={handleExport}
-              disabled={loading || isExporting}
+              disabled={loading}
               className="gap-2 h-9 bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             >
-              <Download className={cn("h-4 w-4", isExporting && "animate-bounce")} />
-              {isExporting ? 'Exporting...' : 'Spreadsheet'}
+              <Download className="h-4 w-4" />
+              Spreadsheet
             </Button>
 
             <Button
@@ -611,6 +600,11 @@ const Dashboard = () => {
         open={distModalOpen}
         onClose={() => setDistModalOpen(false)}
         data={data?.departments.full_list ?? []}
+      />
+      <ExportModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        departments={availableDepts}
       />
     </div>
   );
