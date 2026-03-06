@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
-  Users, Clock, CreditCard, Search, Filter, ChevronDown,
-  ShieldCheck, RefreshCw, Download, MoreHorizontal, Inbox
+  Users, CreditCard, Search, ArrowUpDown,
+  ShieldCheck, RefreshCw, Download, Inbox, CheckCircle2
 } from "lucide-react";
 import MetricCard from "@/components/SubComponents/MetricCard";
 import ApplicantsTable from "@/components/ApplicantsTable";
@@ -11,24 +12,42 @@ import { type ApplicantCard } from "@/types/card";
 import ApplicantDetailsModal from "@/components/Modals/ApplicantDetailsModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { ApplicantSkeleton } from "@/components/TableSkeleton";
+
+
+const SORT_OPTIONS = [
+  { value: 'name', label: 'Name (A–Z)' },
+  { value: 'date', label: 'Date Added' },
+  { value: 'course', label: 'Course' },
+  { value: 'status', label: 'ID Status' },
+] as const;
 
 const ApplicantsIndex: React.FC = () => {
   const [report, setReport] = useState<{ total: number; pending: number; issued: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedApplicant, setSelectedApplicant] = useState<ApplicantCard | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Filters
+  const [statusFilter, setStatusFilter] = useState(() => {
+    const f = searchParams.get('filter');
+    return f === 'recently-issued' ? 'recently-issued' : '';
+  });
+  const [sortBy, setSortBy] = useState('');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const fetchReport = useCallback(async (isManual = false) => {
     try {
@@ -50,156 +69,184 @@ const ApplicantsIndex: React.FC = () => {
   }, []);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
-
   const handleRefresh = () => fetchReport(true);
+
+  const handleSortChange = (value: string) => {
+    if (value === sortBy) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(value);
+      setSortDir('asc');
+    }
+  };
+
+  const toggleRecentlyIssued = () => {
+    const next = statusFilter === 'recently-issued' ? '' : 'recently-issued';
+    setStatusFilter(next);
+    if (next) setSearchParams({ filter: next });
+    else setSearchParams({});
+  };
+
+  const activeSortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label || 'Default';
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-950 font-sans selection:bg-primary/10">
       <div className="px-6 py-8 lg:px-12 lg:py-12 max-w-[1600px] mx-auto">
 
         {/* ── PAGE HEADER ────────────────────────────────────────── */}
-        <div className="mb-10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 relative">
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Registry</span>
-              <span className="w-1 h-1 rounded-full bg-slate-200" />
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Applicants</span>
-            </div>
+        <div className="mb-8">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Reports / All Students</span>
+          <div className="flex items-center justify-between mt-1">
             <div className="flex items-center gap-5">
-              <h1 className="text-3xl font-black tracking-tight text-slate-900 uppercase">Applicant Records</h1>
+              <h1 className="text-3xl font-black tracking-tight text-slate-900">All Students</h1>
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 text-[9px] font-bold uppercase tracking-[0.1em]">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Live
               </div>
             </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-lg group hover:border-primary/50 transition-all">
-              <ShieldCheck className="h-6 w-6 text-primary group-hover:scale-110 transition-transform" />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/reports/export')}
+                className="gap-2 h-9 bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="gap-2 h-9 px-5 bg-primary hover:bg-primary/90 text-white font-bold text-[11px]"
+              >
+                <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                {isRefreshing ? 'Refreshing…' : 'Refresh'}
+              </Button>
             </div>
           </div>
         </div>
 
-        {/* ── TOOLBAR ─────────────────────────────────────────────── */}
-        <div className="flex flex-col md:flex-row md:items-center gap-3 mb-10 p-2 rounded-2xl bg-white border border-slate-200 shadow-sm">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        {/* ── SEARCH + FILTER BAR ────────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-8">
+          {/* Search */}
+          <div className="relative flex-1 max-w-lg">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
-              placeholder="Find applicant by name or ID..."
+              placeholder="Search by name or ID number…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="pl-9 h-10 border-none bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 text-slate-700 placeholder:text-slate-400 font-medium"
+              className="pl-10 h-10 border-slate-200 bg-white shadow-sm focus-visible:ring-primary/20 focus-visible:border-primary rounded-xl"
             />
           </div>
 
-          <div className="flex items-center gap-2 md:ml-auto">
-            <Button
-              variant={isFilterOpen ? "default" : "outline"}
-              size="sm"
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className={cn(
-                "gap-2 h-9",
-                isFilterOpen ? "bg-primary text-white" : "bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+          {/* Sort dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 h-10 bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl"
+              >
+                <ArrowUpDown className="h-4 w-4" />
+                Sort: {activeSortLabel}
+                {sortBy && (
+                  <span className="text-[9px] font-bold text-slate-400 uppercase ml-1">
+                    {sortDir === 'asc' ? '↑' : '↓'}
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Sort by</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup value={sortBy} onValueChange={handleSortChange}>
+                {SORT_OPTIONS.map(opt => (
+                  <DropdownMenuRadioItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                    {sortBy === opt.value && (
+                      <span className="ml-auto text-[9px] font-bold text-primary uppercase">
+                        {sortDir}
+                      </span>
+                    )}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+              {sortBy && (
+                <>
+                  <DropdownMenuSeparator />
+                  <button
+                    onClick={() => { setSortBy(''); setSortDir('asc'); }}
+                    className="w-full px-2 py-1.5 text-[11px] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded text-left"
+                  >
+                    Clear Sort
+                  </button>
+                </>
               )}
-            >
-              <Filter className="h-4 w-4" />
-              Categorize
-            </Button>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              className="gap-2 h-9 px-6 bg-primary hover:bg-primary/90 text-white font-bold uppercase tracking-wider text-[10px]"
-            >
-              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-              {isRefreshing ? 'Updating...' : 'Refresh'}
-            </Button>
-
-            <div className="w-px h-6 bg-slate-200 mx-1" />
-
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-slate-900 hover:bg-slate-50">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </div>
+          {/* Recently Issued chip */}
+          <button
+            onClick={toggleRecentlyIssued}
+            className={cn(
+              "gap-1.5 h-10 px-4 text-[11px] font-bold rounded-xl transition-all flex items-center border whitespace-nowrap",
+              statusFilter === 'recently-issued'
+                ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                : 'bg-white text-slate-500 border-slate-200 hover:text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200'
+            )}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Recently Issued
+          </button>
         </div>
 
         {loading && !report ? (
           <ApplicantSkeleton />
         ) : (
           <div className="space-y-10">
-            {/* WORKFLOW METRICS */}
+            {/* SUMMARY CARDS */}
             <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <MetricCard
                 icon={ShieldCheck}
-                title="Issuance Rate"
+                title="ID Completion"
                 value={`${report?.total ? Math.round((report.issued / report.total) * 100) : 0}%`}
                 color="blue"
                 trend="up"
-                trendLabel="Completion ratio"
+                trendLabel="Students with IDs"
               />
               <MetricCard
                 icon={Inbox}
-                title="Pending Backlog"
+                title="Waiting for ID"
                 value={report?.pending || 0}
                 color="amber"
                 trend="neutral"
-                trendLabel="Awaiting Review"
+                trendLabel="Not yet printed"
               />
               <MetricCard
                 icon={CreditCard}
-                title="Daily Production"
+                title="IDs Printed"
                 value={report?.issued || 0}
                 color="emerald"
                 trend="up"
-                trendLabel="Cards Printed Today"
+                trendLabel="Cards completed"
               />
             </section>
-
-            {/* FILTERS PANEL */}
-            {isFilterOpen && (
-              <Card className="border-slate-200 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-                <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Filter by Unit</label>
-                    <Select defaultValue="all">
-                      <SelectTrigger className="h-10 border-slate-200 bg-slate-50/50">
-                        <SelectValue placeholder="Department" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Departments</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Card Status</label>
-                    <Select defaultValue="all">
-                      <SelectTrigger className="h-10 border-slate-200 bg-slate-50/50">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Records</SelectItem>
-                        <SelectItem value="issued">Issued</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             {/* DATA TABLE */}
             <div className="space-y-5">
               <div className="flex items-center gap-4">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Recent Activity</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Student List</span>
                 <div className="flex-1 h-px bg-slate-200" />
               </div>
 
               <div className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm shadow-slate-100">
                 <ApplicantsTable
                   query={query}
+                  statusFilter={statusFilter}
+                  sortBy={sortBy}
+                  sortDir={sortDir}
                   onViewDetails={(applicant: ApplicantCard) => setSelectedApplicant(applicant)}
                 />
               </div>

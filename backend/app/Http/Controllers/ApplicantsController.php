@@ -7,6 +7,7 @@ use App\Events\ApplicationSubmitted;
 use App\Models\Applicant as Student;
 
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
@@ -317,6 +318,19 @@ class ApplicantsController extends Controller
         )
             ->orderBy('id', 'asc');
 
+        // Dynamic sort
+        $sortBy = $request->query('sort_by', '');
+        $sortDir = in_array($request->query('sort_dir'), ['asc', 'desc']) ? $request->query('sort_dir') : 'asc';
+        $sortMap = [
+            'name' => 'last_name',
+            'date' => 'created_at',
+            'course' => 'course',
+            'status' => 'has_card',
+        ];
+        if (isset($sortMap[$sortBy])) {
+            $query->reorder($sortMap[$sortBy], $sortDir);
+        }
+
         if ($search) {
             $query->where(function ($q) use ($search) {
                 if (is_numeric($search)) {
@@ -327,6 +341,19 @@ class ApplicantsController extends Controller
                     ->orWhere('id_number', 'LIKE', "%{$search}%")
                     ->orWhere('guardian_contact', 'LIKE', "%{$search}%");
             });
+        }
+
+        // Status filter support
+        $status = $request->query('status');
+        if ($status === 'recently-issued') {
+            $query->where('has_card', true)
+                ->where('updated_at', '>=', Carbon::now()->subDays(7));
+        }
+        elseif ($status === 'issued') {
+            $query->where('has_card', true);
+        }
+        elseif ($status === 'pending') {
+            $query->where('has_card', false);
         }
 
         $paginated = $query->paginate(20);

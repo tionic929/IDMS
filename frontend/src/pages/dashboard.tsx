@@ -2,9 +2,10 @@ import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import {
   Users, Award, Package, Inbox, CheckCircle2, Zap, Activity, ShieldCheck,
   Calendar, Download, RefreshCw, AlertCircle, TrendingUp, Clock, Eye,
-  Filter, ChevronDown, MoreHorizontal
+  Filter, ChevronDown, MoreHorizontal, BookOpen
 } from 'lucide-react';
 import { fetchDashboardData, type DashboardFilters } from '@/api/analytics';
+import { useNavigate } from 'react-router-dom';
 import { type DashboardData } from '@/types/analytics';
 import { type Students } from '@/types/students';
 import MetricCard from '@/components/SubComponents/MetricCard';
@@ -15,7 +16,6 @@ import { MetricDetailModal, type MetricModalMeta } from '@/components/dashboard/
 import { TallyDetailModal } from '@/components/dashboard/TallyDetailModal';
 import { VelocityDetailModal } from '@/components/dashboard/VelocityDetailModal';
 import { DistributionDetailModal } from '@/components/dashboard/DistributionDetailModal';
-import { ExportModal } from '@/components/dashboard/ExportModal';
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -200,7 +200,7 @@ const Dashboard = () => {
   const [error, setError] = useState<Error | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<any>({ label: 'Last 30 days', days: 30 });
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [availableDepts, setAvailableDepts] = useState<string[]>([]);
@@ -283,7 +283,7 @@ const Dashboard = () => {
   };
 
   const handleExport = () => {
-    setExportModalOpen(true);
+    navigate('/reports/export');
   };
 
   const toggleMetricVisibility = (metric: keyof typeof visibleMetrics) => {
@@ -357,7 +357,7 @@ const Dashboard = () => {
               className="gap-2 h-9 bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
             >
               <Download className="h-4 w-4" />
-              Spreadsheet
+              Reports
             </Button>
 
             <Button
@@ -432,7 +432,7 @@ const Dashboard = () => {
                   icon={Inbox}
                   color="amber"
                   chartData={data.trends.slice(-3)}
-                  trendLabel="Since Monday"
+                  trendLabel="New this week (Mon–Today)"
                   trend="up"
                   onClick={() => setMetricModal({
                     key: 'newThisWeek', title: 'New Activity',
@@ -451,11 +451,7 @@ const Dashboard = () => {
                   chartData={data.trends}
                   trendLabel="Status"
                   trend="neutral"
-                  onClick={() => setMetricModal({
-                    key: 'issuedCards', title: 'Cards Printed',
-                    value: data.summary.issued_cards, trendLabel: 'Processing status',
-                    strokeColor: '#10b981', trends: data.trends,
-                  })}
+                  onClick={() => navigate('/applicants?filter=recently-issued')}
                 />
               )}
               {visibleMetrics.userGrowth && (
@@ -502,6 +498,7 @@ const Dashboard = () => {
                   title="Share"
                   data={data.departments.full_list}
                   onViewDetails={() => setDistModalOpen(true)}
+                  onSliceClick={(deptName) => navigate(`/departments?dept=${encodeURIComponent(deptName)}`)}
                 />
               </div>
             </div>
@@ -601,11 +598,7 @@ const Dashboard = () => {
         onClose={() => setDistModalOpen(false)}
         data={data?.departments.full_list ?? []}
       />
-      <ExportModal
-        open={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
-        departments={availableDepts}
-      />
+
     </div>
   );
 };

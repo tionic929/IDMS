@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { getDepartmentsWithStudents } from '@/api/departments';
 import { getFullName } from '@/types/students';
 import {
   Loader2, Users, GraduationCap, MapPin, Search,
   CheckCircle2, AlertCircle,
-  ChevronLeft, ChevronRight, Eye, RefreshCw, ShieldCheck
+  ChevronLeft, ChevronRight, Eye, RefreshCw, ShieldCheck, Download
 } from 'lucide-react';
 import type { DepartmentSidebarItem } from '@/types/departments';
 
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import MetricCard from "@/components/SubComponents/MetricCard";
+
 
 // for tanstack
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -88,6 +90,16 @@ const DepartmentList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Auto-select department from URL param (e.g., navigating from dashboard donut)
+  useEffect(() => {
+    const deptParam = searchParams.get('dept');
+    if (deptParam) {
+      setSelectedDeptName(deptParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -229,11 +241,7 @@ const DepartmentList: React.FC = () => {
           {/* HEADER */}
           <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-10">
             <div className="relative">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Unit</span>
-                <span className="w-1 h-1 rounded-full bg-slate-200" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Profile</span>
-              </div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Reports / Departments</span>
               <div className="flex items-baseline gap-4">
                 <h1 className="text-5xl font-black tracking-tighter text-slate-950 uppercase leading-none">{selectedDeptName}</h1>
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary/5 text-primary text-[9px] font-bold uppercase tracking-[0.1em]">
@@ -252,6 +260,15 @@ const DepartmentList: React.FC = () => {
                   className="pl-10 h-10 border-slate-200 bg-white shadow-sm shadow-slate-100 focus-visible:ring-primary/20 focus-visible:border-primary transition-all rounded-xl"
                 />
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/reports/export')}
+                className="h-10 px-4 rounded-xl bg-white border-slate-200 text-slate-400 hover:text-primary transition-all shadow-sm gap-2 text-[10px] font-bold uppercase tracking-wider"
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
               <Button
                 variant="outline"
                 size="icon"

@@ -35,7 +35,7 @@ const navItems: NavItem[] = [
     label: "Card Management",
     icon: CardSimIcon,
     children: [
-      { label: "Records", to: "/card-management"},
+      { label: "Records", to: "/card-management" },
       { label: "Designer", to: "/card-designer" },
     ],
   },
@@ -45,6 +45,7 @@ const navItems: NavItem[] = [
     children: [
       { label: "Applicants", to: "/applicants" },
       { label: "Departments", to: "/departments" },
+      { label: "Export", to: "/reports/export" },
       { label: "Import", to: "/reports/import" },
     ],
   },
@@ -87,8 +88,8 @@ const NavItemComponent: React.FC<{ item: NavItem; isCollapsed: boolean }> = ({ i
           to={item.to}
           className={({ isActive }) => `
             w-full flex items-center h-9 px-3 rounded-md text-[13px] font-medium transition-all duration-200 ease-in-out group relative overflow-hidden
-            ${isActive 
-              ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-700" 
+            ${isActive
+              ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-950 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-700"
               : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"}
           `}
         >
@@ -103,8 +104,8 @@ const NavItemComponent: React.FC<{ item: NavItem; isCollapsed: boolean }> = ({ i
         <button
           onClick={() => !isCollapsed && setIsOpen(!isOpen)}
           className={`w-full flex items-center h-9 px-3 rounded-md text-[13px] font-medium transition-all duration-200 ease-in-out group relative overflow-hidden
-            ${isOpen && !isCollapsed 
-              ? "text-zinc-900 dark:text-zinc-100 bg-zinc-100/50 dark:bg-zinc-900/40" 
+            ${isOpen && !isCollapsed
+              ? "text-zinc-900 dark:text-zinc-100 bg-zinc-100/50 dark:bg-zinc-900/40"
               : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100/80 dark:hover:bg-zinc-900 dark:hover:text-zinc-100"}
           `}
         >
@@ -134,8 +135,8 @@ const NavItemComponent: React.FC<{ item: NavItem; isCollapsed: boolean }> = ({ i
                   to={child.to}
                   className={`
                     flex items-center h-8 px-3 text-[12px] font-medium transition-colors rounded-md whitespace-nowrap
-                    ${isThisChildActive 
-                      ? "text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-500/10" 
+                    ${isThisChildActive
+                      ? "text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-500/10"
                       : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900"}
                   `}
                 >
@@ -156,7 +157,7 @@ const SideBar: React.FC<{ isCollapsed: boolean }> = ({ isCollapsed }) => {
 
   return (
     <div className="flex shrink-0">
-      <aside 
+      <aside
         className={`fixed top-0 left-0 h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-200 flex flex-col border-r border-zinc-200 dark:border-zinc-900 z-40
         transition-all duration-300 ease-in-out overflow-hidden
         ${isCollapsed ? "w-[64px]" : "w-[260px]"}`}

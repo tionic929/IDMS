@@ -38,7 +38,7 @@ const ApplicantDetailsModal: React.FC<Props> = ({ data, onClose }) => {
             </div>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Applicant Profile</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Student Details</span>
                 <span className="w-1 h-1 rounded-full bg-slate-200" />
                 <span className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">{data.idNumber}</span>
               </div>
@@ -64,28 +64,28 @@ const ApplicantDetailsModal: React.FC<Props> = ({ data, onClose }) => {
               <div>
                 <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
                   <BadgeCheck size={14} className="text-primary" />
-                  Credentials & Info
+                  Personal Info
                 </h3>
 
                 <div className="space-y-6">
                   <div className="group">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Full Identity</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Full Name</label>
                     <p className="text-lg font-black text-slate-800 uppercase tracking-tight">{data.fullName}</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">ID Code</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">ID Number</label>
                       <p className="text-sm font-bold text-slate-700 font-mono tracking-wider">{data.idNumber}</p>
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Academic Unit</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Course</label>
                       <p className="text-sm font-bold text-slate-700 uppercase">{data.course}</p>
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Residential Address</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Address</label>
                     <div className="flex gap-2 items-start mt-1">
                       <MapPin size={14} className="text-slate-300 mt-0.5 shrink-0" />
                       <p className="text-sm font-medium text-slate-600 line-height-relaxed">{data.address || 'No address provided'}</p>
@@ -101,12 +101,12 @@ const ApplicantDetailsModal: React.FC<Props> = ({ data, onClose }) => {
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Guardian / Representative</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Guardian / Parent</label>
                     <p className="text-sm font-bold text-slate-800 uppercase">{data.guardian_name || 'Unset'}</p>
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Contact Sequence</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Phone Number</label>
                     <p className="text-sm font-bold text-primary font-mono bg-primary/5 inline-block px-2 py-0.5 rounded-md">{data.guardian_contact || 'None'}</p>
                   </div>
                 </div>
@@ -117,13 +117,13 @@ const ApplicantDetailsModal: React.FC<Props> = ({ data, onClose }) => {
             <div className="space-y-8">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-6 flex items-center gap-2">
                 <ImageIcon size={14} className="text-primary" />
-                Visual Documentation
+                Photo & Signature
               </h3>
 
               {/* ID Photo */}
               <div className="group">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">
-                  Registry Photograph
+                  ID Photo
                 </label>
                 <div className="relative w-full aspect-[4/5] bg-slate-50 rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-inner group-hover:border-primary/20 transition-all duration-500">
                   {photoLoading && !photoError && (
@@ -135,7 +135,7 @@ const ApplicantDetailsModal: React.FC<Props> = ({ data, onClose }) => {
                   {photoError || !data.photo ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 bg-slate-50">
                       <User size={64} className="mb-4 opacity-50" />
-                      <p className="text-[10px] font-black uppercase tracking-widest">Missing Image</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest">No Photo</p>
                     </div>
                   ) : (
                     <img
@@ -153,7 +153,7 @@ const ApplicantDetailsModal: React.FC<Props> = ({ data, onClose }) => {
               {/* Signature */}
               <div className="group">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 block">
-                  Verification Signature
+                  Signature
                 </label>
                 <div className="relative w-full h-32 bg-slate-50 rounded-[1.5rem] overflow-hidden border-2 border-slate-100 shadow-inner p-4 group-hover:border-primary/20 transition-all duration-500">
                   {sigLoading && !sigError && (

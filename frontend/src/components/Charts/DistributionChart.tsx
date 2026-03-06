@@ -9,7 +9,8 @@ export const DistributionChart: React.FC<{
   title?: string;
   data: any[];
   onViewDetails?: () => void;
-}> = ({ title = "Share Overview", data, onViewDetails }) => {
+  onSliceClick?: (deptName: string) => void;
+}> = ({ title = "Share Overview", data, onViewDetails, onSliceClick }) => {
   if (!data || data.length === 0) {
     return (
       <ChartContainer title={title}>
@@ -43,6 +44,7 @@ export const DistributionChart: React.FC<{
                     key={`cell-${i}`}
                     fill={LIGHT_COLORS[i % LIGHT_COLORS.length]}
                     className="hover:opacity-80 transition-all cursor-pointer"
+                    onClick={() => onSliceClick?.(data[i]?.name)}
                   />
                 ))}
               </Pie>
@@ -71,8 +73,11 @@ export const DistributionChart: React.FC<{
 
         <div className="space-y-2">
           {data.slice(0, 3).map((item, i) => (
-            <div key={item.name} className="flex items-center justify-between group/legend">
-              <div className="flex items-center gap-2 min-w-0">
+            <div
+              key={item.name}
+              className="flex items-center justify-between group/legend cursor-pointer"
+              onClick={() => onSliceClick?.(item.name)}
+            >              <div className="flex items-center gap-2 min-w-0">
                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: LIGHT_COLORS[i % LIGHT_COLORS.length] }} />
                 <span className="text-[9px] font-bold text-slate-500 uppercase truncate tracking-tight group-hover/legend:text-slate-900 transition-colors">
                   {item.name}

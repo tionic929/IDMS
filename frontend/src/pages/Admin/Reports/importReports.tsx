@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
+
 function ImportReports() {
     const [query, setQuery] = useState("");
     const [page, setPage] = useState(1);
@@ -87,11 +88,7 @@ function ImportReports() {
             {/* HEADER */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div className="space-y-1">
-                    <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Data Management</span>
-                        <span className="text-border">/</span>
-                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Import</span>
-                    </div>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Reports / Import</span>
                     <h1 className="text-4xl font-black text-foreground tracking-tight">Report Importer</h1>
                     <p className="text-muted-foreground font-medium text-sm">Synchronize enrollment data through automated spreadsheet processing.</p>
                 </div>

@@ -17,6 +17,7 @@ import CardDesignerPage from "./components/CardDesignerPage";
 import Dashboard from "./pages/dashboard";
 import ApplicantsIndex from "./pages/Admin/Applicants/ApplicantsIndex";
 import ImportReports from "./pages/Admin/Reports/importReports";
+import ReportsExport from "./pages/Admin/Reports/ReportsExport";
 import DepartmentList from "./pages/Admin/Departments/DepartmentsIndex";
 import CardManagement from "./pages/cardManagement";
 
@@ -134,6 +135,14 @@ function App() {
                     element={
                       <RoleGuard allowedRoles={['admin']}>
                         <ImportReports />
+                      </RoleGuard>
+                    }
+                  />
+                  <Route
+                    path="/reports/export"
+                    element={
+                      <RoleGuard allowedRoles={['admin']}>
+                        <ReportsExport />
                       </RoleGuard>
                     }
                   />

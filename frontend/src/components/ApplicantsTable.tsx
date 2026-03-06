@@ -16,10 +16,13 @@ import { cn } from "@/lib/utils";
 
 interface ApplicantsTableProps {
   query: string;
+  statusFilter?: string;
+  sortBy?: string;
+  sortDir?: string;
   onViewDetails: (applicant: ApplicantCard) => void;
 }
 
-const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, onViewDetails }) => {
+const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter = '', sortBy = '', sortDir = 'asc', onViewDetails }) => {
   const [students, setStudents] = useState<Students[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -28,7 +31,7 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, onViewDetails 
   const fetchApplicants = useCallback(async (p = 1) => {
     setLoading(true);
     try {
-      const res = await getPaginatedApplicants(query, p);
+      const res = await getPaginatedApplicants(query, p, statusFilter, sortBy, sortDir);
       setStudents(res.data);
       setPage(res.current_page);
       setLastPage(res.last_page);
@@ -38,7 +41,12 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, onViewDetails 
       // Small delay for better UX transition
       setTimeout(() => setLoading(false), 400);
     }
-  }, [query]);
+  }, [query, statusFilter, sortBy, sortDir]);
+
+
+  const VITE_API_URL = import.meta.env.VITE_API_URL;
+  const getImageUrl = (path: string | null | undefined) =>
+    !path ? '' : (path.startsWith('http') ? path : `${VITE_API_URL}/storage/${path}`);
 
   const handleDetailClick = (s: Students) => {
     const applicantData: ApplicantCard = {
@@ -46,6 +54,8 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, onViewDetails 
       id: s.id,
       fullName: getFullName(s),
       idNumber: s.id_number,
+      photo: getImageUrl(s.id_picture),
+      signature: getImageUrl(s.signature_picture),
     };
     onViewDetails(applicantData);
   };

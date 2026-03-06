@@ -78,6 +78,21 @@ class AnalyticsController extends Controller
 
             $newUsers = User::where('created_at', '>=', Carbon::now()->startOfWeek())->count();
 
+            // Pending trend: compare pending count this week vs last week
+            $pendingThisWeek = Student::where('has_card', false)
+                ->where('created_at', '>=', Carbon::now()->startOfWeek())
+                ->when($department, fn($q) => $q->where('course', $department))
+                ->count();
+            $pendingLastWeek = Student::where('has_card', false)
+                ->whereBetween('created_at', [
+                Carbon::now()->subWeek()->startOfWeek(),
+                Carbon::now()->subWeek()->endOfWeek()
+            ])
+                ->when($department, fn($q) => $q->where('course', $department))
+                ->count();
+            $pendingDelta = $pendingThisWeek - $pendingLastWeek;
+            $pendingDirection = $pendingDelta > 0 ? 'up' : ($pendingDelta < 0 ? 'down' : 'flat');
+
             // ===== 2. TRENDS OVER TIME (DYNAMIC BASED ON DAYS) =====
             // Fixed: Don't group by calculated columns, only by the date format
             $trends = Student::select(
@@ -126,7 +141,11 @@ class AnalyticsController extends Controller
                     'total_records' => $totalApplicants,
                     'new_this_week' => $newApplicantsThisWeek,
                     'issued_cards' => $issuedCards,
-                    'user_growth' => $newUsers
+                    'user_growth' => $newUsers,
+                    'pending_trend' => [
+                        'direction' => $pendingDirection,
+                        'delta' => abs($pendingDelta),
+                    ],
                 ],
                 'trends' => $trends->toArray(),
                 'departments' => [
