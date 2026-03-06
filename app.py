@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 import torch
 import threading
-import requests
+
 from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
 from rembg import remove, new_session
@@ -22,7 +22,6 @@ app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024 # Allow up to 32MB
 CORS(app)
 
 # Configuration
-LARAVEL_API_URL = "http://localhost:8000/api/students"
 MAX_INPUT_DIM = 1200 
 
 upsampler = None
@@ -97,38 +96,25 @@ def bridge_application():
         print(f"\n[BRIDGE] Received application for: {form_data.get('firstName')} {form_data.get('lastName')}")
 
         # 2. Process Pictures if they exist
-        files_to_forward = {}
-        
+        processed = {}
+
         if 'id_picture' in request.files:
             print("[BRIDGE] Processing ID Picture...")
             id_buf = process_id_picture(request.files['id_picture'].read())
-            files_to_forward['id_picture'] = ('id.png', id_buf, 'image/png')
+            processed['id_picture'] = True
 
         if 'signature_picture' in request.files:
             print("[BRIDGE] Processing Signature...")
             sig_buf = process_sig_picture(request.files['signature_picture'].read())
-            files_to_forward['signature_picture'] = ('sig.png', sig_buf, 'image/png')
+            processed['signature_picture'] = True
 
-        # 3. Forward to Laravel
-        print(f"[BRIDGE] Forwarding to Laravel: {LARAVEL_API_URL}")
-        response = requests.post(
-            LARAVEL_API_URL,
-            data=form_data,
-            files=files_to_forward,
-            timeout=30
-        )
+        print(f"[BRIDGE] Done. Processed: {list(processed.keys())}")
 
-        # 4. Filter headers and return
-        excluded_headers = [
-            'content-encoding', 'content-length', 'transfer-encoding', 
-            'connection', 'keep-alive', 'proxy-authenticate', 
-            'proxy-authorization', 'te', 'trailers', 'upgrade'
-        ]
-        headers = [
-            (name, value) for (name, value) in response.headers.items()
-            if name.lower() not in excluded_headers
-        ]
-        return (response.content, response.status_code, headers)
+        return jsonify({
+            "message": "Application received and images processed successfully",
+            "idNumber": form_data.get('idNumber'),
+            "processed": processed,
+        }), 200
 
     except Exception as e:
         print(f"[BRIDGE ERROR] {str(e)}")
