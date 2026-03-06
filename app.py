@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import torch
 import threading
+import requests
 
 from flask import Flask, request, send_file, jsonify
 from flask_cors import CORS
@@ -22,6 +23,7 @@ app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024 # Allow up to 32MB
 CORS(app)
 
 # Configuration
+LARAVEL_API_URL = "http://localhost:8000/api/students"
 MAX_INPUT_DIM = 1200 
 
 upsampler = None
@@ -95,26 +97,39 @@ def bridge_application():
         form_data = request.form.to_dict()
         print(f"\n[BRIDGE] Received application for: {form_data.get('firstName')} {form_data.get('lastName')}")
 
-        # 2. Process Pictures if they exist
-        processed = {}
+        # 2. Process Pictures with AI
+        files_to_forward = {}
 
         if 'id_picture' in request.files:
             print("[BRIDGE] Processing ID Picture...")
             id_buf = process_id_picture(request.files['id_picture'].read())
-            processed['id_picture'] = True
+            files_to_forward['id_picture'] = ('id.png', id_buf, 'image/png')
 
         if 'signature_picture' in request.files:
             print("[BRIDGE] Processing Signature...")
             sig_buf = process_sig_picture(request.files['signature_picture'].read())
-            processed['signature_picture'] = True
+            files_to_forward['signature_picture'] = ('sig.png', sig_buf, 'image/png')
 
-        print(f"[BRIDGE] Done. Processed: {list(processed.keys())}")
+        # 3. Forward processed data to local Laravel for card management & Pusher
+        print(f"[BRIDGE] Forwarding to local Laravel: {LARAVEL_API_URL}")
+        response = requests.post(
+            LARAVEL_API_URL,
+            data=form_data,
+            files=files_to_forward,
+            timeout=30
+        )
 
-        return jsonify({
-            "message": "Application received and images processed successfully",
-            "idNumber": form_data.get('idNumber'),
-            "processed": processed,
-        }), 200
+        # 4. Filter headers and return
+        excluded_headers = [
+            'content-encoding', 'content-length', 'transfer-encoding',
+            'connection', 'keep-alive', 'proxy-authenticate',
+            'proxy-authorization', 'te', 'trailers', 'upgrade'
+        ]
+        headers = [
+            (name, value) for (name, value) in response.headers.items()
+            if name.lower() not in excluded_headers
+        ]
+        return (response.content, response.status_code, headers)
 
     except Exception as e:
         print(f"[BRIDGE ERROR] {str(e)}")
