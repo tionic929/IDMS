@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useCallback, Suspense, lazy, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
     Search, Trash2, Printer, RefreshCw, CheckCircle2,
     Database, CheckSquare, Square, MapPin, Phone,
     User as UserIcon, Ban,
-    CreditCard
+    CreditCard, Receipt
 } from 'lucide-react';
 import { echo } from '@/echo';
 
@@ -42,6 +43,7 @@ import { cn } from "@/lib/utils";
 
 // Lazy Load Heavy Components to reduce initial bundle size
 const PrintPreviewModal = lazy(() => import('@/components/PrintPreviewModal'));
+const PaymentProofModal = lazy(() => import('@/components/PaymentProofModal'));
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
 type SortKey = 'created_at' | 'id_number' | 'first_name' | 'last_name';
@@ -128,8 +130,10 @@ const Dashboard: React.FC = () => {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [selectedViewingId, setSelectedViewingId] = useState<number | null>(null);
     const [printData, setPrintData] = useState<{ student: ApplicantCard, layout: any } | null>(null);
+    const [viewingPaymentProof, setViewingPaymentProof] = useState<string | null>(null);
     const [previewScale, setPreviewScale] = useState(0.4); // Smaller default for sidebar
     const [isResizing, setIsResizing] = useState(false);
+
 
     const resizeRef = React.useRef<{ startX: number; startScale: number } | null>(null);
 
@@ -169,6 +173,19 @@ const Dashboard: React.FC = () => {
     const { allStudents, loading: studentsLoading, refreshStudents: refetchStudents } = useStudents();
 
     const { templates: allTemplates, loading: templatesLoading } = useTemplates();
+
+    const [searchParams] = useSearchParams();
+
+    // Auto-select student from URL param (e.g., navigating from dashboard)
+    useEffect(() => {
+        const selectId = searchParams.get('select');
+        if (selectId && allStudents.length > 0) {
+            const found = allStudents.find((s: Students) => s.id_number === selectId);
+            if (found) {
+                setSelectedViewingId(found.id);
+            }
+        }
+    }, [searchParams, allStudents]);
 
 
     const Courses = useMemo(() => ({
@@ -260,6 +277,12 @@ const Dashboard: React.FC = () => {
                             onClose={() => setPrintData(null)}
                         />
                     )}
+                    {viewingPaymentProof && (
+                        <PaymentProofModal
+                            url={viewingPaymentProof}
+                            onClose={() => setViewingPaymentProof(null)}
+                        />
+                    )}
                 </AnimatePresence>
             </Suspense>
 
@@ -332,6 +355,18 @@ const Dashboard: React.FC = () => {
                                         <span className="text-[10px] text-zinc-400 uppercase font-bold flex items-center gap-1"><MapPin size={10} /> Residential Address</span>
                                         <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">{activeStudent.address}</p>
                                     </div>
+
+                                    {activeStudent.payment_proof && (
+                                        <div className="pt-2 border-t border-zinc-100 dark:border-zinc-900">
+                                            <button
+                                                onClick={() => setViewingPaymentProof(activeStudent.payment_proof?.startsWith('http') ? activeStudent.payment_proof : `${VITE_API_URL}/storage/${activeStudent.payment_proof}`)}
+                                                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-bold text-[11px] uppercase transition-all"
+                                            >
+                                                <Printer size={14} className="opacity-0 hidden" />
+                                                <Receipt size={14} /> View Payment Proof
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

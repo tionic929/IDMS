@@ -56,6 +56,7 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
       idNumber: s.id_number,
       photo: getImageUrl(s.id_picture),
       signature: getImageUrl(s.signature_picture),
+      paymentProof: getImageUrl(s.payment_proof),
     };
     onViewDetails(applicantData);
   };

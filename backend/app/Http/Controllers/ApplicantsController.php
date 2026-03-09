@@ -30,7 +30,7 @@ class ApplicantsController extends Controller
             ->select([
             'id', 'id_number', 'first_name', 'middle_initial', 'last_name',
             'course', 'address', 'guardian_name', 'guardian_contact',
-            'id_picture', 'signature_picture', 'has_card', 'created_at'
+            'id_picture', 'signature_picture', 'payment_proof', 'has_card', 'created_at'
         ])
             ->orderBy('created_at', 'asc')
             ->limit(10)
@@ -114,10 +114,11 @@ class ApplicantsController extends Controller
     {
         try {
             // Log the incoming request to see what's being received
-            \Log::info('New ID Application Request received', [
+            Log::info('New ID Application Request received', [
                 'idNumber' => $request->idNumber,
                 'has_id_picture' => $request->hasFile('id_picture'),
-                'has_signature' => $request->hasFile('signature_picture')
+                'has_signature' => $request->hasFile('signature_picture'),
+                'has_payment_proof' => $request->hasFile('payment_proof')
             ]);
 
             $validated = $request->validate([
@@ -131,6 +132,7 @@ class ApplicantsController extends Controller
                 'guardianContact' => 'required|string|max:20',
                 'id_picture' => 'nullable|file|mimes:jpeg,png,jpg,webp',
                 'signature_picture' => 'nullable|image|mimes:jpeg,png,jpg,webp',
+                'payment_proof' => 'nullable|file|mimes:jpeg,png,jpg,webp,pdf',
             ]);
 
             // Process and Log ID Picture
@@ -138,13 +140,13 @@ class ApplicantsController extends Controller
             if ($request->hasFile('id_picture')) {
                 $file = $request->file('id_picture');
                 $idPath = $file->store('students/id_pictures', 'public');
-                \Log::info('ID Photo stored successfully', [
+                Log::info('ID Photo stored successfully', [
                     'original_name' => $file->getClientOriginalName(),
                     'stored_path' => $idPath
                 ]);
             }
             else {
-                \Log::warning('ID Application received without id_picture');
+                Log::warning('ID Application received without id_picture');
             }
 
             // Process and Log Signature
@@ -152,13 +154,27 @@ class ApplicantsController extends Controller
             if ($request->hasFile('signature_picture')) {
                 $file = $request->file('signature_picture');
                 $sigPath = $file->store('students/signatures', 'public');
-                \Log::info('Signature stored successfully', [
+                Log::info('Signature stored successfully', [
                     'original_name' => $file->getClientOriginalName(),
                     'stored_path' => $sigPath
                 ]);
             }
             else {
-                \Log::warning('ID Application received without signature_picture');
+                Log::warning('ID Application received without signature_picture');
+            }
+
+            // Process and Log Payment Proof
+            $paymentPath = null;
+            if ($request->hasFile('payment_proof')) {
+                $file = $request->file('payment_proof');
+                $paymentPath = $file->store('students/payment_proofs', 'public');
+                Log::info('Payment Proof stored successfully', [
+                    'original_name' => $file->getClientOriginalName(),
+                    'stored_path' => $paymentPath
+                ]);
+            }
+            else {
+                Log::warning('ID Application received without payment_proof');
             }
 
             $student = Student::create([
@@ -172,15 +188,16 @@ class ApplicantsController extends Controller
                 'guardian_contact' => $validated['guardianContact'],
                 'id_picture' => $idPath,
                 'signature_picture' => $sigPath,
+                'payment_proof' => $paymentPath,
             ]);
 
-            \Log::info('Student record created in database', [
+            Log::info('Student record created in database', [
                 'db_id' => $student->id,
                 'student_id' => $student->id_number,
                 'full_name' => $student->first_name . ' ' . $student->last_name
             ]);
 
-            \Log::info('Attempting to broadcast ApplicationSubmitted for Student ID: ' . $student->id);
+            Log::info('Attempting to broadcast ApplicationSubmitted for Student ID: ' . $student->id);
 
             broadcast(new ApplicationSubmitted($student));
 
@@ -191,7 +208,7 @@ class ApplicantsController extends Controller
 
         }
         catch (\Exception $e) {
-            \Log::error('Student upload failed', [
+            Log::error('Student upload failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -314,7 +331,8 @@ class ApplicantsController extends Controller
             'guardian_name',
             'guardian_contact',
             'id_picture',
-            'signature_picture'
+            'signature_picture',
+            'payment_proof'
         )
             ->orderBy('id', 'asc');
 

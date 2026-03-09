@@ -8,6 +8,7 @@ export interface ApplicantCard {
   address: string;
   photo?: string | null;
   signature?: string | null;
+  paymentProof?: string | null;
 }
 export interface ElementPos {
   x: number;

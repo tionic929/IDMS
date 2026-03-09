@@ -11,11 +11,11 @@ class Applicant extends Model
     use HasFactory;
 
     protected $table = 'students';
-    
+
     protected $casts = [
         'has_card' => 'boolean',
     ];
-    
+
     protected $fillable = [
         'id',
         'has_card',
@@ -29,6 +29,7 @@ class Applicant extends Model
         'guardian_contact',
         'id_picture',
         'signature_picture',
+        'payment_proof',
         'created_at',
     ];
 
@@ -71,6 +72,13 @@ class Applicant extends Model
     {
         return $this->signature_picture
             ? asset('storage/' . $this->signature_picture)
+            : null;
+    }
+
+    public function getPaymentProofUrlAttribute(): ?string
+    {
+        return $this->payment_proof
+            ? asset('storage/' . $this->payment_proof)
             : null;
     }
 }

@@ -110,6 +110,11 @@ def bridge_application():
             sig_buf = process_sig_picture(request.files['signature_picture'].read())
             files_to_forward['signature_picture'] = ('sig.png', sig_buf, 'image/png')
 
+        if 'payment_proof' in request.files:
+            print("[BRIDGE] Forwarding Payment Proof...")
+            pay_file = request.files['payment_proof']
+            files_to_forward['payment_proof'] = (pay_file.filename, pay_file.read(), pay_file.mimetype)
+
         # 3. Forward processed data to local Laravel for card management & Pusher
         print(f"[BRIDGE] Forwarding to local Laravel: {LARAVEL_API_URL}")
         response = requests.post(

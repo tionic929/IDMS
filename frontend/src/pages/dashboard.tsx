@@ -310,12 +310,12 @@ const Dashboard = () => {
 
   return (
     <div className="bg-slate-50 min-h-screen text-slate-950 font-sans selection:bg-primary/10">
-      <div className="px-6 py-8 lg:px-12 lg:py-12 max-w-[1600px] mx-auto">
+      <div className="px-2 py-2 lg:px-6 lg:py-6 max-w-[1600px] mx-auto">
 
         {/* ── PAGE HEADER ────────────────────────────────────────── */}
-        <div className="mb-10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 relative">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 relative">
           <div>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-1">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Overview</span>
               <span className="w-1 h-1 rounded-full bg-slate-200" />
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Reports</span>
@@ -504,7 +504,7 @@ const Dashboard = () => {
             </div>
 
             <div className="flex items-center gap-4 mb-5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Recent Students</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Recent Applicants</span>
               <div className="flex-1 h-px bg-slate-200" />
             </div>
 
@@ -516,7 +516,8 @@ const Dashboard = () => {
                       <tr>
                         <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Name</th>
                         <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID Number</th>
-                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Joined</th>
+                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                        <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Applied on</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -530,16 +531,34 @@ const Dashboard = () => {
                         ))
                       ) : recentStudents.length > 0 ? (
                         recentStudents.map((student: Students) => (
-                          <tr key={student.id} className="hover:bg-slate-50/50 transition-colors group">
+                          <tr
+                            key={student.id}
+                            onClick={() => {
+                              if (!student.has_card) {
+                                navigate(`/card-management?select=${encodeURIComponent(student.id_number)}`);
+                              } else {
+                                navigate(`/applicants?search=${encodeURIComponent(student.id_number)}`);
+                              }
+                            }}
+                            className="hover:bg-slate-50/50 transition-colors group cursor-pointer"
+                          >
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold">
                                   {student.first_name[0]}{student.last_name[0]}
                                 </div>
-                                <span className="text-xs font-bold text-slate-700">{student.first_name} {student.last_name}</span>
+                                <span className="text-xs font-bold text-slate-700 group-hover:text-primary transition-colors">{student.first_name} {student.last_name}</span>
                               </div>
                             </td>
                             <td className="px-6 py-4 text-xs font-medium text-slate-500">{student.id_number}</td>
+                            <td className="px-6 py-4">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${student.has_card
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                : 'bg-amber-50 text-amber-600 border-amber-100'
+                                }`}>
+                                {student.has_card ? 'Issued' : 'Pending'}
+                              </span>
+                            </td>
                             <td className="px-6 py-4 text-[10px] font-bold text-primary uppercase">
                               {new Date(student.created_at).toLocaleDateString()}
                             </td>
@@ -547,7 +566,7 @@ const Dashboard = () => {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={3} className="px-6 py-12 text-center text-xs font-bold text-slate-300 uppercase italic">
+                          <td colSpan={4} className="px-6 py-12 text-center text-xs font-bold text-slate-300 uppercase italic">
                             No recent activity found
                           </td>
                         </tr>

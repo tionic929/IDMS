@@ -1,10 +1,13 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
   Printer, Scissors, FlipHorizontal, Download,
-  Settings, X, ZoomIn, ZoomOut, Info
+  Settings, X, ZoomIn, ZoomOut, Info, Receipt, Loader2
 } from 'lucide-react';
 import IDCardPreview from './IDCardPreview';
 import { type ApplicantCard } from '../types/card';
+import { Suspense, lazy } from 'react';
+
+const PaymentProofModal = lazy(() => import('./PaymentProofModal'));
 import { toast } from 'react-toastify';
 import { confirmApplicant } from '../api/students';
 import {
@@ -34,6 +37,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
   const [frontImage, setFrontImage] = useState<string>('');
   const [backImage, setBackImage] = useState<string>('');
   const [isGeneratingImages, setIsGeneratingImages] = useState(true);
+  const [viewingPaymentProof, setViewingPaymentProof] = useState<string | null>(null);
 
   // Margin Settings
   const [marginTop, setMarginTop] = useState(0);
@@ -82,13 +86,13 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
     }
 
     const frontLink = document.createElement('a');
-    frontLink.download = `${data.idNumber}_FRONT.png`;
+    frontLink.download = `${data.idNumber} _FRONT.png`;
     frontLink.href = frontImage;
     frontLink.click();
 
     setTimeout(() => {
       const backLink = document.createElement('a');
-      backLink.download = `${data.idNumber}_BACK.png`;
+      backLink.download = `${data.idNumber} _BACK.png`;
       backLink.href = backImage;
       backLink.click();
     }, 300);
@@ -141,7 +145,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             toast.success('Print job completed successfully!');
             setTimeout(onClose, 1500);
           } else {
-            toast.error(`Print failed: ${arg.failureReason}`);
+            toast.error(`Print failed: ${arg.failureReason} `);
           }
         });
 
@@ -163,83 +167,83 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
     <>
       {/* Print Styles */}
       <style>{`
-        @media print {
-          @page { 
-            margin: 0; 
-          }
-          body, html {
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          body * { visibility: hidden; }
-          #print-root, #print-root * { visibility: visible; }
-          #print-root {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-          }
-          .print-page {
-            width: 2.125in !important;
-            height: 3.375in !important;
-            page-break-after: always !important;
-            page-break-inside: avoid !important;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .print-page:last-child {
-            page-break-after: auto !important;
-          }
-        }
+@media print {
+  @page {
+    margin: 0;
+  }
+  body, html {
+    margin: 0!important;
+    padding: 0!important;
+  }
+  body * { visibility: hidden; }
+  #print - root, #print - root * { visibility: visible; }
+  #print - root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100 %;
+  }
+          .print - page {
+    width: 2.125in !important;
+    height: 3.375in !important;
+    page -break-after: always!important;
+    page -break-inside: avoid!important;
+    overflow: hidden;
+    display: flex;
+    align - items: center;
+    justify - content: center;
+  }
+          .print - page: last - child {
+    page -break-after: auto!important;
+  }
+}
 
-        .hidden-canvas {
-          position: absolute;
-          left: -9999px;
-          top: -9999px;
-          pointer-events: none;
-        }
+        .hidden - canvas {
+  position: absolute;
+  left: -9999px;
+  top: -9999px;
+  pointer - events: none;
+}
 
-        .blueprint-grid {
-          background-color: #0f172a;
-          background-size: 30px 30px;
-          background-image: 
-            linear-gradient(to right, rgba(100, 116, 139, 0.1) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(100, 116, 139, 0.1) 1px, transparent 1px);
-        }
+        .blueprint - grid {
+  background - color: #0f172a;
+  background - size: 30px 30px;
+  background - image:
+  linear - gradient(to right, rgba(100, 116, 139, 0.1) 1px, transparent 1px),
+    linear - gradient(to bottom, rgba(100, 116, 139, 0.1) 1px, transparent 1px);
+}
 
-        .cut-guides {
-          position: relative;
-        }
+        .cut - guides {
+  position: relative;
+}
 
-        .cut-guides::before {
-          content: '';
-          position: absolute;
-          inset: -12px;
-          border: 2px dashed #14b8a6;
-          border-radius: 4px;
-          pointer-events: none;
-        }
+        .cut - guides::before {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border: 2px dashed #14b8a6;
+  border - radius: 4px;
+  pointer - events: none;
+}
 
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-          height: 6px;
-        }
+        .custom - scrollbar:: -webkit - scrollbar {
+  width: 6px;
+  height: 6px;
+}
 
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: #1e293b;
-        }
+        .custom - scrollbar:: -webkit - scrollbar - track {
+  background: #1e293b;
+}
 
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #475569;
-          border-radius: 3px;
-        }
+        .custom - scrollbar:: -webkit - scrollbar - thumb {
+  background: #475569;
+  border - radius: 3px;
+}
 
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #64748b;
-        }
-      `}</style>
+        .custom - scrollbar:: -webkit - scrollbar - thumb:hover {
+  background: #64748b;
+}
+`}</style>
 
       {/* Modal Container */}
       <div className="fixed inset-0 z-[100] flex bg-slate-950 text-slate-200 overflow-hidden">
@@ -307,29 +311,29 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
               <div className="flex flex-row gap-4">
                 <button
                   onClick={() => setShowCutLines(!showCutLines)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${showCutLines
-                    ? 'border-teal-500 bg-teal-500/10'
-                    : 'border-slate-700 hover:border-slate-600'
-                    }`}
+                  className={`w - full flex items - center justify - between p - 3 rounded - lg border - 2 transition - all ${showCutLines
+                      ? 'border-teal-500 bg-teal-500/10'
+                      : 'border-slate-700 hover:border-slate-600'
+                    } `}
                 >
                   <div className="flex items-center gap-3">
                     <Scissors size={16} className={showCutLines ? 'text-teal-400' : 'text-slate-400'} />
                     <span className="text-sm font-medium">Cut Guides</span>
                   </div>
-                  <div className={`w-2 h-2 rounded-full ${showCutLines ? 'bg-teal-400' : 'bg-slate-600'}`} />
+                  <div className={`w - 2 h - 2 rounded - full ${showCutLines ? 'bg-teal-400' : 'bg-slate-600'} `} />
                 </button>
                 <button
                   onClick={() => setMirrorBack(!mirrorBack)}
-                  className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all ${mirrorBack
-                    ? 'border-teal-500 bg-teal-500/10'
-                    : 'border-slate-700 hover:border-slate-600'
-                    }`}
+                  className={`w - full flex items - center justify - between p - 3 rounded - lg border - 2 transition - all ${mirrorBack
+                      ? 'border-teal-500 bg-teal-500/10'
+                      : 'border-slate-700 hover:border-slate-600'
+                    } `}
                 >
                   <div className="flex items-center gap-3">
                     <FlipHorizontal size={16} className={mirrorBack ? 'text-teal-400' : 'text-slate-400'} />
                     <span className="text-sm font-medium">Mirror Back</span>
                   </div>
-                  <div className={`w-2 h-2 rounded-full ${mirrorBack ? 'bg-teal-400' : 'bg-slate-600'}`} />
+                  <div className={`w - 2 h - 2 rounded - full ${mirrorBack ? 'bg-teal-400' : 'bg-slate-600'} `} />
                 </button>
               </div>
             </div>
@@ -428,6 +432,16 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
               <Printer size={16} />
               {isGeneratingImages ? 'Processing...' : 'Print Cards'}
             </button>
+
+            {data.paymentProof && (
+              <button
+                onClick={() => setViewingPaymentProof(data.paymentProof || null)}
+                className="w-full mt-2 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-teal-400 border border-teal-500/30 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2 shadow-lg"
+              >
+                <Receipt size={16} />
+                View Payment Proof
+              </button>
+            )}
           </div>
         </aside>
 
@@ -439,7 +453,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
           >
             {/* Front Card */}
             <div className="flex flex-col items-center gap-4">
-              <div className={`shadow-2xl rounded-sm overflow-hidden ${showCutLines ? 'cut-guides' : ''}`}>
+              <div className={`shadow - 2xl rounded - sm overflow - hidden ${showCutLines ? 'cut-guides' : ''} `}>
                 <IDCardPreview
                   data={data}
                   layout={layout}
@@ -458,7 +472,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             {/* Back Card */}
             <div className="flex flex-col items-center gap-4">
               <div
-                className={`shadow-2xl rounded-sm overflow-hidden ${showCutLines ? 'cut-guides' : ''}`}
+                className={`shadow - 2xl rounded - sm overflow - hidden ${showCutLines ? 'cut-guides' : ''} `}
                 style={{ transform: mirrorBack ? 'scaleX(-1)' : 'none' }}
               >
                 <IDCardPreview
@@ -525,6 +539,15 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
           />
         </div>
       </div>
+
+      {viewingPaymentProof && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black/40 z-[110] flex items-center justify-center"><Loader2 className="animate-spin text-white" size={48} /></div>}>
+          <PaymentProofModal
+            url={viewingPaymentProof}
+            onClose={() => setViewingPaymentProof(null)}
+          />
+        </Suspense>
+      )}
     </>
   );
 };
