@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, User, BadgeCheck, MapPin, Phone, GraduationCap, Image as ImageIcon, FileSignature, Loader2, Receipt } from 'lucide-react';
+import AuthenticatedImage, { preloadImage } from '../AuthenticatedImage';
 import { type ApplicantCard } from '../../types/card';
 import { Suspense, lazy } from 'react';
 
@@ -11,23 +12,7 @@ interface Props {
 }
 
 const ApplicantDetailsModal: React.FC<Props> = ({ data, onClose }) => {
-  const [photoLoading, setPhotoLoading] = useState(true);
-  const [photoError, setPhotoError] = useState(false);
-  const [sigLoading, setSigLoading] = useState(true);
-  const [sigError, setSigError] = useState(false);
   const [viewingPaymentProof, setViewingPaymentProof] = useState<string | null>(null);
-
-  const handlePhotoLoad = () => setPhotoLoading(false);
-  const handlePhotoError = () => {
-    setPhotoLoading(false);
-    setPhotoError(true);
-  };
-
-  const handleSigLoad = () => setSigLoading(false);
-  const handleSigError = () => {
-    setSigLoading(false);
-    setSigError(true);
-  };
 
   return (
     <>
@@ -121,6 +106,11 @@ const ApplicantDetailsModal: React.FC<Props> = ({ data, onClose }) => {
                   <div className="pt-8 border-t border-slate-100">
                     <button
                       onClick={() => setViewingPaymentProof(data.paymentProof || null)}
+                      onMouseEnter={() => {
+                        if (data.paymentProof && !data.paymentProof.toLowerCase().endsWith('.pdf')) {
+                          preloadImage(data.paymentProof);
+                        }
+                      }}
                       className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-black text-[11px] uppercase transition-all shadow-sm"
                     >
                       <Receipt size={16} /> View Payment Proof
@@ -142,25 +132,16 @@ const ApplicantDetailsModal: React.FC<Props> = ({ data, onClose }) => {
                     ID Photo
                   </label>
                   <div className="relative w-full aspect-[4/5] bg-slate-50 rounded-[2rem] overflow-hidden border-2 border-slate-100 shadow-inner group-hover:border-primary/20 transition-all duration-500">
-                    {photoLoading && !photoError && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-slate-50">
-                        <Loader2 className="w-10 h-10 text-primary/20 animate-spin" />
-                      </div>
-                    )}
-
-                    {photoError || !data.photo ? (
+                    {!data.photo ? (
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 bg-slate-50">
                         <User size={64} className="mb-4 opacity-50" />
                         <p className="text-[10px] font-black uppercase tracking-widest">No Photo</p>
                       </div>
                     ) : (
-                      <img
+                      <AuthenticatedImage
                         src={data.photo}
                         alt={`${data.fullName}'s photo`}
-                        className={`w-full h-full object-cover transition-all duration-700 group-hover:scale-105 ${photoLoading ? 'opacity-0' : 'opacity-100'
-                          }`}
-                        onLoad={handlePhotoLoad}
-                        onError={handlePhotoError}
+                        className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105"
                       />
                     )}
                   </div>
@@ -172,25 +153,16 @@ const ApplicantDetailsModal: React.FC<Props> = ({ data, onClose }) => {
                     Signature
                   </label>
                   <div className="relative w-full h-32 bg-slate-50 rounded-[1.5rem] overflow-hidden border-2 border-slate-100 shadow-inner p-4 group-hover:border-primary/20 transition-all duration-500">
-                    {sigLoading && !sigError && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-slate-50">
-                        <Loader2 className="w-6 h-6 text-primary/20 animate-spin" />
-                      </div>
-                    )}
-
-                    {sigError || !data.signature ? (
+                    {!data.signature ? (
                       <div className="absolute inset-0 flex items-center justify-center text-slate-300 bg-slate-50">
                         <FileSignature size={24} className="mr-2 opacity-50" />
                         <p className="text-[10px] font-black uppercase tracking-widest">No Signature</p>
                       </div>
                     ) : (
-                      <img
+                      <AuthenticatedImage
                         src={data.signature}
                         alt={`${data.fullName}'s signature`}
-                        className={`w-full h-full object-contain transition-all duration-700 ${sigLoading ? 'opacity-0' : 'opacity-100'
-                          }`}
-                        onLoad={handleSigLoad}
-                        onError={handleSigError}
+                        className="w-full h-full object-contain transition-all duration-700"
                       />
                     )}
                   </div>

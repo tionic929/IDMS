@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { preloadImage } from './AuthenticatedImage';
 
 interface ApplicantsTableProps {
   query: string;
@@ -94,7 +95,14 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
               ))
             ) : students.length > 0 ? (
               students.map((s) => (
-                <TableRow key={s.id} className="group hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">
+                <TableRow
+                  key={s.id}
+                  className="group hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0"
+                  onMouseEnter={() => {
+                    if (s.id_picture) preloadImage(getImageUrl(s.id_picture));
+                    if (s.signature_picture) preloadImage(getImageUrl(s.signature_picture));
+                  }}
+                >
                   <TableCell className="pl-8 font-mono text-[11px] font-bold text-primary">
                     {s.id_number}
                   </TableCell>

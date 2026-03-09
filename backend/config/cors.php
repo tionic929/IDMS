@@ -3,7 +3,7 @@
 $allowedOrigins = array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', ''))));
 
 return [
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'broadcasting/auth', 'storage/*'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'broadcasting/auth', 'storage/*', 'proxy-image'],
 
     'allowed_methods' => ['*'],
 

@@ -71,4 +71,5 @@ Route::middleware('auth:sanctum')->group(function () {
         // Route::get('/applications/{id}', [AdminApplicationController::class, 'show']);
         // Route::put('/applications/{id}/approve', [AdminApplicationController::class, 'approve']);
         }
-        );    });
+        );
+    });

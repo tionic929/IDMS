@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { X, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import AuthenticatedImage from './AuthenticatedImage';
 
 interface PaymentProofModalProps {
     url: string;
@@ -68,7 +69,7 @@ const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ url, onClose }) =
                             title="Payment Proof PDF"
                         />
                     ) : (
-                        <img
+                        <AuthenticatedImage
                             src={url}
                             alt="Payment Proof"
                             className="max-w-full max-h-[70vh] object-contain rounded-xl shadow-lg"

@@ -6,10 +6,11 @@ const apiBaseUrl = import.meta.env.VITE_API_URL || "";
 const api = axios.create({
   baseURL: `${apiBaseUrl}/api`,
   withCredentials: true,
-  withXSRFToken: true,  
+  withXSRFToken: true,
   headers: {
     "X-Requested-With": "XMLHttpRequest",
     Accept: "application/json",
+    "ngrok-skip-browser-warning": "69420", // Can be any value
   },
 });
 
@@ -19,7 +20,7 @@ api.interceptors.request.use((config) => {
     .split('; ')
     .find(row => row.startsWith('XSRF-TOKEN='))
     ?.split('=')[1];
-  
+
   if (xsrfToken) {
     config.headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfToken);
   }
@@ -28,7 +29,7 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  
+
   return config;
 });
 
