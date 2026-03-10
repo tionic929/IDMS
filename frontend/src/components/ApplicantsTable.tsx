@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { getFullName, type Students } from "@/types/students";
-import { getPaginatedApplicants } from "@/api/students";
-import { ChevronLeft, ChevronRight, Loader2, MoreHorizontal, Eye } from "lucide-react";
+import { getPaginatedApplicants, deleteApplicant } from "@/api/students";
+import { ChevronLeft, ChevronRight, Loader2, MoreHorizontal, Eye, Trash2, AlertTriangle } from "lucide-react";
 import type { ApplicantCard } from "@/types/card";
 import {
   Table,
@@ -12,6 +12,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { preloadImage } from './AuthenticatedImage';
 
@@ -28,6 +36,9 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
+
+  const [applicantToDelete, setApplicantToDelete] = useState<Students | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchApplicants = useCallback(async (p = 1) => {
     setLoading(true);
@@ -60,6 +71,24 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
       paymentProof: getImageUrl(s.payment_proof),
     };
     onViewDetails(applicantData);
+  };
+
+  const confirmDelete = async () => {
+    if (!applicantToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      await deleteApplicant(applicantToDelete.id);
+
+      // Update local state instead of doing a full refetch if we don't want a layout jump,
+      // or simply perform a full fetch to get properly paginated data again
+      setStudents(prev => prev.filter(s => s.id !== applicantToDelete.id));
+      setApplicantToDelete(null);
+    } catch (err) {
+      console.error('Failed to delete applicant:', err);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   useEffect(() => {
@@ -142,6 +171,14 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
                     >
                       <Eye className="h-4 w-4" />
                     </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setApplicantToDelete(s)}
+                      className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all font-bold ml-1"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))
@@ -188,6 +225,43 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
           </Button>
         </div>
       </div>
+
+      <Dialog open={!!applicantToDelete} onOpenChange={(open) => !open && !isDeleting && setApplicantToDelete(null)}>
+        <DialogContent className="sm:max-w-md bg-white rounded-[2rem] p-6 sm:p-8 border-slate-100 shadow-2xl">
+          <DialogHeader className="mb-2">
+            <div className="mx-auto w-12 h-12 bg-red-50 rounded-full flex items-center justify-center mb-4 text-red-500">
+              <AlertTriangle size={24} />
+            </div>
+            <DialogTitle className="text-xl font-black text-center text-slate-900 tracking-tight">Confirm Deletion</DialogTitle>
+            <DialogDescription className="text-center pt-2 text-slate-500 font-medium">
+              Are you absolutely sure you want to delete <strong className="text-slate-800">{applicantToDelete ? getFullName(applicantToDelete) : ''}</strong>?
+              <br />
+              <span className="text-xs text-red-500/80 font-bold block mt-3 uppercase tracking-wider">This action is destructive and will remove them from the active list.</span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-6 flex flex-col-reverse sm:flex-row gap-3 sm:gap-2 w-full">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isDeleting}
+              onClick={() => setApplicantToDelete(null)}
+              className="w-full sm:w-1/2 rounded-xl text-slate-600 border-slate-200 mt-2 sm:mt-0"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={confirmDelete}
+              className="w-full sm:w-1/2 rounded-xl bg-red-500 hover:bg-red-600 font-bold text-white flex items-center justify-center gap-2"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -46,3 +46,8 @@ export const togglehasCard = async (studentId: number, field: keyof Students) =>
     });
     return request.data;
 }
+
+export const deleteApplicant = async (studentId: number): Promise<{ message: string }> => {
+    const request = await api.delete(`/applicant/${studentId}`);
+    return request.data;
+}

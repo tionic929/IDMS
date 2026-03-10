@@ -417,4 +417,26 @@ class ApplicantsController extends Controller
 
         return response()->json($departments);
     }
+
+    public function destroy($id)
+    {
+        try {
+            $student = Student::findOrFail($id);
+            $student->delete();
+
+            return response()->json([
+                'message' => 'Applicant deleted successfully'
+            ], 200);
+        }
+        catch (\Exception $e) {
+            Log::error('Error deleting applicant', [
+                'student_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to delete applicant'
+            ], 500);
+        }
+    }
 }
