@@ -25,6 +25,13 @@ export const getPaginatedApplicants = async (
     return request.data;
 }
 
+export const getArchivedApplicants = async (page: number = 1): Promise<PaginatedResponse> => {
+    const request = await api.get('/archived-applicants', {
+        params: { page }
+    });
+    return request.data;
+}
+
 export const getApplicantsReport = async (): Promise<TotalApplicantsPayload> => {
     const request = await api.get('/total-applicants');
     return request.data;
@@ -49,5 +56,10 @@ export const togglehasCard = async (studentId: number, field: keyof Students) =>
 
 export const deleteApplicant = async (studentId: number): Promise<{ message: string }> => {
     const request = await api.delete(`/applicant/${studentId}`);
+    return request.data;
+}
+
+export const archiveApplicant = async (studentId: number): Promise<{ message: string }> => {
+    const request = await api.post(`/applicant/${studentId}/archive`);
     return request.data;
 }

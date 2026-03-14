@@ -1,445 +1,707 @@
 import React, { useState, useMemo, useCallback, Suspense, lazy, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import {
     Search, Trash2, Printer, RefreshCw, CheckCircle2,
-    Database, CheckSquare, Square, MapPin, Phone,
-    User as UserIcon, Ban,
-    CreditCard, Receipt
+    Database, CheckSquare, Square, ZoomIn, ZoomOut, RotateCcw,
+    CreditCard, X, Camera, MapPin, User as UserIcon,
 } from 'lucide-react';
-import { echo } from '@/echo';
 
 import { toast } from 'react-toastify';
-import { motion, AnimatePresence } from 'framer-motion';
-import api from '@/api/axios';
-import { getStudents } from '@/api/students';
+import { AnimatePresence, motion } from 'framer-motion';
+import { archiveApplicant, deleteApplicant, confirmApplicant } from '@/api/students';
 
-// Types
 import type { Students } from '@/types/students';
 import { type ApplicantCard } from '@/types/card';
 
-// Icons & Components
-import { BsPersonFill } from 'react-icons/bs';
-
 import IDCardPreview from '@/components/IDCardPreview';
 import CardManagementSkeleton from '@/components/skeletons/CardManagementSkeleton';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from '@/components/ui/button';
+import { MIN_ZOOM, MAX_ZOOM } from '@/constants/dimensions';
 import {
-    MIN_ZOOM,
-    MAX_ZOOM
-} from '@/constants/dimensions';
+    Table, TableBody, TableCell,
+    TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-
-
-// Lazy Load Heavy Components to reduce initial bundle size
-const PrintPreviewModal = lazy(() => import('@/components/PrintPreviewModal'));
-const PaymentProofModal = lazy(() => import('@/components/PaymentProofModal'));
-
-const VITE_API_URL = import.meta.env.VITE_API_URL;
-type SortKey = 'created_at' | 'id_number' | 'first_name' | 'last_name';
-
-// Memoized Table Row to prevent "Tunnel Lag" and entire table re-renders
-const StudentRow = React.memo(({
-    student,
-    isActive,
-    isSelected,
-    onSelect,
-    onView,
-    courses
-}: {
-    student: Students,
-    isActive: boolean,
-    isSelected: boolean,
-    onSelect: (id: number) => void,
-    onView: (id: number) => void,
-    courses: any
-}) => {
-    return (
-        <TableRow
-            onClick={() => onView(student.id)}
-            className={cn(
-                "group cursor-pointer",
-                isActive && "bg-primary/5 hover:bg-primary/10"
-            )}
-        >
-            <TableCell className="pl-6" onClick={(e) => {
-                e.stopPropagation();
-                onSelect(student.id);
-            }}>
-                {isSelected ? <CheckSquare size={16} className="text-primary" /> : <Square size={16} className="opacity-20 group-hover:opacity-40" />}
-            </TableCell>
-            <TableCell>
-                <span className="text-[11px] font-black uppercase text-foreground">{student.last_name}, {student.first_name}</span>
-            </TableCell>
-            <TableCell className="font-mono text-[10px] font-bold text-muted-foreground">
-                {student.id_number}
-            </TableCell>
-            <TableCell>
-                <span className={cn(
-                    "text-[9px] font-black uppercase px-2 py-0.5 rounded border",
-                    courses[student.course]?.border || 'border-border',
-                    courses[student.course]?.color || 'text-muted-foreground'
-                )}>
-                    {student.course}
-                </span>
-            </TableCell>
-            <TableCell>
-                {student.has_card ?
-                    <div className="text-emerald-500 flex items-center gap-1.5 text-[9px] font-black uppercase">
-                        <CheckCircle2 size={12} />
-                        Printed
-                    </div> :
-                    <div className="text-amber-500 flex items-center gap-1.5 text-[9px] font-black uppercase">
-                        <RefreshCw size={12} className="animate-spin" />
-                        In Queue
-                    </div>
-                }
-            </TableCell>
-            <TableCell className="text-right pr-6">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => { e.stopPropagation(); }}
-                >
-                    <Trash2 size={14} />
-                </Button>
-            </TableCell>
-        </TableRow>
-    );
-});
+    Dialog, DialogContent, DialogHeader,
+    DialogTitle, DialogDescription, DialogFooter
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 import { useStudents } from '@/context/StudentContext';
 import { useTemplates } from '@/context/TemplateContext';
 
+const PrintPreviewModal = lazy(() => import('@/components/PrintPreviewModal'));
+const PaymentProofModal = lazy(() => import('@/components/PaymentProofModal'));
+
+const VITE_API_URL = import.meta.env.VITE_API_URL;
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+const getUrl = (path: string | null) =>
+    !path ? '' : path.startsWith('http') ? path : `${VITE_API_URL}/storage/${path}`;
+
+const toCard = (s: Students): ApplicantCard => ({
+    id: s.id,
+    fullName: `${s.first_name} ${s.last_name}`,
+    manual_full_name: s.manual_full_name,
+    idNumber: s.id_number,
+    course: s.course,
+    photo: getUrl(s.id_picture),
+    signature: getUrl(s.signature_picture),
+    guardian_name: s.guardian_name,
+    guardian_contact: s.guardian_contact,
+    address: s.address,
+});
+
+// ─── Zoom strip ───────────────────────────────────────────────────────────────
+const ZoomStrip = ({ scale, onIn, onOut, onReset }: {
+    scale: number; onIn: () => void; onOut: () => void; onReset: () => void;
+}) => (
+    <div className="flex items-center bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden divide-x divide-zinc-200 dark:divide-zinc-700">
+        <button onClick={onOut} className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500 transition-colors"><ZoomOut size={12} /></button>
+        <span className="px-2.5 text-[9px] font-black text-zinc-500 tabular-nums select-none min-w-[40px] text-center">{Math.round(scale * 100)}%</span>
+        <button onClick={onIn} className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500 transition-colors"><ZoomIn size={12} /></button>
+        <button onClick={onReset} className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-400 transition-colors"><RotateCcw size={11} /></button>
+    </div>
+);
+
+// ─── Pending row ──────────────────────────────────────────────────────────────
+const PendingRow = React.memo(({
+    student, isActive, isSelected, onSelect, onView, courses,
+}: {
+    student: Students; isActive: boolean; isSelected: boolean;
+    onSelect: (id: number) => void; onView: (id: number) => void; courses: any;
+}) => (
+    <TableRow
+        onClick={() => onView(student.id)}
+        className={cn(
+            'group cursor-pointer transition-colors select-none',
+            isActive ? 'bg-teal-500/5 hover:bg-teal-500/8' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
+        )}
+    >
+        <TableCell className="pl-3 w-8 py-2" onClick={e => { e.stopPropagation(); onSelect(student.id); }}>
+            {isSelected
+                ? <CheckSquare size={13} className="text-teal-500" />
+                : <Square size={13} className="opacity-20 group-hover:opacity-50 transition-opacity" />}
+        </TableCell>
+        <TableCell className="py-2">
+            <p className="text-[10px] font-black uppercase text-zinc-900 dark:text-white leading-tight">{student.last_name}, {student.first_name}</p>
+        </TableCell>
+        <TableCell className="py-2 font-mono text-[9px] font-bold text-zinc-400">{student.id_number}</TableCell>
+        <TableCell className="py-2">
+            <span className={cn('text-[8px] font-black uppercase px-1.5 py-0.5 rounded border',
+                courses[student.course]?.border || 'border-zinc-200',
+                courses[student.course]?.color || 'text-zinc-500'
+            )}>{student.course}</span>
+        </TableCell>
+        <TableCell className="py-2 pr-2 text-right">
+            <span className="text-amber-500 text-[8px] font-black uppercase flex items-center gap-1 justify-end">
+                <RefreshCw size={9} className="animate-spin" /> Queued
+            </span>
+        </TableCell>
+    </TableRow>
+));
+
+// ─── Confirmed row ────────────────────────────────────────────────────────────
+const ConfirmedRow = React.memo(({
+    student, isActive, onView, onPrint, onArchive, onDelete, courses,
+}: {
+    student: Students; isActive: boolean;
+    onView: (id: number) => void; onPrint: (s: Students) => void;
+    onArchive: (id: number) => void; onDelete: (id: number) => void; courses: any;
+}) => (
+    <TableRow
+        onClick={() => onView(student.id)}
+        className={cn(
+            'group cursor-pointer transition-colors select-none',
+            isActive ? 'bg-teal-500/5 hover:bg-teal-500/8' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
+        )}
+    >
+        <TableCell className="pl-4 py-2">
+            <p className="text-[10px] font-black uppercase text-zinc-900 dark:text-white leading-tight">{student.last_name}, {student.first_name}</p>
+        </TableCell>
+        <TableCell className="py-2 font-mono text-[9px] font-bold text-zinc-400">{student.id_number}</TableCell>
+        <TableCell className="py-2">
+            <span className={cn('text-[8px] font-black uppercase px-1.5 py-0.5 rounded border',
+                courses[student.course]?.border || 'border-zinc-200',
+                courses[student.course]?.color || 'text-zinc-500'
+            )}>{student.course}</span>
+        </TableCell>
+        <TableCell className="py-2 pr-2">
+            <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                <button onClick={e => { e.stopPropagation(); onArchive(student.id); }}
+                    className="h-5 w-5 flex items-center justify-center rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+                    title="Archive"><Database size={10} /></button>
+                <button onClick={e => { e.stopPropagation(); onDelete(student.id); }}
+                    className="h-5 w-5 flex items-center justify-center rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+                    title="Delete"><Trash2 size={10} /></button>
+                <button onClick={e => { e.stopPropagation(); onPrint(student); }}
+                    className="h-5 px-2 flex items-center gap-1 rounded bg-teal-500 hover:bg-teal-600 text-white font-black text-[8px] uppercase transition-all"
+                    title="Print"><Printer size={9} /> Print</button>
+            </div>
+        </TableCell>
+    </TableRow>
+));
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+const EmptyState = ({ label, icon: Icon = Database, colSpan = 5 }: {
+    label: string; icon?: React.ElementType; colSpan?: number;
+}) => (
+    <TableRow className="hover:bg-transparent">
+        <TableCell colSpan={colSpan} className="py-10 text-center">
+            <div className="flex flex-col items-center gap-2 opacity-20">
+                <Icon size={20} />
+                <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
+            </div>
+        </TableCell>
+    </TableRow>
+);
+
+// ─── Override field ───────────────────────────────────────────────────────────
+const OverrideField = ({ label, value, onChange }: {
+    label: string; value: string; onChange: (v: string) => void;
+}) => (
+    <div className="space-y-1">
+        <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider block">{label}</span>
+        <input type="text" value={value} onChange={e => onChange(e.target.value)}
+            className="w-full bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:border-zinc-500 dark:focus:border-zinc-500 transition-colors" />
+    </div>
+);
+
+// ═════════════════════════════════════════════════════════════════════════════
 const Dashboard: React.FC = () => {
 
-    const [searchTerm, setSearchTerm] = useState('');
-    const [sortBy, setSortBy] = useState<SortKey>('created_at');
-    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-    const [selectedIds, setSelectedIds] = useState<number[]>([]);
-    const [selectedViewingId, setSelectedViewingId] = useState<number | null>(null);
-    const [printData, setPrintData] = useState<{ student: ApplicantCard, layout: any } | null>(null);
-    const [viewingPaymentProof, setViewingPaymentProof] = useState<string | null>(null);
-    const [previewScale, setPreviewScale] = useState(0.4); // Smaller default for sidebar
-    const [isResizing, setIsResizing] = useState(false);
-
-
-    const resizeRef = React.useRef<{ startX: number; startScale: number } | null>(null);
-
-    const handleResizeStart = (e: React.MouseEvent) => {
-        e.preventDefault();
-        setIsResizing(true);
-        resizeRef.current = {
-            startX: e.clientX,
-            startScale: previewScale
-        };
-    };
-
-    useEffect(() => {
-        if (!isResizing) return;
-
-        const handleMouseMove = (e: MouseEvent) => {
-            if (!resizeRef.current) return;
-            const deltaX = e.clientX - resizeRef.current.startX;
-            // Sensitivity: 500px movement = 1.0 scale change
-            const newScale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, resizeRef.current.startScale + deltaX / 500));
-            setPreviewScale(newScale);
-        };
-
-        const handleMouseUp = () => {
-            setIsResizing(false);
-            resizeRef.current = null;
-        };
-
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
-        return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
-        };
-    }, [isResizing, previewScale]);
-
-    const { allStudents, loading: studentsLoading, refreshStudents: refetchStudents } = useStudents();
-
+    // ── context ───────────────────────────────────────────────────────────────
+    const { allStudents, loading: studentsLoading, refreshStudents: refetch, updateStudentLocal } = useStudents();
     const { templates: allTemplates, loading: templatesLoading } = useTemplates();
-
     const [searchParams] = useSearchParams();
 
-    // Auto-select student from URL param (e.g., navigating from dashboard)
+    // ── local state ───────────────────────────────────────────────────────────
+    // Local overlay on top of allStudents so confirmations feel instant
+    const [localArchivedIds, setLocalArchivedIds] = useState<Set<number>>(new Set());
+    const [localDeletedIds, setLocalDeletedIds] = useState<Set<number>>(new Set());
+
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [previewingId, setPreviewingId] = useState<number | null>(null);
+    const [previewSection, setPreviewSection] = useState<'queued' | 'confirmed'>('queued');
+
+    const [previewScale, setPreviewScale] = useState(0.7);
+    const [printData, setPrintData] = useState<{ student: ApplicantCard; layout: any } | null>(null);
+
+    // Confirmation Modal State
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const [idsToConfirm, setIdsToConfirm] = useState<number[]>([]);
+
+    // Right panel overrides
+    const [overrides, setOverrides] = useState<any>({});
+    const [hasOverrides, setHasOverrides] = useState(false);
+    const updateOverride = (key: string, value: any) => {
+        setOverrides((p: any) => ({ ...p, [key]: value }));
+        setHasOverrides(true);
+    };
+    const resetOverrides = () => { setOverrides({}); setHasOverrides(false); };
+
+    // Auto-cleanup optimistic state when server reflects changes
     useEffect(() => {
-        const selectId = searchParams.get('select');
-        if (selectId && allStudents.length > 0) {
-            const found = allStudents.find((s: Students) => s.id_number === selectId);
-            if (found) {
-                setSelectedViewingId(found.id);
-            }
+        setLocalArchivedIds(prev => {
+            if (prev.size === 0) return prev;
+            const next = new Set(prev);
+            allStudents.forEach(s => { if (s.is_archived) next.delete(s.id); });
+            return next.size === prev.size ? prev : next;
+        });
+    }, [allStudents]);
+
+    const Courses = useMemo(() => ({
+        'BSGE': { color: 'text-red-600', border: 'border-red-200' },
+        'BSN': { color: 'text-pink-500', border: 'border-pink-200' },
+        'BSIT': { color: 'text-cyan-600', border: 'border-cyan-200' },
+        'BSBA': { color: 'text-amber-600', border: 'border-amber-200' },
+        'BSCRIM': { color: 'text-zinc-700', border: 'border-zinc-200' },
+        'BSED': { color: 'text-violet-600', border: 'border-violet-200' },
+        'BSCS': { color: 'text-blue-600', border: 'border-blue-200' },
+        'HE': { color: 'text-rose-600', border: 'border-rose-200' },
+        'MIDWIFERY': { color: 'text-fuchsia-600', border: 'border-fuchsia-200' },
+        'ABM': { color: 'text-orange-600', border: 'border-orange-200' },
+        'JD': { color: 'text-indigo-600', border: 'border-indigo-200' },
+    }), []);
+
+    // ── URL auto-select ───────────────────────────────────────────────────────
+    useEffect(() => {
+        const sel = searchParams.get('select');
+        if (sel && allStudents.length > 0) {
+            const found = allStudents.find((s: Students) => s.id_number === sel);
+            if (found) { setPreviewingId(found.id); setPreviewSection(found.has_card ? 'confirmed' : 'queued'); }
         }
     }, [searchParams, allStudents]);
 
+    // ── derived lists (merge server state + local overlay) ────────────────────
+    const effectiveStudents: Students[] = useMemo(() =>
+        allStudents
+            .filter((s: Students) => !s.is_archived && !localArchivedIds.has(s.id) && !localDeletedIds.has(s.id)),
+        [allStudents, localArchivedIds, localDeletedIds]
+    );
 
-    const Courses = useMemo(() => ({
-        'BSGE': { name: 'BSGE', color: 'text-red-600', border: 'border-red-200', bg: 'bg-red-50' },
-        'BSN': { name: 'BSN', color: 'text-pink-500', border: 'border-pink-200', bg: 'bg-pink-50' },
-        'BSIT': { name: 'BSIT', color: 'text-cyan-600', border: 'border-cyan-200', bg: 'bg-cyan-50' },
-        'BSBA': { name: 'BSBA', color: 'text-amber-600', border: 'border-amber-200', bg: 'bg-amber-50' },
-        'BSCRIM': { name: 'BSCRIM', color: 'text-zinc-700', border: 'border-zinc-200', bg: 'bg-zinc-100' },
-    }), []);
+    const pendingStudents = useMemo(() => effectiveStudents.filter(s => !s.has_card), [effectiveStudents]);
+    const confirmedStudents = useMemo(() => effectiveStudents.filter(s => s.has_card), [effectiveStudents]);
 
-    const activeStudent = useMemo(() => {
-        if (selectedViewingId) {
-            return allStudents.find((s: Students) => s.id === selectedViewingId) || null;
+    // ── layout resolver ───────────────────────────────────────────────────────
+    const getLayout = useCallback((student: Students | null) => {
+        if (!student || allTemplates.length === 0) return null;
+        const matched = allTemplates.find((t: any) => t.name.trim().toUpperCase() === student.course.trim().toUpperCase());
+        const tpl = matched || allTemplates.find((t: any) => t.is_active) || allTemplates[0];
+        return { front: tpl.front_config, back: tpl.back_config, previewImages: tpl.preview_images || { front: '', back: '' } };
+    }, [allTemplates]);
+
+    // ── active preview student ────────────────────────────────────────────────
+    const previewStudent = useMemo(() => {
+        const pool = previewSection === 'queued' ? pendingStudents : confirmedStudents;
+        if (previewingId) {
+            const found = pool.find(s => s.id === previewingId);
+            if (found) return found;
         }
-        return allStudents.find((s: Students) => !s.has_card) || allStudents[0] || null;
-    }, [allStudents, selectedViewingId]);
+        return pool[0] || null;
+    }, [previewingId, previewSection, pendingStudents, confirmedStudents]);
 
-    const currentAutoLayout = useMemo(() => {
-        if (!activeStudent || allTemplates.length === 0) return null;
-        const matched = allTemplates.find(
-            (t: any) => t.name.trim().toUpperCase() === activeStudent.course.trim().toUpperCase()
-        );
-        const templateToUse = matched || allTemplates.find((t: any) => t.is_active) || allTemplates[0];
+    const previewLayout = useMemo(() => getLayout(previewStudent), [previewStudent, getLayout]);
+
+    // Build preview card with overrides
+    const previewCard = useMemo((): ApplicantCard | null => {
+        if (!previewStudent) return null;
+        const base = toCard(previewStudent);
         return {
-            front: templateToUse.front_config,
-            back: templateToUse.back_config,
-            previewImages: templateToUse.preview_images || { front: '', back: '' }
+            ...base,
+            fullName: overrides.fullName ?? base.fullName,
+            idNumber: overrides.idNumber ?? base.idNumber,
+            course: overrides.course ?? base.course,
+            photo: overrides.photo ?? base.photo,
+            signature: overrides.signature ?? base.signature,
+            guardian_name: overrides.guardian_name ?? base.guardian_name,
+            guardian_contact: overrides.guardian_contact ?? base.guardian_contact,
+            address: overrides.address ?? base.address,
         };
-    }, [activeStudent, allTemplates]);
+    }, [previewStudent, overrides]);
 
-    const previewData = useMemo((): ApplicantCard | null => {
-        if (!activeStudent) return null;
-        const getUrl = (path: string | null) =>
-            !path ? '' : (path.startsWith('http') ? path : `${VITE_API_URL}/storage/${path}`);
+    // Reset overrides when switching student
+    useEffect(() => { resetOverrides(); }, [previewingId]);
 
-        return {
-            id: activeStudent.id,
-            fullName: `${activeStudent.first_name} ${activeStudent.last_name}`,
-            idNumber: activeStudent.id_number,
-            course: activeStudent.course,
-            photo: getUrl(activeStudent.id_picture),
-            signature: getUrl(activeStudent.signature_picture),
-            guardian_name: activeStudent.guardian_name,
-            guardian_contact: activeStudent.guardian_contact,
-            address: activeStudent.address
-        };
-    }, [activeStudent]);
+    // ── select-all (pending only) ─────────────────────────────────────────────
+    const allPendingIds = pendingStudents.map(s => s.id);
+    const allSelected = allPendingIds.length > 0 && allPendingIds.every(id => selectedIds.includes(id));
+    const someSelected = selectedIds.length > 0;
+    const toggleSelectAll = () => setSelectedIds(allSelected ? [] : allPendingIds);
+    const handleSelect = useCallback((id: number) =>
+        setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]), []);
 
-    const filteredStudents = useMemo(() => {
-        const query = searchTerm.toLowerCase().trim();
-        return allStudents
-            .filter((s: Students) => {
-                if (!query) return true;
-                return s.id_number.toLowerCase().includes(query) ||
-                    `${s.first_name} ${s.last_name}`.toLowerCase().includes(query) ||
-                    s.course.toLowerCase().includes(query);
-            })
-            .sort((a: Students, b: Students) => {
-                let aVal = sortBy === 'created_at' ? new Date(a.created_at).getTime() : a[sortBy];
-                let bVal = sortBy === 'created_at' ? new Date(b.created_at).getTime() : b[sortBy];
-                return sortOrder === 'asc' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
-            });
-    }, [allStudents, searchTerm, sortBy, sortOrder]);
+    // ── actions ───────────────────────────────────────────────────────────────
 
-    const handleSelectRow = useCallback((id: number) => {
-        setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-    }, []);
+    // Confirm one or many — optimistic update, no page refresh
+    const handleConfirmSelected = () => {
+        console.log('[CardManagement] Confirm Selected Clicked', { selectedIds, previewingId });
+        const ids = selectedIds.length > 0
+            ? selectedIds.filter(id => pendingStudents.some(s => s.id === id))
+            : previewStudent ? [previewStudent.id] : [];
 
-    const handleViewStudent = useCallback((id: number) => {
-        setSelectedViewingId(id);
-    }, []);
-
-    const handleExport = async (studentId: number) => {
-        if (currentAutoLayout && previewData) {
-            setPrintData({ student: previewData, layout: currentAutoLayout });
+        console.log('[CardManagement] IDs to confirm:', ids);
+        if (ids.length === 0) { 
+            toast.info('No applicants selected'); 
+            console.warn('[CardManagement] No IDs to confirm');
+            return; 
         }
+        
+        setIdsToConfirm(ids);
+        setIsConfirmModalOpen(true);
+    };
+
+    const executeConfirmation = async () => {
+        console.log('[CardManagement] Executing confirmation for IDs:', idsToConfirm);
+        setIsConfirmModalOpen(false);
+        const finalIds = idsToConfirm;
+        if (finalIds.length === 0) return;
+
+        // Dynamic update via context
+        finalIds.forEach(id => updateStudentLocal(id, { has_card: true }));
+        setSelectedIds([]);
+
+        // Switch preview to confirmed section for the first one
+        setPreviewSection('confirmed');
+        setPreviewingId(finalIds[0]);
+
+        // Fire API calls in background
+        const results = await Promise.allSettled(finalIds.map(id => confirmApplicant(id)));
+        const failed = results.filter(r => r.status === 'rejected').length;
+        if (failed > 0) {
+            console.error(`[CardManagement] ${failed} confirmations failed`);
+            toast.error(`${failed} confirmation(s) failed — refreshing`);
+            refetch();
+        } else {
+            console.log(`[CardManagement] Successfully confirmed ${finalIds.length} applicants`);
+            toast.success(`${finalIds.length} applicant(s) confirmed`);
+        }
+    };
+
+    const handleArchive = async (id: number) => {
+        if (!window.confirm('Archive this applicant?')) return;
+        setLocalArchivedIds(prev => new Set([...prev, id]));
+        if (previewingId === id) setPreviewingId(null);
+        try { await archiveApplicant(id); toast.success('Archived'); }
+        catch { setLocalArchivedIds(prev => { const n = new Set(prev); n.delete(id); return n; }); toast.error('Failed to archive'); }
+    };
+
+    const handleDelete = async (id: number) => {
+        if (!window.confirm('Permanently delete this applicant?')) return;
+        setLocalDeletedIds(prev => new Set([...prev, id]));
+        if (previewingId === id) setPreviewingId(null);
+        try { await deleteApplicant(id); toast.success('Deleted'); }
+        catch { setLocalDeletedIds(prev => { const n = new Set(prev); n.delete(id); return n; }); toast.error('Failed to delete'); }
+    };
+
+    const handlePrint = (s: Students) => {
+        const layout = getLayout(s);
+        if (layout) setPrintData({ student: toCard(s), layout });
+    };
+
+    const handlePrintPreview = () => {
+        if (previewStudent && previewCard && previewLayout)
+            setPrintData({ student: previewCard, layout: previewLayout });
     };
 
     if (studentsLoading || templatesLoading) return <CardManagementSkeleton />;
 
+    // ═════════════════════════════════════════════════════════════════════════
     return (
-        <div className="h-full bg-zinc-50 dark:bg-[#020617] text-zinc-900 dark:text-zinc-100 flex flex-col overflow-hidden">
-            <Suspense fallback={<div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center"><RefreshCw className="animate-spin text-white" size={48} /></div>}>
+        <div className="h-full bg-zinc-50 dark:bg-[#020617] text-zinc-900 dark:text-zinc-100 flex overflow-hidden">
+            <Suspense fallback={
+                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+                    <RefreshCw className="animate-spin text-white" size={48} />
+                </div>
+            }>
                 <AnimatePresence>
-                    {printData && (
-                        <PrintPreviewModal
-                            data={printData.student}
-                            layout={printData.layout}
-                            onClose={() => setPrintData(null)}
-                        />
-                    )}
-                    {viewingPaymentProof && (
-                        <PaymentProofModal
-                            url={viewingPaymentProof}
-                            onClose={() => setViewingPaymentProof(null)}
-                        />
-                    )}
+                    {printData && <PrintPreviewModal data={printData.student} layout={printData.layout} onClose={() => setPrintData(null)} />}
                 </AnimatePresence>
             </Suspense>
 
-            <main className="flex-1 flex overflow-hidden">
-                <aside className="bg-white dark:bg-zinc-950 flex flex-col border-r border-zinc-200 dark:border-zinc-900 shadow-2xl shrink-0 overflow-hidden" style={{ minWidth: '320px' }}>
-                    {activeStudent && previewData && currentAutoLayout ? (
-                        <div className="flex flex-col h-full overflow-hidden">
-                            <div className="p-5 bg-zinc-50/50 dark:bg-zinc-900/30 border-b border-zinc-200 dark:border-zinc-900 relative group/resize">
-                                <div className="flex flex-row gap-4 items-center justify-center overflow-auto custom-scrollbar p-2">
-                                    <div className="relative shadow-lg rounded-sm overflow-hidden shrink-0">
-                                        <IDCardPreview data={previewData} layout={currentAutoLayout} side="FRONT" scale={previewScale} />
-                                    </div>
-                                    <div className="relative shadow-lg rounded-sm overflow-hidden shrink-0">
-                                        <IDCardPreview data={previewData} layout={currentAutoLayout} side="BACK" scale={previewScale} />
-                                    </div>
-                                </div>
+            {/* ══════════════════════════════════════════════════════
+                LEFT SIDEBAR — two fixed-height sections, each scrollable
+            ══════════════════════════════════════════════════════ */}
+            <div className="w-[260px] shrink-0 border-r border-zinc-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 flex flex-col overflow-hidden">
 
-                                {/* Resize Handle */}
-                                <div
-                                    onMouseDown={handleResizeStart}
-                                    className={cn(
-                                        "absolute bottom-2 right-2 w-6 h-6 flex items-center justify-center cursor-nwse-resize rounded-lg transition-all",
-                                        isResizing ? "bg-teal-500 text-white scale-110 shadow-lg" : "bg-zinc-200 dark:bg-zinc-800 text-zinc-500 opacity-0 group-hover/resize:opacity-100 hover:bg-zinc-300 dark:hover:bg-zinc-700"
-                                    )}
+                {/* Search */}
+                <div className="px-3 py-2.5 border-b border-zinc-100 dark:border-zinc-900 shrink-0">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-900 dark:text-white">Applications</span>
+                        <span className="text-[8px] font-bold text-zinc-400">{effectiveStudents.length} total</span>
+                    </div>
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" size={11} />
+                        <input type="text" placeholder="Search by name, ID or course…"
+                            className="w-full pl-7 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg outline-none text-[10px] font-bold focus:border-zinc-400 transition-colors"
+                        />
+                    </div>
+                </div>
+
+                {/* ── SECTION A: Pending Queue — fixed half height */}
+                <div className="h-1/2 flex flex-col border-b border-zinc-200 dark:border-zinc-900 overflow-hidden">
+                    {/* Section header */}
+                    <div className="px-3 py-2 flex items-center justify-between shrink-0 bg-zinc-50/80 dark:bg-zinc-900/30 border-b border-zinc-100 dark:border-zinc-900">
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300">Pending Queue</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            {someSelected && (
+                                <button
+                                    onClick={handleConfirmSelected}
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-500 hover:bg-teal-600 text-white font-black text-[8px] uppercase transition-all shadow-sm shadow-teal-500/30"
                                 >
-                                    <div className="flex flex-col gap-0.5">
-                                        <div className="flex gap-0.5">
-                                            <div className="w-1 h-1 bg-current rounded-full opacity-40" />
-                                            <div className="w-1 h-1 bg-current rounded-full" />
-                                        </div>
-                                        <div className="flex gap-0.5">
-                                            <div className="w-1 h-1 bg-current rounded-full" />
-                                            <div className="w-1 h-1 bg-current rounded-full" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Scale Indicator */}
-                                {isResizing && (
-                                    <div className="absolute top-2 right-2 px-2 py-1 bg-teal-500 text-white text-[9px] font-black rounded-full shadow-lg z-10">
-                                        {Math.round(previewScale * 100)}%
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
-                                <div>
-                                    <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tighter uppercase flex items-center gap-2">
-                                        <BsPersonFill className="text-teal-500" /> {activeStudent.last_name}, {activeStudent.first_name}
-                                    </h2>
-                                    <div className="flex items-center gap-4 mt-2">
-                                        <span className="flex items-center gap-2 text-lg font-bold text-zinc-500"><CreditCard size={20} /> {activeStudent.id_number}</span>
-                                        <span className="px-2 py-1 rounded bg-zinc-100 dark:bg-zinc-800 text-[10px] font-black uppercase">{activeStudent.course}</span>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4 border border-zinc-100 dark:border-zinc-900 rounded-2xl p-4 bg-zinc-50/30 dark:bg-zinc-900/20">
-                                    <span className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.2em]">Detailed Record Info</span>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1">
-                                            <span className="text-[10px] text-zinc-400 uppercase font-bold flex items-center gap-1"><UserIcon size={10} /> Guardian</span>
-                                            <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">{activeStudent.guardian_name}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <span className="text-[10px] text-zinc-400 uppercase font-bold flex items-center gap-1"><Phone size={10} /> Contact</span>
-                                            <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">{activeStudent.guardian_contact}</p>
-                                        </div>
-                                    </div>
-                                    <div className="pt-2 border-t border-zinc-100 dark:border-zinc-900">
-                                        <span className="text-[10px] text-zinc-400 uppercase font-bold flex items-center gap-1"><MapPin size={10} /> Residential Address</span>
-                                        <p className="text-xs font-bold text-zinc-700 dark:text-zinc-200">{activeStudent.address}</p>
-                                    </div>
-
-                                    {activeStudent.payment_proof && (
-                                        <div className="pt-2 border-t border-zinc-100 dark:border-zinc-900">
-                                            <button
-                                                onClick={() => setViewingPaymentProof(activeStudent.payment_proof?.startsWith('http') ? activeStudent.payment_proof : `${VITE_API_URL}/storage/${activeStudent.payment_proof}`)}
-                                                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 font-bold text-[11px] uppercase transition-all"
-                                            >
-                                                <Printer size={14} className="opacity-0 hidden" />
-                                                <Receipt size={14} /> View Payment Proof
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="p-6 bg-white dark:bg-zinc-950 border-t border-zinc-100 dark:border-zinc-900 grid grid-cols-2 gap-3">
-                                <button className="flex items-center justify-center gap-2 py-3.5 rounded-xl border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white font-black text-[11px] uppercase transition-all">
-                                    <Ban size={14} /> Reject Entry
+                                    <CheckCircle2 size={9} /> Confirm {selectedIds.length > 0 ? `(${selectedIds.length})` : ''}
                                 </button>
-                                <button onClick={() => handleExport(activeStudent.id)} className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-teal-500 hover:bg-teal-600 text-white font-black text-[11px] uppercase transition-all shadow-lg shadow-teal-500/20">
-                                    <Printer size={14} /> Confirm & Print
-                                </button>
+                            )}
+                            <span className="px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[8px] font-black tabular-nums">
+                                {pendingStudents.length}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Pending table — scrollable */}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent border-none">
+                                    <TableHead className="pl-3 w-8 h-7 cursor-pointer py-0" onClick={toggleSelectAll}>
+                                        {allSelected
+                                            ? <CheckSquare size={12} className="text-teal-500" />
+                                            : <Square size={12} className="opacity-30 hover:opacity-60 transition-opacity" />}
+                                    </TableHead>
+                                    <TableHead className="text-[8px] font-black uppercase h-7 py-0">Identity</TableHead>
+                                    <TableHead className="text-[8px] font-black uppercase h-7 py-0">ID No.</TableHead>
+                                    <TableHead className="text-[8px] font-black uppercase h-7 py-0">Course</TableHead>
+                                    <TableHead className="text-[8px] font-black uppercase h-7 py-0 text-right pr-2">Status</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {pendingStudents.length === 0
+                                    ? <EmptyState label="No pending applicants" colSpan={5} />
+                                    : pendingStudents.map(s => (
+                                        <PendingRow
+                                            key={s.id}
+                                            student={s}
+                                            isActive={previewStudent?.id === s.id && previewSection === 'queued'}
+                                            isSelected={selectedIds.includes(s.id)}
+                                            onSelect={handleSelect}
+                                            onView={id => { setPreviewingId(id); setPreviewSection('queued'); }}
+                                            courses={Courses}
+                                        />
+                                    ))
+                                }
+                            </TableBody>
+                        </Table>
+                    </div>
+                </div>
+
+                {/* ── SECTION B: Issued / Printed — fixed half height */}
+                <div className="h-1/2 flex flex-col overflow-hidden">
+                    {/* Section header */}
+                    <div className="px-3 py-2 flex items-center justify-between shrink-0 bg-zinc-50/80 dark:bg-zinc-900/30 border-b border-zinc-100 dark:border-zinc-900">
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300">Issued / Printed</span>
+                        </div>
+                        <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[8px] font-black tabular-nums">
+                            {confirmedStudents.length}
+                        </span>
+                    </div>
+
+                    {/* Confirmed table — scrollable */}
+                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent border-none">
+                                    <TableHead className="pl-4 text-[8px] font-black uppercase h-7 py-0">Identity</TableHead>
+                                    <TableHead className="text-[8px] font-black uppercase h-7 py-0">ID No.</TableHead>
+                                    <TableHead className="text-[8px] font-black uppercase h-7 py-0">Course</TableHead>
+                                    <TableHead className="h-7 py-0 w-28" />
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {confirmedStudents.length === 0
+                                    ? <EmptyState label="No issued cards yet" icon={Printer} colSpan={4} />
+                                    : confirmedStudents.map(s => (
+                                        <ConfirmedRow
+                                            key={s.id}
+                                            student={s}
+                                            isActive={previewStudent?.id === s.id && previewSection === 'confirmed'}
+                                            onView={id => { setPreviewingId(id); setPreviewSection('confirmed'); }}
+                                            onPrint={handlePrint}
+                                            onArchive={handleArchive}
+                                            onDelete={handleDelete}
+                                            courses={Courses}
+                                        />
+                                    ))
+                                }
+                            </TableBody>
+                        </Table>
+                    </div>
+                </div>
+            </div>
+
+            {/* ══════════════════════════════════════════════════════
+                CENTER — ID CARD PREVIEW (large)
+            ══════════════════════════════════════════════════════ */}
+            <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-[#020617] overflow-hidden min-w-0">
+                {previewStudent && previewCard && previewLayout ? (
+                    <>
+                        {/* Cards */}
+                        <div className="flex-1 overflow-auto custom-scrollbar flex items-center justify-center gap-8 p-8">
+                            <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-zinc-200 dark:ring-zinc-800 shrink-0">
+                                <IDCardPreview data={previewCard} layout={previewLayout} side="FRONT" scale={previewScale} />
+                            </div>
+                            <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-zinc-200 dark:ring-zinc-800 shrink-0">
+                                <IDCardPreview data={previewCard} layout={previewLayout} side="BACK" scale={previewScale} />
                             </div>
                         </div>
-                    ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-                            <Database size={40} className="text-zinc-200 dark:text-zinc-800 mb-4" />
-                            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Queue Empty</h3>
-                        </div>
-                    )}
-                </aside>
 
-                <section className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-[#020617]">
-                    <div className="p-4 border-b border-zinc-100 dark:border-zinc-900 flex items-center justify-between gap-4">
-                        <div className="relative flex-1 max-w-md">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={14} />
-                            <input
-                                type="text"
-                                placeholder="Filter directory by name, ID or course..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-9 pr-4 py-2 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg outline-none text-[11px] font-bold"
+                        {/* Bottom action bar */}
+                        <div className="shrink-0 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-900 px-6 py-3 flex items-center justify-between gap-4">
+                            {/* Zoom */}
+                            <ZoomStrip
+                                scale={previewScale}
+                                onOut={() => setPreviewScale(p => Math.max(MIN_ZOOM, +(p - 0.1).toFixed(1)))}
+                                onIn={() => setPreviewScale(p => Math.min(MAX_ZOOM, +(p + 0.1).toFixed(1)))}
+                                onReset={() => setPreviewScale(0.7)}
                             />
-                        </div>
-                        <button onClick={() => refetchStudents()} className="p-2 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 rounded-lg transition-colors">
-                            <RefreshCw size={14} />
-                        </button>
-                    </div>
 
-                    <div className="flex-1 overflow-auto custom-scrollbar">
-                        <table className="w-full text-left border-separate border-spacing-0">
-                            <thead className="sticky top-0 z-10 bg-zinc-50 dark:bg-zinc-950">
-                                <tr className="text-zinc-400 text-[9px] font-black uppercase tracking-widest">
-                                    <th className="w-12 pl-6 py-4">
-                                        <button
-                                            className="text-indigo-600"
-                                            onClick={() => setSelectedIds(selectedIds.length === filteredStudents.length ? [] : filteredStudents.map((s: Students) => s.id))}
-                                        >
-                                            {selectedIds.length === filteredStudents.length && filteredStudents.length > 0 ? <CheckSquare size={16} className="text-teal-500" /> : <Square size={16} />}
-                                        </button>
-                                    </th>
-                                    <th className="px-4 py-4">Identity</th>
-                                    <th className="px-4 py-4">ID Number</th>
-                                    <th className="px-4 py-4">Course</th>
-                                    <th className="px-4 py-4">Status</th>
-                                    <th className="px-4 py-4 text-right pr-6">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-zinc-900">
-                                {filteredStudents.map((student: Students) => (
-                                    <StudentRow
-                                        key={student.id}
-                                        student={student}
-                                        isActive={activeStudent?.id === student.id}
-                                        isSelected={selectedIds.includes(student.id)}
-                                        onSelect={handleSelectRow}
-                                        onView={handleViewStudent}
-                                        courses={Courses}
-                                    />
-                                ))}
-                            </tbody>
-                        </table>
+                            {/* Actions */}
+                            <div className="flex items-center gap-2">
+                                {/* Reject (archive) */}
+                                <button
+                                    onClick={() => handleArchive(previewStudent.id)}
+                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-black text-[10px] uppercase transition-all shadow-lg shadow-red-500/20"
+                                >
+                                    <X size={13} /> Reject
+                                </button>
+
+                                {/* Confirm — only show for pending */}
+                                {previewSection === 'queued' && (
+                                    <button
+                                        onClick={handleConfirmSelected}
+                                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-white font-black text-[10px] uppercase transition-all shadow-lg"
+                                    >
+                                        <CheckCircle2 size={13} />
+                                        {selectedIds.length > 1 ? `Confirm (${selectedIds.length})` : 'Confirm'}
+                                    </button>
+                                )}
+
+                                {/* Print */}
+                                <button
+                                    onClick={handlePrintPreview}
+                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-600 active:bg-teal-700 text-white font-black text-[10px] uppercase transition-all shadow-lg shadow-teal-500/20"
+                                >
+                                    <Printer size={13} /> Print
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-3 opacity-20">
+                        <CreditCard size={40} />
+                        <p className="text-[9px] font-black uppercase tracking-widest">Select an applicant to preview</p>
                     </div>
-                </section>
-            </main>
+                )}
+            </div>
+
+            {/* ══════════════════════════════════════════════════════
+                RIGHT PANEL — APPLICATION INFO (overrides)
+            ══════════════════════════════════════════════════════ */}
+            <div className="w-[200px] shrink-0 border-l border-zinc-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 flex flex-col overflow-hidden">
+
+                {/* Header */}
+                <div className="px-3 py-3 border-b border-zinc-100 dark:border-zinc-900 flex flex-col items-center text-center shrink-0">
+                    <div className="w-9 h-9 bg-zinc-900 dark:bg-zinc-800 rounded-xl flex items-center justify-center mb-1.5 shadow">
+                        <Database size={15} className="text-white" />
+                    </div>
+                    <p className="text-[9px] font-black uppercase tracking-tight text-zinc-900 dark:text-white">Application Info</p>
+                    <p className="text-[7px] text-zinc-400 font-bold uppercase tracking-widest mt-0.5">Live data editing</p>
+                </div>
+
+                {previewStudent && previewCard ? (
+                    <>
+                        {/* Dirty indicator */}
+                        <div className={cn(
+                            'flex items-center justify-between px-3 py-1.5 text-[8px] font-black uppercase tracking-widest transition-all border-b',
+                            hasOverrides
+                                ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-600 dark:text-amber-400'
+                                : 'bg-zinc-50 dark:bg-zinc-900/50 border-zinc-100 dark:border-zinc-900 text-zinc-400'
+                        )}>
+                            <span>{hasOverrides ? '● Overrides' : '○ No changes'}</span>
+                            {hasOverrides && (
+                                <button onClick={resetOverrides} className="flex items-center gap-0.5 hover:text-red-500 transition-colors">
+                                    <RotateCcw size={9} /> Reset
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4 scrollbar-hide">
+
+                            {/* Front side */}
+                            <div className="space-y-2.5">
+                                <div className="flex items-center gap-1.5">
+                                    <UserIcon size={9} className="text-zinc-400" />
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Front Side</p>
+                                </div>
+                                <OverrideField label="Full Name" value={previewCard.fullName || ''} onChange={v => updateOverride('fullName', v)} />
+                                <OverrideField label="Course / Dept." value={previewCard.course || ''} onChange={v => updateOverride('course', v)} />
+                                <OverrideField label="Student ID" value={previewCard.idNumber || ''} onChange={v => updateOverride('idNumber', v)} />
+                                {/* Photo */}
+                                <div className="space-y-1">
+                                    <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider block">Photo</span>
+                                    <button onClick={() => document.getElementById('photo-input')?.click()}
+                                        className="w-full h-14 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex flex-col items-center justify-center gap-1 hover:border-zinc-400 transition-all overflow-hidden">
+                                        {previewCard.photo
+                                            ? <img src={previewCard.photo} className="w-full h-full object-cover" alt="" />
+                                            : <><Camera size={14} className="text-zinc-300" /><span className="text-[7px] font-black uppercase text-zinc-400">Upload Photo</span></>
+                                        }
+                                    </button>
+                                    <input id="photo-input" type="file" hidden accept="image/*"
+                                        onChange={e => { const f = e.target.files?.[0]; if (f) updateOverride('photo', URL.createObjectURL(f)); }} />
+                                </div>
+                            </div>
+
+                            {/* Back side */}
+                            <div className="space-y-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-900">
+                                <div className="flex items-center gap-1.5">
+                                    <MapPin size={9} className="text-zinc-400" />
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Back Side</p>
+                                </div>
+                                <OverrideField label="Guardian Name" value={previewCard.guardian_name || ''} onChange={v => updateOverride('guardian_name', v)} />
+                                <div className="space-y-1">
+                                    <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider block">Address</span>
+                                    <textarea value={previewCard.address || ''} onChange={e => updateOverride('address', e.target.value)}
+                                        className="w-full bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:border-zinc-500 transition-colors h-12 resize-none" />
+                                </div>
+                                <OverrideField label="Guardian Contact" value={previewCard.guardian_contact || ''} onChange={v => updateOverride('guardian_contact', v)} />
+                                {/* Signature */}
+                                <div className="space-y-1">
+                                    <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider block">Signature</span>
+                                    <button onClick={() => document.getElementById('sig-input')?.click()}
+                                        className="w-full h-14 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex flex-col items-center justify-center gap-1 hover:border-zinc-400 transition-all overflow-hidden">
+                                        {previewCard.signature
+                                            ? <img src={previewCard.signature} className="w-full h-full object-contain p-1.5" alt="" />
+                                            : <><RefreshCw size={14} className="text-zinc-300" /><span className="text-[7px] font-black uppercase text-zinc-400">Upload Sig.</span></>
+                                        }
+                                    </button>
+                                    <input id="sig-input" type="file" hidden accept="image/*"
+                                        onChange={e => { const f = e.target.files?.[0]; if (f) updateOverride('signature', URL.createObjectURL(f)); }} />
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center opacity-30">
+                        <UserIcon size={20} className="mb-2" />
+                        <p className="text-[8px] uppercase font-black tracking-widest">No applicant selected</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Confirmation Modal */}
+            <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
+                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-900 p-0 overflow-hidden rounded-2xl shadow-2xl">
+                    <div className="p-6">
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="w-12 h-12 rounded-2xl bg-teal-500/10 flex items-center justify-center shrink-0 border border-teal-500/20">
+                                <CheckCircle2 className="text-teal-500" size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-zinc-900 dark:text-white uppercase tracking-tight">Confirm Applicants</h3>
+                                <p className="text-xs font-medium text-zinc-500 mt-1">
+                                    You are about to move <span className="text-zinc-900 dark:text-zinc-100 font-bold">{idsToConfirm.length}</span> applicant(s) to the issued list.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800/50 mb-6">
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-relaxed">
+                                Proceeding will update the card status for these students and move them to the "Issued / Printed" section. This action can be reversed via the dashboard if needed.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <Button
+                                variant="ghost"
+                                onClick={() => setIsConfirmModalOpen(false)}
+                                className="flex-1 h-11 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all border border-zinc-200 dark:border-zinc-800"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={executeConfirmation}
+                                className="flex-1 h-11 rounded-xl bg-teal-500 hover:bg-teal-600 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-teal-500/25 border-none"
+                            >
+                                Confirm & Move
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

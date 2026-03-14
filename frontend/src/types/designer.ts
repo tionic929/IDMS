@@ -24,7 +24,9 @@ export interface LayoutItemSchema {
   fill?: string;
   text?: string;
   src?: string;
-  type?: 'rect' | 'circle' | 'text' | 'image';
+  type?: 'rect' | 'circle' | 'text' | 'image' | 'group';
+  children?: string[]; // IDs for group members
+  groupId?: string;    // Parent group ID
 }
 
 export interface CardLayout {

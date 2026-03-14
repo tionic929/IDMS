@@ -9,7 +9,8 @@ import {
   ArrowUp, ArrowDown, Trash2, MousePointer2,
   ArrowUpToLine, ArrowDownToLine, Unlock, Lock,
   Type, Image as ImageIcon, Layers, Move,
-  Maximize2, Copy
+  Maximize2, Copy, Search, User, CreditCard, Building, Camera,
+  RefreshCw, Layout
 } from 'lucide-react';
 
 // ─── Shared sub-components ──────────────────────────────────────────
@@ -121,22 +122,150 @@ const ToggleGroup = ({
 // ─── Main component ───────────────────────────────────────────────────
 
 export const DesignerPropertyPanel: React.FC = () => {
-  const { currentSideData, updateItem } = useDesignerContext();
-  const { selectedId, handleDelete, moveLayer, handleDuplicate } = useLayerContext();
+  const { 
+    currentSideData, updateItem, editSide,
+    previewData, overrides, setOverrides 
+  } = useDesignerContext();
+  const { selectedIds, handleDelete, moveLayer, handleDuplicate } = useLayerContext();
+  const selectedId = selectedIds.length === 1 ? selectedIds[0] : null;
 
   const [deleteArmed, setDeleteArmed] = useState(false);
 
-  // Empty state
+  const updateOverride = (key: string, value: any) => {
+    setOverrides({ ...overrides, [key]: value });
+  };
+
+  const isFront = editSide === 'FRONT';
+
+  // Student Override Section - Rendered when no layer is selected OR as a top section
+  const StudentDetailsSection = (
+    <PropertyGroup title={`Application Details (${isFront ? "Big 4" : "Back View"})`} icon={User}>
+      <div className="space-y-4">
+        {isFront ? (
+          <>
+            <div>
+              <Label>Full Name</Label>
+              <input 
+                type="text" 
+                value={previewData?.fullName || ''} 
+                onChange={(e) => updateOverride('fullName', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors"
+              />
+            </div>
+            <div>
+              <Label>Department / Course</Label>
+              <input 
+                type="text" 
+                value={previewData?.course || ''} 
+                onChange={(e) => updateOverride('course', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors"
+              />
+            </div>
+            <div>
+              <Label>Student ID</Label>
+              <input 
+                type="text" 
+                value={previewData?.idNumber || ''} 
+                onChange={(e) => updateOverride('idNumber', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors"
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <Label>Guardian Name</Label>
+              <input 
+                type="text" 
+                value={previewData?.guardian_name || ''} 
+                onChange={(e) => updateOverride('guardian_name', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors"
+              />
+            </div>
+            <div>
+              <Label>Residential Address</Label>
+              <textarea 
+                value={previewData?.address || ''} 
+                onChange={(e) => updateOverride('address', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors h-20 resize-none"
+              />
+            </div>
+            <div>
+              <Label>Guardian Contact</Label>
+              <input 
+                type="text" 
+                value={previewData?.guardian_contact || ''} 
+                onChange={(e) => updateOverride('guardian_contact', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors"
+              />
+            </div>
+          </>
+        )}
+
+        <div>
+          <Label>{isFront ? "Photo Override" : "Signature Override"}</Label>
+          <button 
+            onClick={() => document.getElementById('asset-override-input')?.click()}
+            className="w-full h-24 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 hover:bg-white hover:border-slate-900 transition-all overflow-hidden relative group"
+          >
+            {isFront ? (
+              previewData?.photo ? (
+                <img src={previewData.photo} className="w-full h-full object-cover" />
+              ) : (
+                <>
+                  <Camera size={18} className="text-slate-300" />
+                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Upload Photo</span>
+                </>
+              )
+            ) : (
+              previewData?.signature ? (
+                <img src={previewData.signature} className="w-full h-full object-contain p-2" />
+              ) : (
+                <>
+                  <ImageIcon size={18} className="text-slate-300" />
+                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Upload Signature</span>
+                </>
+              )
+            )}
+            
+            {(isFront ? previewData?.photo : previewData?.signature) && (
+               <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                 <RefreshCw size={16} className="text-white animate-spin-hover" />
+               </div>
+            )}
+          </button>
+          <input 
+            id="asset-override-input"
+            type="file" 
+            hidden 
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                const url = URL.createObjectURL(file);
+                updateOverride(isFront ? 'photo' : 'signature', url);
+              }
+            }}
+          />
+        </div>
+      </div>
+    </PropertyGroup>
+  );
+
+  // Empty state - Show Student Details even when nothing selected
   if (!selectedId || !currentSideData[selectedId]) {
     return (
-      <div className="w-64 border-l border-slate-200 bg-white flex flex-col items-center justify-center p-8 text-center shrink-0">
-        <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mb-5 border border-slate-100 shadow-sm">
-          <MousePointer2 size={22} className="text-slate-300" strokeWidth={1.5} />
+      <div className="w-64 border-l border-slate-200 bg-white flex flex-col overflow-y-auto shrink-0 scrollbar-hide">
+        <div className="px-4 py-6 border-b border-slate-100 flex flex-col items-center text-center">
+            <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-slate-900/10">
+              <Layout size={20} className="text-white" />
+            </div>
+            <h2 className="text-xs font-black uppercase tracking-tight text-slate-900">Application Info</h2>
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Live data editing</p>
         </div>
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Properties</h3>
-        <p className="text-[10px] text-slate-400 mt-2 leading-relaxed font-medium px-2">
-          Select an element on the canvas to view and edit its properties.
-        </p>
+        <div className="flex-1 px-4 py-4 space-y-4">
+          {StudentDetailsSection}
+        </div>
       </div>
     );
   }
@@ -150,7 +279,7 @@ export const DesignerPropertyPanel: React.FC = () => {
       setDeleteArmed(true);
       setTimeout(() => setDeleteArmed(false), 2500);
     } else {
-      handleDelete(selectedId);
+      handleDelete(selectedIds);
       setDeleteArmed(false);
     }
   };
@@ -179,14 +308,14 @@ export const DesignerPropertyPanel: React.FC = () => {
 
         <div className="flex items-center gap-1 shrink-0">
           <button
-            onClick={() => handleDuplicate(selectedId)}
+            onClick={() => handleDuplicate(selectedIds)}
             title="Duplicate"
             className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-900 hover:bg-slate-50 transition-all"
           >
             <Copy size={13} />
           </button>
           <button
-            onClick={() => updateItem(selectedId, { locked: !config.locked })}
+            onClick={() => updateItem(selectedIds[0], { locked: !config.locked })}
             title={config.locked ? 'Unlock' : 'Lock'}
             className={`p-1.5 rounded-lg border transition-all ${config.locked
               ? 'bg-orange-500/10 border-orange-200 text-orange-600'
@@ -200,6 +329,11 @@ export const DesignerPropertyPanel: React.FC = () => {
 
       {/* ── SCROLLABLE BODY ── */}
       <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-hide">
+
+        {/* APPLICATION DETAILS (BIG 4) */}
+        <div className="mb-6 border-b border-slate-100 pb-6">
+           {StudentDetailsSection}
+        </div>
 
         {/* ARRANGE GROUP */}
         <PropertyGroup title="Arrange" icon={Layers}>
@@ -308,7 +442,7 @@ export const DesignerPropertyPanel: React.FC = () => {
                 ] as const).map(({ key, label, title }) => (
                   <button
                     key={key}
-                    onClick={() => updateItem(selectedId, { [key]: !config[key] })}
+                    onClick={() => updateItem(selectedIds[0], { [key]: !config[key] })}
                     title={title}
                     className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all ${config[key]
                       ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'

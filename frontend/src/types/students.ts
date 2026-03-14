@@ -5,6 +5,7 @@ export interface Students {
   first_name: string;
   middle_initial: string;
   last_name: string;
+  manual_full_name?: string;
   course: string;
   address: string;
   guardian_name: string;
@@ -16,6 +17,9 @@ export interface Students {
   formatted_date: string;
   created_at: string;
   updated_at?: string;
+  is_archived?: boolean;
+  archived_at?: string | null;
+  reissuance_reason?: string;
 }
 
 export interface StudentResponse {

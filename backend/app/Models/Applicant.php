@@ -24,15 +24,37 @@ class Applicant extends Model
         'first_name',
         'middle_initial',
         'last_name',
+        'manual_full_name',
         'course',
         'address',
+        'email',
         'guardian_name',
         'guardian_contact',
         'id_picture',
         'signature_picture',
+        'payment_type',
         'payment_proof',
+        'reissuance_reason',
+        'is_archived',
+        'archived_at',
         'created_at',
     ];
+
+    /**
+     * Scope a query to only include active (non-archived) applicants.
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_archived', false);
+    }
+
+    /**
+     * Scope a query to only include archived applicants.
+     */
+    public function scopeArchived($query)
+    {
+        return $query->where('is_archived', true);
+    }
 
     /**
      * The "booted" method of the model.

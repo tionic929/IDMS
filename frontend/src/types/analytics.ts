@@ -12,8 +12,10 @@ export interface Department {
 export interface DashboardData {
   summary: {
     total_records: number;
+    total_applications: number;
     new_this_week: number;
     issued_cards: number;
+    pending_applications: number;
     user_growth: string;
   };
   trends: TrendData[];

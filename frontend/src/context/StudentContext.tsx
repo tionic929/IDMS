@@ -8,6 +8,7 @@ interface StudentContextType {
     allStudents: Students[];
     loading: boolean;
     refreshStudents: () => Promise<void>;
+    updateStudentLocal: (id: number, updates: Partial<Students>) => void;
 }
 
 const StudentContext = createContext<StudentContextType | undefined>(undefined);
@@ -15,6 +16,10 @@ const StudentContext = createContext<StudentContextType | undefined>(undefined);
 export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [allStudents, setAllStudents] = useState<Students[]>([]);
     const [loading, setLoading] = useState(true);
+
+    const updateStudentLocal = useCallback((id: number, updates: Partial<Students>) => {
+        setAllStudents(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    }, []);
 
     const fetchStudents = useCallback(async () => {
         try {
@@ -76,7 +81,7 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }, [fetchStudents]);
 
     return (
-        <StudentContext.Provider value={{ allStudents, loading, refreshStudents: fetchStudents }}>
+        <StudentContext.Provider value={{ allStudents, loading, refreshStudents: fetchStudents, updateStudentLocal }}>
             {children}
         </StudentContext.Provider>
     );

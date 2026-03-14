@@ -16,11 +16,13 @@ interface CanvasElementProps {
   onDragMove: (e: any) => void;
   onDragEnd: (e: any) => void;
   anyItemSelected: boolean;
+  allElements?: Record<string, LayoutItemSchema>;
+  selectedIds?: string[];
 }
 
 const CanvasElement: React.FC<CanvasElementProps> = ({
   id, config, isSelected, zoom, previewText, image, anyItemSelected,
-  onDragMove, onDragEnd, onSelect, onUpdate
+  onDragMove, onDragEnd, onSelect, onUpdate, allElements, selectedIds
 }) => {
 
   const isPhoto = id === 'photo';
@@ -28,6 +30,7 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
   const isCustomImage = id.startsWith('img') || config.type === 'image';
   // Standardized shape check
   const isShape = id.startsWith('rect') || id.startsWith('circle') || config.type === 'rect' || config.type === 'circle';
+  const isGroup = config.type === 'group';
 
   const [customImage] = useImage(isCustomImage && !isPhoto && !isSig ? (config.src || '') : '', 'anonymous');
   const activeImage = (isPhoto || isSig) ? image : customImage;
@@ -100,7 +103,6 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
             }}
           />
         )}
-
         {/* Render Shape logic */}
         {isShape && (
           config.type === 'circle' ? (
@@ -123,6 +125,62 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
             />
           )
         )}
+      </Group>
+    );
+  }
+
+  // --- GROUPS ---
+  if (isGroup) {
+    const w = config.width || 100;
+    const h = config.height || 100;
+    const children = config.children || [];
+
+    return (
+      <Group {...commonProps} width={w} height={h}>
+        <Rect
+          name="HitArea"
+          width={w}
+          height={h}
+          fill="transparent"
+          listening={true}
+        />
+        <Rect
+          name="Bounds"
+          width={w}
+          height={h}
+          stroke={selectionColor}
+          strokeWidth={1.5 / zoom}
+          opacity={isSelected ? 1 : 0}
+          listening={false}
+        />
+        {children.map(cid => {
+          const childConfig = allElements?.[cid];
+          if (!childConfig) return null;
+          // Offset child position relative to group
+          const relativeConfig = {
+            ...childConfig,
+            x: childConfig.x - config.x,
+            y: childConfig.y - config.y,
+            draggable: false, // Children not draggable independently inside group for now
+            locked: true     // Lock them to group
+          };
+          return (
+            <CanvasElement
+              key={cid}
+              id={cid}
+              config={relativeConfig}
+              isSelected={selectedIds?.includes(cid) || false}
+              zoom={zoom}
+              anyItemSelected={anyItemSelected}
+              onSelect={onSelect}
+              onUpdate={onUpdate}
+              onDragMove={() => {}}
+              onDragEnd={() => {}}
+              allElements={allElements}
+              selectedIds={selectedIds}
+            />
+          );
+        })}
       </Group>
     );
   }

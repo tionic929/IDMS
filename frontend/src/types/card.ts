@@ -2,7 +2,11 @@ export interface ApplicantCard {
   id: number;
   idNumber: string;
   fullName: string;
+  manual_full_name?: string;
+  firstName?: string;
+  lastName?: string;
   course: string;
+  email?: string;
   guardian_name: string;
   guardian_contact: string;
   address: string;

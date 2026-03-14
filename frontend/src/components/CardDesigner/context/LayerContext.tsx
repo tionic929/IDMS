@@ -7,14 +7,17 @@ import { reorderLayer } from '../../../utils/designerUtils';
 import { DESIGN_WIDTH, DESIGN_HEIGHT } from '../../../constants/dimensions';
 
 interface LayerContextType {
-  selectedId: string | null;
-  setSelectedId: (id: string | null) => void;
+  selectedIds: string[];
+  setSelectedIds: (ids: string[]) => void;
+  toggleSelection: (id: string, multi: boolean) => void;
   hoveredId: string | null;
   setHoveredId: (id: string | null) => void;
   addShape: (type: 'rect' | 'circle') => void;
   addText: () => void;
-  handleDelete: (id?: string) => void;
-  handleDuplicate: (id: string) => void;
+  handleDelete: (ids?: string[]) => void;
+  handleDuplicate: (ids?: string[]) => void;
+  handleGroupSelected: () => void;
+  handleUngroup: (groupId: string) => void;
   handleRename: (oldId: string, newName: string) => void;
   handleToggleVisibility: (id: string) => void;
   moveLayer: (direction: 'up' | 'down' | 'top' | 'bottom') => void;
@@ -32,8 +35,16 @@ const MAX_HISTORY = 50;
 
 export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { editSide, tempLayout, setTempLayout } = useDesignerContext();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  const toggleSelection = useCallback((id: string, multi: boolean) => {
+    if (multi) {
+      setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    } else {
+      setSelectedIds([id]);
+    }
+  }, []);
 
   // Undo/redo stacks (store snapshots of tempLayout)
   const pastRef = useRef<any[]>([]);
@@ -90,7 +101,7 @@ export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...prev,
       [side]: { ...prev[side], [id]: newShape }
     }));
-    setSelectedId(id);
+    setSelectedIds([id]);
   }, [editSide, setTempLayout, tempLayout, pushHistory]);
 
   const addText = useCallback(() => {
@@ -114,7 +125,7 @@ export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...prev,
       [side]: { ...prev[side], [id]: newText }
     }));
-    setSelectedId(id);
+    setSelectedIds([id]);
   }, [editSide, setTempLayout, tempLayout, pushHistory]);
 
   const handleImageUpload = useCallback((file: File) => {
@@ -148,7 +159,7 @@ export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ...prev,
           [side]: { ...prev[side], [id]: newImage }
         }));
-        setSelectedId(id);
+        setSelectedIds([id]);
         toast.success("Image uploaded");
       };
       img.src = src;
@@ -156,50 +167,128 @@ export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     reader.readAsDataURL(file);
   }, [editSide, setTempLayout, tempLayout, pushHistory]);
 
-  const handleDelete = useCallback((id?: string) => {
-    const targetId = id || selectedId;
-    if (!targetId) return;
+  const handleDelete = useCallback((ids?: string[]) => {
+    const targetIds = ids || selectedIds;
+    if (!targetIds.length) return;
 
     pushHistory(tempLayout);
     const side = editSide.toLowerCase();
-    const newLayout = { ...tempLayout };
-    newLayout[side] = { ...newLayout[side] };
-    delete newLayout[side][targetId];
-    setTempLayout(newLayout);
+    setTempLayout((prev: any) => {
+      const newSideConfig = { ...prev[side] };
+      targetIds.forEach(id => {
+        // If it's a group, we might want to ungroup or delete children? 
+        // For now, simple delete.
+        delete newSideConfig[id];
+        // Also remove from any group children list if it was a child
+        Object.keys(newSideConfig).forEach(k => {
+          if (newSideConfig[k].children) {
+            newSideConfig[k].children = newSideConfig[k].children.filter((cid: string) => cid !== id);
+          }
+        });
+      });
+      return { ...prev, [side]: newSideConfig };
+    });
 
-    if (targetId === selectedId) {
-      setSelectedId(null);
-    }
-  }, [selectedId, editSide, tempLayout, setTempLayout, pushHistory]);
+    setSelectedIds(prev => prev.filter(id => !targetIds.includes(id)));
+  }, [selectedIds, editSide, tempLayout, setTempLayout, pushHistory]);
 
-  const handleDuplicate = useCallback((id: string) => {
+  const handleDuplicate = useCallback((ids?: string[]) => {
+    const targetIds = ids || selectedIds;
+    if (!targetIds.length) return;
+
     const side = editSide.toLowerCase();
-    const source = tempLayout[side][id];
-    if (!source) return;
-
     pushHistory(tempLayout);
-    const newId = `${source.type || 'copy'}_${Date.now()}`;
-    const duplicate = {
-      ...source,
-      x: source.x + 20,
-      y: source.y + 20,
-      visible: true
-    };
 
     setTempLayout((prev: any) => {
-      const currentSide = prev[side];
-      const newSideConfig: any = {};
+      const newSideConfig = { ...prev[side] };
+      const newSelectedIds: string[] = [];
 
-      Object.keys(currentSide).forEach(key => {
-        newSideConfig[key] = currentSide[key];
-        if (key === id) {
-          newSideConfig[newId] = duplicate;
-        }
+      targetIds.forEach(id => {
+        const source = newSideConfig[id];
+        if (!source) return;
+
+        const newId = `${source.type || 'copy'}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+        const duplicate = {
+          ...source,
+          x: source.x + 20,
+          y: source.y + 20,
+          visible: true
+        };
+        
+        newSideConfig[newId] = duplicate;
+        newSelectedIds.push(newId);
       });
 
       return { ...prev, [side]: newSideConfig };
     });
-    setSelectedId(newId);
+  }, [editSide, selectedIds, tempLayout, setTempLayout, pushHistory]);
+
+  const handleGroupSelected = useCallback(() => {
+    if (selectedIds.length < 2) {
+      toast.warn("Select at least 2 layers to group");
+      return;
+    }
+
+    pushHistory(tempLayout);
+    const side = editSide.toLowerCase();
+    const id = `group_${Date.now()}`;
+    
+    // Calculate bounding box
+    const items = selectedIds.map(id => tempLayout[side][id]).filter(Boolean);
+    const minX = Math.min(...items.map(i => i.x));
+    const minY = Math.min(...items.map(i => i.y));
+    const maxX = Math.max(...items.map(i => i.x + (i.width || 0)));
+    const maxY = Math.max(...items.map(i => i.y + (i.height || 0)));
+
+    const newGroup = {
+      type: 'group',
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      children: [...selectedIds],
+      visible: true
+    };
+
+    setTempLayout((prev: any) => {
+      const newSideConfig = { ...prev[side] };
+      // Assign groupId to children
+      selectedIds.forEach(cid => {
+        if (newSideConfig[cid]) {
+          newSideConfig[cid] = { ...newSideConfig[cid], groupId: id };
+        }
+      });
+      newSideConfig[id] = newGroup;
+      return { ...prev, [side]: newSideConfig };
+    });
+
+    setSelectedIds([id]);
+    toast.success("Layers grouped");
+  }, [selectedIds, editSide, tempLayout, setTempLayout, pushHistory]);
+
+  const handleUngroup = useCallback((groupId: string) => {
+    const side = editSide.toLowerCase();
+    const group = tempLayout[side][groupId];
+    if (!group || group.type !== 'group' || !group.children) return;
+
+    pushHistory(tempLayout);
+    setTempLayout((prev: any) => {
+      const newSideConfig = { ...prev[side] };
+      const children = group.children || [];
+      
+      children.forEach((cid: string) => {
+        if (newSideConfig[cid]) {
+          const { groupId: _, ...rest } = newSideConfig[cid];
+          newSideConfig[cid] = rest;
+        }
+      });
+      
+      delete newSideConfig[groupId];
+      return { ...prev, [side]: newSideConfig };
+    });
+    
+    setSelectedIds(group.children);
+    toast.info("Ungrouped");
   }, [editSide, tempLayout, setTempLayout, pushHistory]);
 
   const handleRename = useCallback((oldId: string, newName: string) => {
@@ -217,7 +306,7 @@ export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
       return { ...prev, [side]: newSideConfig };
     });
-    setSelectedId(newName);
+    setSelectedIds([newName]);
   }, [editSide, setTempLayout]);
 
   const handleToggleVisibility = useCallback((id: string) => {
@@ -235,7 +324,8 @@ export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [editSide, setTempLayout]);
 
   const moveLayer = useCallback((direction: 'up' | 'down' | 'top' | 'bottom') => {
-    if (!selectedId) return;
+    if (selectedIds.length !== 1) return;
+    const selectedId = selectedIds[0];
 
     pushHistory(tempLayout);
     const side = editSide.toLowerCase();
@@ -243,7 +333,7 @@ export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...prev,
       [side]: reorderLayer(prev[side], selectedId, direction)
     }));
-  }, [selectedId, editSide, setTempLayout, tempLayout, pushHistory]);
+  }, [selectedIds, editSide, setTempLayout, tempLayout, pushHistory]);
 
   const handleAutoFitLayer = useCallback((id: string) => {
     const side = editSide.toLowerCase();
@@ -329,12 +419,15 @@ export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [addShape, addText, handleDelete, undo, redo, moveLayer]);
 
   const value = {
-    selectedId,
-    setSelectedId,
+    selectedIds,
+    setSelectedIds,
+    toggleSelection,
     addShape,
     addText,
     handleDelete,
     handleDuplicate,
+    handleGroupSelected,
+    handleUngroup,
     handleRename,
     handleToggleVisibility,
     moveLayer,

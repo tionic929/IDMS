@@ -164,11 +164,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
                                             <div className="flex-1 min-w-0">
                                                 <p className={`text-xs font-bold truncate ${isActive ? 'text-white' : 'text-slate-900'}`}>{cmd.label}</p>
                                                 {cmd.description && (
-                                                    <p className={`text-[10px] truncate ${isActive ? 'text-white/60' : 'text-slate-400'}`}>{cmd.description}</p>
+                                                    <p className={`text-[10px] truncate hidden sm:block ${isActive ? 'text-white/60' : 'text-slate-400'}`}>{cmd.description}</p>
                                                 )}
                                             </div>
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${CategoryBadge[cmd.category as PaletteCommand['category']]}`}>
+                                            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end max-w-[40%] sm:max-w-max">
+                                                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border hidden sm:block ${CategoryBadge[cmd.category as PaletteCommand['category']]}`}>
                                                     {category}
                                                 </span>
                                                 {cmd.shortcut && (

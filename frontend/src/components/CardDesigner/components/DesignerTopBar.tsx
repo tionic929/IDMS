@@ -2,7 +2,8 @@
 import React from 'react';
 import {
   Save, Minus, Plus, ChevronRight, Magnet, Download, RefreshCw, Maximize,
-  Grid3X3, Focus, Ruler, Minimize, RotateCcw, RotateCw, Eye, Layout, Command
+  Grid3X3, Focus, Ruler, Minimize, RotateCcw, RotateCw, Eye, Layout, Command,
+  UserCircle
 } from 'lucide-react';
 import { useDesignerContext } from '../context/DesignerContext';
 import { useCanvasContext } from '../context/CanvasContext';
@@ -42,7 +43,10 @@ export const DesignerTopBar: React.FC<DesignerTopBarProps> = ({
   onTogglePreviewMode,
   onOpenCommandPalette
 }) => {
-  const { templateName, isSaving, handleSave, handleExport, previewData } = useDesignerContext();
+  const { 
+    templateName, isSaving, handleSave, handleExport, previewData,
+    allStudents, activeStudentId, setActiveStudentId 
+  } = useDesignerContext();
   const { undo, redo, canUndo, canRedo } = useLayerContext();
 
   const {

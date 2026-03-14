@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getTemplate, handleActiveLayouts, createNewTemplate as apiCreateTemplate } from '../api/templates';
+import { getTemplate, handleActiveLayouts, createNewTemplate as apiCreateTemplate, deleteTemplate as apiDeleteTemplate, duplicateTemplate as apiDuplicateTemplate, saveLayout } from '../api/templates';
 import type { Template } from '../types/templates';
 import { toast } from 'react-toastify';
 
@@ -8,7 +8,10 @@ interface TemplateContextType {
     loading: boolean;
     refreshTemplates: () => Promise<void>;
     setActiveTemplate: (id: number) => Promise<void>;
-    createTemplate: (name: string) => Promise<void>;
+    createTemplate: (name: string, bgColor: string, logo: string) => Promise<void>;
+    deleteTemplate: (id: number) => Promise<void>;
+    duplicateTemplate: (id: number) => Promise<void>;
+    renameTemplate: (id: number, newName: string, bgColor: string, logo: string) => Promise<void>;
 }
 
 const TemplateContext = createContext<TemplateContextType | undefined>(undefined);
@@ -40,13 +43,64 @@ export const TemplateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     };
 
-    const createTemplate = async (name: string) => {
+    const createTemplate = async (name: string, bgColor: string, logo: string) => {
         try {
-            const data = await apiCreateTemplate(name);
+            const data = await apiCreateTemplate(name, bgColor, logo);
             setTemplates(prev => [...prev, data]);
             toast.success("Template created!");
         } catch (error) {
             toast.error("Error creating template");
+            throw error;
+        }
+    };
+
+    const deleteTemplate = async (id: number) => {
+        try {
+            await apiDeleteTemplate(id);
+            setTemplates(prev => prev.filter(t => t.id !== id));
+            toast.success("Template deleted!");
+        } catch (error) {
+            toast.error("Error deleting template");
+            throw error;
+        }
+    };
+
+    const duplicateTemplate = async (id: number) => {
+        try {
+            const newTemplate = await apiDuplicateTemplate(id);
+            setTemplates(prev => [newTemplate, ...prev]);
+            toast.success("Template duplicated!");
+        } catch (error) {
+            toast.error("Error duplicating template");
+            throw error;
+        }
+    };
+
+    const renameTemplate = async (id: number, newName: string, bgColor: string, logoUrl: string) => {
+        try {
+            const template = templates.find(t => t.id === id);
+            if (!template) return;
+            
+            const updatedFront = { ...template.front_config };
+            const updatedBack = { ...template.back_config };
+            
+            // Overwrite any old top-level bg_color or template_logo we might have erroneously added
+            if (updatedFront.bg_color) delete updatedFront.bg_color;
+            if (updatedBack.bg_color) delete updatedBack.bg_color;
+            if (updatedFront.template_logo) delete updatedFront.template_logo;
+            
+            updatedFront.template_meta = { 
+                ...updatedFront.template_meta, 
+                visible: false, 
+                bg_color: bgColor, 
+                logo: logoUrl 
+            };
+
+            const updated = await saveLayout(id, newName, { front: updatedFront, back: updatedBack }, template.preview_images || undefined);
+            setTemplates(prev => prev.map(t => t.id === id ? updated : t));
+            toast.success("Template updated!");
+        } catch (error) {
+            toast.error("Error updating template");
             throw error;
         }
     };
@@ -61,7 +115,10 @@ export const TemplateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             loading,
             refreshTemplates: fetchTemplates,
             setActiveTemplate,
-            createTemplate
+            createTemplate,
+            deleteTemplate,
+            duplicateTemplate,
+            renameTemplate
         }}>
             {children}
         </TemplateContext.Provider>

@@ -15,13 +15,24 @@ class ApplicantCardResource extends JsonResource
             'fullName'  => strtoupper(trim(
                 "{$this->last_name}, {$this->first_name} " . ($this->middle_initial ?? '')
             )),
+            'manual_full_name' => $this->manual_full_name,
+            'firstName' => $this->first_name,
+            'lastName'  => $this->last_name,
             'course'    => strtoupper($this->course),
+            'email'     => $this->email,
+            'guardian_name' => $this->guardian_name,
+            'guardian_contact' => $this->guardian_contact,
+            'address'   => $this->address,
             'photo'     => $this->id_picture
                 ? asset('storage/' . $this->id_picture)
                 : null,
             'signature' => $this->signature_picture
                 ? asset('storage/' . $this->signature_picture)
                 : null,
+            'paymentProof' => $this->payment_proof
+                ? asset('storage/' . $this->payment_proof)
+                : null,
+            'reissuance_reason' => $this->reissuance_reason,
         ];
     }
 }

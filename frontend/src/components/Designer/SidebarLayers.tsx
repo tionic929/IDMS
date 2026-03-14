@@ -106,7 +106,7 @@ const SidebarLayers: React.FC<SidebarLayersProps> = ({
 
                 <div
                   onClick={() => onSelect(id)}
-                  onDoubleClick={() => handleStartRename(id, config.name || id)}
+                  onDoubleClick={() => handleStartRename(id, (config as any).name || id)}
                   className={`relative flex items-center gap-3 ml-4 mr-1 px-3 py-2.5 rounded-lg transition-all cursor-pointer border ${isSelected
                       ? 'bg-indigo-500/10 border-indigo-500/40 shadow-lg shadow-indigo-500/5 z-10'
                       : 'bg-transparent border-transparent hover:bg-zinc-800/80 hover:border-zinc-700/30'
@@ -137,7 +137,7 @@ const SidebarLayers: React.FC<SidebarLayersProps> = ({
                     ) : (
                       <div className="flex flex-col">
                         <span className={`text-[11px] font-bold truncate leading-tight ${isSelected ? 'text-zinc-100' : 'text-zinc-400 group-hover:text-zinc-200'} transition-colors`}>
-                          {config.name || id.replace(/_/g, ' ')}
+                          {(config as any).name || id.replace(/_/g, ' ')}
                         </span>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-[8px] font-mono font-black text-zinc-600 uppercase">

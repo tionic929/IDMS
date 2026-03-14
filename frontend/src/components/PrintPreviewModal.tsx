@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
   Printer, Scissors, FlipHorizontal, Download,
-  Settings, X, ZoomIn, ZoomOut, Info, Receipt, Loader2
+  Settings, X, ZoomIn, ZoomOut, Info, Receipt, Loader2, Mail
 } from 'lucide-react';
 import IDCardPreview from './IDCardPreview';
 import { type ApplicantCard } from '../types/card';
@@ -127,16 +127,8 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         toast.info('Sending to local printer service...');
 
         ipcRenderer.send('print-card-images', {
-          frontImage,
-          backImage,
-          width: PRINT_WIDTH,
-          height: PRINT_HEIGHT,
-          margins: {
-            top: marginTop,
-            bottom: marginBottom,
-            left: marginLeft,
-            right: marginRight,
-          },
+          frontImage, backImage, width: PRINT_WIDTH, height: PRINT_HEIGHT,
+          margins: { top: marginTop, bottom: marginBottom, left: marginLeft, right: marginRight }
         });
 
         // Listen for the response from main.cjs
@@ -145,7 +137,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             toast.success('Print job completed successfully!');
             setTimeout(onClose, 1500);
           } else {
-            toast.error(`Print failed: ${arg.failureReason} `);
+            toast.error(`Print failed: ${arg.failureReason}`);
           }
         });
 
@@ -155,9 +147,23 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
       }
     } else {
       // Fallback for regular web browsers
-      toast.warn("Silent printing requires the Desktop App. Opening browser print...");
-      window.print();
+      if (window.confirm('Mark as ISSUED and open print dialog?')) {
+        try {
+          await confirmApplicant(data.id);
+          toast.warn("Silent printing requires the Desktop App. Opening browser print...");
+          window.print();
+        } catch (error) {
+          toast.error('Failed to confirm issuance.');
+        }
+      }
     }
+  };
+
+  const handleEmail = () => {
+    const subject = encodeURIComponent(`Student ID Card - ${data.lastName}, ${data.firstName}`);
+    const body = encodeURIComponent(`Hello ${data.firstName},\n\nYour ID card for ID ${data.idNumber} has been processed and is ready for pickup.\n\nYou can also find your digital copy attached (if available).\n\nDetails:\nName: ${data.firstName} ${data.lastName}\nCourse: ${data.course}\nID: ${data.idNumber}`);
+    window.location.href = `mailto:${data.email || ''}?subject=${subject}&body=${body}`;
+    toast.info('Opening email client...');
   };
 
   const totalWidth = PRINT_WIDTH + marginLeft + marginRight;
@@ -423,6 +429,14 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             >
               <Download size={16} />
               {isGeneratingImages ? 'Processing...' : 'Download Images'}
+            </button>
+            <button
+              onClick={handleEmail}
+              disabled={isGeneratingImages}
+              className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <Mail size={16} />
+              Email Notification
             </button>
             <button
               onClick={handleSilentPrint}

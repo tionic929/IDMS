@@ -40,9 +40,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/total-applicants', [ApplicantsController::class , 'applicantsReport']);
 
     Route::get('/paginated-applicants', [ApplicantsController::class , 'paginatedApplicants']);
+    Route::get('/archived-applicants', [ApplicantsController::class , 'getArchived']);
     Route::get('/all-imported-reports', [ReportsController::class , 'getImportedReports']);
 
     Route::put('/applicant/{student}/toggle', [ApplicantsController::class , 'toggleHasCard']);
+    Route::post('/applicant/{id}/archive', [ApplicantsController::class , 'archive']);
     Route::delete('/applicant/{student}', [ApplicantsController::class , 'destroy']);
     Route::post('/confirm-applicant/{studentId}', [ApplicantsController::class , 'updateApplicantsExcelFile']);
     Route::post('/confirm/{studentId}', [ApplicantsController::class , 'confirm']);

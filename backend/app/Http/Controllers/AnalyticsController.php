@@ -58,7 +58,7 @@ class AnalyticsController extends Controller
             }
 
             // ===== 1. SUMMARY CARDS WITH FILTERS =====
-            $applicantsQuery = Student::whereBetween('created_at', [$dateFrom, $dateTo]);
+            $applicantsQuery = Student::active()->whereBetween('created_at', [$dateFrom, $dateTo]);
 
             // Apply department filter if specified
             if ($department) {
@@ -68,7 +68,7 @@ class AnalyticsController extends Controller
             $totalApplicants = $applicantsQuery->count();
 
             // New this week (still use fixed week calculation)
-            $newApplicantsThisWeek = Student::where('created_at', '>=', Carbon::now()->startOfWeek())
+            $newApplicantsThisWeek = Student::active()->where('created_at', '>=', Carbon::now()->startOfWeek())
                 ->when($department, function ($q) use ($department) {
                 return $q->where('course', $department);
             })
@@ -138,9 +138,10 @@ class AnalyticsController extends Controller
 
             return response()->json([
                 'summary' => [
-                    'total_records' => $totalApplicants,
+                    'total_applications' => $totalApplicants,
                     'new_this_week' => $newApplicantsThisWeek,
                     'issued_cards' => $issuedCards,
+                    'pending_applications' => $totalApplicants - $issuedCards,
                     'user_growth' => $newUsers,
                     'pending_trend' => [
                         'direction' => $pendingDirection,

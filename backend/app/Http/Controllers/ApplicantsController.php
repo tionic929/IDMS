@@ -24,32 +24,32 @@ class ApplicantsController extends Controller
 {
     public function index()
     {
-        $totalQueue = Student::where('has_card', false)->count();
+        $totalQueue = Student::active()->where('has_card', false)->count();
 
-        $queueList = Student::where('has_card', false)
+        $queueList = Student::active()->where('has_card', false)
             ->select([
-            'id', 'id_number', 'first_name', 'middle_initial', 'last_name',
-            'course', 'address', 'guardian_name', 'guardian_contact',
-            'id_picture', 'signature_picture', 'payment_proof', 'has_card', 'created_at'
-        ])
+                'id', 'id_number', 'first_name', 'middle_initial', 'last_name', 'manual_full_name',
+                'course', 'address', 'guardian_name', 'guardian_contact',
+                'id_picture', 'signature_picture', 'payment_proof', 'has_card', 'created_at'
+            ])
             ->orderBy('created_at', 'asc')
             ->limit(10)
             ->get();
 
-        // $history = Student::where('has_card', true)
-        // ->select([
-        //     'id', 'id_number', 'first_name', 'middle_initial', 'last_name', 
-        //     'course', 'address', 'guardian_name', 'guardian_contact', 
-        //     'id_picture', 'signature_picture', 'has_card', 'created_at'
-        // ])
-        // ->orderBy('updated_at', 'desc')
-        // ->limit(10)
-        // ->get();
+        $history = Student::active()->where('has_card', true)
+            ->select([
+                'id', 'id_number', 'first_name', 'middle_initial', 'last_name', 'manual_full_name',
+                'course', 'address', 'guardian_name', 'guardian_contact', 
+                'id_picture', 'signature_picture', 'payment_proof', 'has_card', 'created_at'
+            ])
+            ->orderBy('updated_at', 'desc')
+            ->limit(10)
+            ->get();
 
         return response()->json([
             'totalQueue' => $totalQueue,
             'queueList' => $this->formatStudents($queueList),
-            // 'history' => $this->formatStudents($history)
+            'history' => $this->formatStudents($history)
         ], 200);
     }
 
@@ -63,7 +63,7 @@ class ApplicantsController extends Controller
 
             // 3. Log the successful card issuance for audit purposes
             Log::info("ID Card issued successfully for Student ID: {$studentId}", [
-                'student_name' => $student->name, // Adjust based on your columns
+                'student_name' => $student->full_name,
                 'issued_at' => now()
             ]);
 
@@ -318,7 +318,7 @@ class ApplicantsController extends Controller
     public function paginatedApplicants(Request $request)
     {
         $search = $request->query('search');
-        $query = Student::select(
+        $query = Student::active()->select(
             'id',
             'has_card',
             'id_number',
@@ -332,7 +332,8 @@ class ApplicantsController extends Controller
             'guardian_contact',
             'id_picture',
             'signature_picture',
-            'payment_proof'
+            'payment_proof',
+            'reissuance_reason'
         )
             ->orderBy('id', 'asc');
 
@@ -390,7 +391,7 @@ class ApplicantsController extends Controller
         $stats = DB::table('students')
             ->select(DB::raw("
             COUNT(*) as total,
-            SUM(CASE WHEN has_card = 0 THEN 0 ELSE 1 END) as pending,
+            SUM(CASE WHEN has_card = 0 THEN 1 ELSE 0 END) as pending,
             SUM(CASE WHEN has_card = 1 THEN 1 ELSE 0 END) as issued
         "))
             ->first();
@@ -418,6 +419,32 @@ class ApplicantsController extends Controller
         return response()->json($departments);
     }
 
+    public function archive($id)
+    {
+        try {
+            $student = Student::findOrFail($id);
+            $student->update([
+                'is_archived' => true,
+                'archived_at' => now()
+            ]);
+
+            return response()->json([
+                'message' => 'Applicant archived successfully'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to archive applicant',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getArchived()
+    {
+        $archived = Student::archived()->orderBy('archived_at', 'desc')->paginate(20);
+        return response()->json($archived);
+    }
+
     public function destroy($id)
     {
         try {
@@ -425,7 +452,7 @@ class ApplicantsController extends Controller
             $student->delete();
 
             return response()->json([
-                'message' => 'Applicant deleted successfully'
+                'message' => 'Applicant permanently deleted'
             ], 200);
         }
         catch (\Exception $e) {

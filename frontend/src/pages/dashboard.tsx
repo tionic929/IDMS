@@ -205,10 +205,10 @@ const Dashboard = () => {
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
   const [availableDepts, setAvailableDepts] = useState<string[]>([]);
   const [visibleMetrics, setVisibleMetrics] = useState({
-    totalRecords: true,
-    newThisWeek: true,
+    totalApplications: true,
+    pendingApplications: true,
     issuedCards: true,
-    userGrowth: true,
+    userGrowth: false,
   });
 
   const [metricModal, setMetricModal] = useState<MetricModalMeta | null>(null);
@@ -383,9 +383,9 @@ const Dashboard = () => {
                 <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest opacity-40">Display Options</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-slate-100" />
                 {([
-                  { key: 'totalRecords' as const, label: 'Total Students' },
-                  { key: 'newThisWeek' as const, label: 'New activity' },
-                  { key: 'issuedCards' as const, label: 'Cards Printed' },
+                  { key: 'totalApplications' as const, label: 'Applications' },
+                  { key: 'pendingApplications' as const, label: 'Pending' },
+                  { key: 'issuedCards' as const, label: 'Issued' },
                   { key: 'userGrowth' as const, label: 'Growth' },
                 ]).map(({ key, label }) => (
                   <DropdownMenuItem
@@ -408,43 +408,38 @@ const Dashboard = () => {
         ) : data ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
-              {visibleMetrics.totalRecords && (
+              {visibleMetrics.totalApplications && (
                 <MetricCard
-                  title="Total Students"
-                  value={data.summary.total_records}
+                  title="Applications"
+                  value={data.summary.total_applications}
                   icon={Users}
                   color="blue"
                   chartData={data.trends}
                   trendLabel="Records"
                   trend="up"
                   onClick={() => setMetricModal({
-                    key: 'totalRecords', title: 'Total Students',
-                    value: data.summary.total_records, trendLabel: 'Total count',
+                    key: 'totalApplications', title: 'Applications',
+                    value: data.summary.total_applications, trendLabel: 'Total count',
                     strokeColor: '#3b82f6', trends: data.trends,
                     distribution: data.departments.full_list.map(d => ({ name: d.name, value: d.total })),
                   })}
                 />
               )}
-              {visibleMetrics.newThisWeek && (
+              {visibleMetrics.pendingApplications && (
                 <MetricCard
-                  title="New Activity"
-                  value={data.summary.new_this_week}
+                  title="Pending"
+                  value={data.summary.pending_applications}
                   icon={Inbox}
                   color="amber"
                   chartData={data.trends.slice(-3)}
-                  trendLabel="New this week (Mon–Today)"
+                  trendLabel="Awaiting card issuance"
                   trend="up"
-                  onClick={() => setMetricModal({
-                    key: 'newThisWeek', title: 'New Activity',
-                    value: data.summary.new_this_week, trendLabel: 'Weekly growth',
-                    strokeColor: '#f59e0b', trends: data.trends,
-                    distribution: data.departments.full_list.map(d => ({ name: d.name, value: Math.round(d.total * 0.15) })), // Mocking periodic activity
-                  })}
+                  onClick={() => navigate('/card-management')}
                 />
               )}
               {visibleMetrics.issuedCards && (
                 <MetricCard
-                  title="Cards Printed"
+                  title="Issued"
                   value={data.summary.issued_cards}
                   icon={Award}
                   color="emerald"

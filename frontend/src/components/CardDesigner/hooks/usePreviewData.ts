@@ -1,4 +1,4 @@
-﻿import { useMemo } from 'react';
+import { useMemo } from 'react';
 import type { Students } from '../../../types/students';
 
 const VITE_API_URL = import.meta.env.VITE_API_URL;
@@ -10,11 +10,21 @@ const getProxyUrl = (path: string | null | undefined) => {
   return `${VITE_API_URL}/api/proxy-image?path=${encodeURIComponent(cleanPath)}`;
 };
 
-export const usePreviewData = (templateId: number | null, templateName: string, allStudents: Students[]) => {
+export const usePreviewData = (
+  templateId: number | null, 
+  templateName: string, 
+  allStudents: Students[],
+  activeStudentId: number | null = null,
+  overrides: any = {}
+) => {
   const activeStudent = useMemo(() => {
-    if (!templateId || !allStudents?.length) return null;
+    if (!allStudents?.length) return null;
 
-    // Return most recently updated student from the provided list
+    if (activeStudentId) {
+      return allStudents.find(s => s.id === activeStudentId) || null;
+    }
+
+    // Default to most recently updated
     return [...allStudents].sort((a, b) => {
       const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
       const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
@@ -26,16 +36,16 @@ export const usePreviewData = (templateId: number | null, templateName: string, 
     if (!activeStudent) return null;
 
     return {
-      fullName: `${activeStudent.first_name} ${activeStudent.last_name}`,
-      idNumber: activeStudent.id_number,
-      course: templateName || activeStudent.course || "COURSE",
-      photo: getProxyUrl(activeStudent.id_picture),
-      signature: getProxyUrl(activeStudent.signature_picture),
-      guardian_name: activeStudent.guardian_name,
-      guardian_contact: activeStudent.guardian_contact,
-      address: activeStudent.address,
+      fullName: overrides.fullName !== undefined ? overrides.fullName : `${activeStudent.first_name} ${activeStudent.last_name}`,
+      idNumber: overrides.idNumber !== undefined ? overrides.idNumber : activeStudent.id_number,
+      course: overrides.course !== undefined ? overrides.course : (templateName || activeStudent.course || "COURSE"),
+      photo: overrides.photo !== undefined ? overrides.photo : getProxyUrl(activeStudent.id_picture),
+      signature: overrides.signature !== undefined ? overrides.signature : getProxyUrl(activeStudent.signature_picture),
+      guardian_name: overrides.guardian_name !== undefined ? overrides.guardian_name : activeStudent.guardian_name,
+      guardian_contact: overrides.guardian_contact !== undefined ? overrides.guardian_contact : activeStudent.guardian_contact,
+      address: overrides.address !== undefined ? overrides.address : activeStudent.address,
     };
-  }, [activeStudent, templateName]);
+  }, [activeStudent, templateName, overrides]);
 
   return { previewData, activeStudent };
 };

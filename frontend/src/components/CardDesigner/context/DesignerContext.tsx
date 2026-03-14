@@ -24,6 +24,10 @@ interface DesignerContextType {
   updateItem: (id: string, attrs: any) => void;
 
   allStudents: Students[];
+  activeStudentId: number | null;
+  setActiveStudentId: (id: number | null) => void;
+  overrides: any;
+  setOverrides: (overrides: any) => void;
   previewData: any;
 
 }
@@ -39,9 +43,9 @@ export const DesignerProvider: React.FC<{
 
   allStudents: Students[];
 }> = ({ children, templateId, templateName, currentLayout, onSave, allStudents }) => {
-  const { previewData } = usePreviewData(templateId, templateName, allStudents);
-
-
+  const [activeStudentId, setActiveStudentId] = useState<number | null>(null);
+  const [overrides, setOverrides] = useState<any>({});
+  const { previewData, activeStudent } = usePreviewData(templateId, templateName, allStudents, activeStudentId, overrides);
 
   const [editSide, setEditSide] = useState<'FRONT' | 'BACK'>('FRONT');
   const [tempLayout, setTempLayout] = useState(currentLayout);
@@ -52,7 +56,7 @@ export const DesignerProvider: React.FC<{
     if (currentLayout) {
       setTempLayout(currentLayout);
     }
-  }, [currentLayout]);
+  }, [currentLayout, templateId]); // Added templateId dependency to ensure context reactions
 
   const currentSideData = tempLayout[editSide.toLowerCase()] || {};
 
@@ -137,6 +141,10 @@ export const DesignerProvider: React.FC<{
 
     updateItem,
     allStudents,
+    activeStudentId,
+    setActiveStudentId,
+    overrides,
+    setOverrides,
     previewData
   };
 

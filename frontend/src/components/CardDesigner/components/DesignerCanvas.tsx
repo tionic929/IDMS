@@ -34,7 +34,7 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
     showSnapGuides, snapLines, setSnapLines
 
   } = useCanvasContext();
-  const { selectedId, setSelectedId, hoveredId, setHoveredId } = useLayerContext();
+  const { selectedIds, setSelectedIds, toggleSelection, hoveredId, setHoveredId } = useLayerContext();
 
   const trRef = useRef<any>(null);
   const hoverTrRef = useRef<any>(null);
@@ -125,16 +125,18 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
         if (!isPanning) setIsPanning(true);
         e.preventDefault();
       }
-      if (selectedId && currentSideData?.[selectedId]) {
+      if (selectedIds.length > 0) {
         const moveAmount = e.shiftKey ? 10 : 1;
-        const item = currentSideData[selectedId];
         if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
           e.preventDefault();
-
-          updateItem(selectedId, {
-
-            x: item.x + (e.key === 'ArrowLeft' ? -moveAmount : e.key === 'ArrowRight' ? moveAmount : 0),
-            y: item.y + (e.key === 'ArrowUp' ? -moveAmount : e.key === 'ArrowDown' ? moveAmount : 0)
+          selectedIds.forEach(id => {
+            const item = currentSideData?.[id];
+            if (item) {
+              updateItem(id, {
+                x: item.x + (e.key === 'ArrowLeft' ? -moveAmount : e.key === 'ArrowRight' ? moveAmount : 0),
+                y: item.y + (e.key === 'ArrowUp' ? -moveAmount : e.key === 'ArrowDown' ? moveAmount : 0)
+              });
+            }
           });
         }
       }
@@ -146,7 +148,7 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [selectedId, currentSideData, isPanning, updateItem]);
+  }, [selectedIds, currentSideData, isPanning, updateItem]);
 
 
   // Event listener for external re-center requests
@@ -163,10 +165,10 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
   }, [handleAutoFit]);
 
 
-  const selectedIdRef = useRef<string | null>(selectedId);
+  const selectedIdsRef = useRef<string[]>(selectedIds);
   useEffect(() => {
-    selectedIdRef.current = selectedId;
-  }, [selectedId]);
+    selectedIdsRef.current = selectedIds;
+  }, [selectedIds]);
 
   const getIntersectingIds = (stage: any, pos: any): string[] => {
     if (!pos) return [];
@@ -214,7 +216,7 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
       targetElement.classList?.contains('bg-slate-50') ||
       targetElement.id === 'canvas-padding-wrapper'
     ) {
-      setSelectedId(null);
+      setSelectedIds([]);
     }
 
     if (isPanning || e.button === 1) {
@@ -247,7 +249,7 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
     const candidateIds = getIntersectingIds(stage, pos);
     const targetId = getSmallestElement(candidateIds);
 
-    if (targetId && targetId !== hoveredId && targetId !== selectedIdRef.current) {
+    if (targetId && targetId !== hoveredId && !selectedIdsRef.current.includes(targetId)) {
       setHoveredId(targetId);
     } else if (!targetId && hoveredId !== null) {
       setHoveredId(null);
@@ -264,13 +266,11 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
 
     // Primary Transformer
     if (trRef.current) {
-      const selectedNode = selectedId ? stage.findOne('.' + selectedId) : null;
-      if (selectedNode) {
-        trRef.current.nodes([selectedNode]);
+      const selectedNodes = selectedIds.map(id => stage.findOne('.' + id)).filter(Boolean);
+      if (selectedNodes.length > 0) {
+        trRef.current.nodes(selectedNodes);
 
         // Fix for "Transformer Dominance":
-        // Konva's Transformer renders a transparent back plate ('_back' or 'back') that sits on top of EVERYTHING
-        // and catches clicks. We disable it so you can click elements inside the selected item's bounds.
         const back1 = trRef.current.findOne('._back');
         const back2 = trRef.current.findOne('.back');
         if (back1) back1.listening(false);
@@ -284,7 +284,7 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
 
     // Hover Transformer
     if (hoverTrRef.current) {
-      const showHover = hoveredId && hoveredId !== selectedId;
+      const showHover = hoveredId && !selectedIds.includes(hoveredId);
       const hoveredNode = showHover ? stage.findOne('.' + hoveredId) : null;
       if (hoveredNode) {
         hoverTrRef.current.nodes([hoveredNode]);
@@ -299,7 +299,7 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
         hoverTrRef.current.nodes([]);
       }
     }
-  }, [selectedId, hoveredId, editSide, stageRef]);
+  }, [selectedIds, hoveredId, editSide, stageRef]);
 
 
   return (
@@ -365,18 +365,13 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
                     const candidateIds = pos ? getIntersectingIds(stage, pos) : [];
 
                     if (candidateIds.length > 0) {
-                      if (selectedIdRef.current && candidateIds.includes(selectedIdRef.current)) {
-                        // Sticky Selection: the click intersects the currently selected element.
-                        // Do not change the selection. Allow normal drag to proceed.
-                      } else {
-                        // Clicked outside the current selection, pick the smallest overlapping
-                        const targetId = getSmallestElement(candidateIds);
-                        selectedIdRef.current = targetId;
-                        setSelectedId(targetId);
+                      const isMulti = e.evt.ctrlKey || e.evt.metaKey || e.evt.shiftKey;
+                      const targetId = getSmallestElement(candidateIds);
+                      if (targetId) {
+                        toggleSelection(targetId, isMulti);
                       }
                     } else if (e.target === stage) {
-                      selectedIdRef.current = null;
-                      setSelectedId(null);
+                      setSelectedIds([]);
                     }
                   }}
                   onDblClick={(e) => {
@@ -394,8 +389,7 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
                       // Force selection change on Double Click to grab the smallest overlapping element
                       const targetId = getSmallestElement(candidateIds);
                       if (targetId) {
-                        selectedIdRef.current = targetId;
-                        setSelectedId(targetId);
+                        setSelectedIds([targetId]);
                       }
                     }
                   }}
@@ -404,14 +398,15 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
                     if (e.target.name() === 'background') e.cancelBubble = true;
 
                     const name = e.target.name();
-                    if (name && currentSideData[name] && name !== selectedIdRef.current) {
+                    if (name && currentSideData[name] && !selectedIdsRef.current.includes(name)) {
                       // A non-selected element intercepted the native drag!
                       e.target.stopDrag();
 
-                      // Reroute the drag exactly to the correctly selected sticky element
-                      if (selectedIdRef.current) {
-                        const selectedNode = e.target.getStage()?.findOne('.' + selectedIdRef.current);
-                        if (selectedNode && !currentSideData[selectedIdRef.current]?.locked) {
+                      // Reroute the drag exactly to the correctly selected sticky elements
+                      if (selectedIdsRef.current.length > 0) {
+                        const firstSelectedId = selectedIdsRef.current[0];
+                        const selectedNode = e.target.getStage()?.findOne('.' + firstSelectedId);
+                        if (selectedNode && !currentSideData[firstSelectedId]?.locked) {
                           selectedNode.startDrag();
                         }
                       }
@@ -435,11 +430,11 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
                           key={key}
                           id={key}
                           config={config}
-                          isSelected={selectedId === key}
+                          isSelected={selectedIds.includes(key)}
                           zoom={zoom}
                           image={key === 'photo' ? photoImage : key === 'signature' ? sigImage : undefined}
                           previewText={(previewData as any)?.[key] || (key === 'course' ? templateName : undefined)}
-                          onSelect={setSelectedId}
+                          onSelect={(id) => setSelectedIds([id])}
                           onUpdate={updateItem}
                           onDragMove={handleDragMove}
                           onDragEnd={(e) => {
@@ -449,7 +444,9 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
                             });
                             setSnapLines({ vertical: [], horizontal: [] });
                           }}
-                          anyItemSelected={!!selectedId}
+                          anyItemSelected={selectedIds.length > 0}
+                          allElements={currentSideData}
+                          selectedIds={selectedIds}
                         />
                       ) : null
                     )}
@@ -472,15 +469,13 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
                       name="primary-transformer"
                       rotateEnabled={true}
                       flipEnabled={false}
-                      enabledAnchors={getEnabledAnchors(selectedId ? currentSideData[selectedId] : null)}
+                      enabledAnchors={getEnabledAnchors(selectedIds.length === 1 && currentSideData[selectedIds[0]] ? currentSideData[selectedIds[0]] : null)}
                       boundBoxFunc={(oldBox, newBox) => {
-                        // Prevent too small elements
                         if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
                           return oldBox;
                         }
                         return newBox;
                       }}
-                      // Photoshop Accurate Styles
                       padding={0}
                       anchorSize={8 / zoom}
                       anchorCornerRadius={1}
@@ -489,7 +484,6 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
                       anchorStrokeWidth={1 / zoom}
                       borderStroke="#6366f1"
                       borderStrokeWidth={1 / zoom}
-                      // Smooth drag experience
                       ignoreStroke={true}
                     />
 
