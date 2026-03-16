@@ -18,7 +18,8 @@ export interface User {
     email: string;
     role: 'admin' | 'applicant';
     name: string;
-  avatar_url?: string | null;
+    avatar?: string | null;
+    avatar_url?: string | null;
 } 
 
 // interface RegistrationPayload {
@@ -40,8 +41,9 @@ interface AuthContextType {
     loading: boolean;
     login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
-    // register: (data: RegistrationPayload) => Promise<{message: string} | void >;
+    updateUser: (data: Partial<User>) => void;
     remember: boolean;
+    isLoggingOut: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,6 +51,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [remember] = useState(false);
     const navigate = useNavigate();
 
@@ -60,52 +63,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             .finally(() => setLoading(false));
     }, []);
 
-    // const register = useCallback(async (data: RegistrationPayload) => {
-    //     setLoading(true);
-
-    //     try {
-    //         if (data.password !== data.passwordConfirmation) {
-    //             throw new Error("Passwords do not match.");
-    //         }
-
-    //         const finalRole = data.role || "learner";
-
-    //         const res = await api.post("/register", { ...data, role: finalRole }, {
-    //             withCredentials: true
-    //         });
-
-    //         if(finalRole === 'learner'){
-    //             await api.get("http://localhost:8000/sanctum/csrf-cookie", { withCredentials: true });
-    //             const loginRes = await api.post("/login", {
-    //                 email: data.email,
-    //                 password: data.password
-    //             }, { withCredentials: true });
-
-    //             setUser(loginRes.data.user);
-    //             navigate("/dashboard");
-    //         } else if(finalRole === 'instructor') {
-    //             // Instructor: just return success (no error thrown)
-    //             return { message: res.data.message || "Application submitted and pending approval" };
-    //         }
-
-    //     } catch (error: any) {
-    //         console.error("Registration failed:", error);
-
-    //         let msg = 'Registration failed, please try again.';
-    //         if(error.response?.data?.message){
-    //             msg = error.response.data.message;
-    //         } else if(error.message) {
-    //             msg = error.message;
-    //         }
-
-    //         throw {
-    //             message: msg,
-    //             response: error.response || null
-    //         };
-    //     } finally {
-    //         setLoading(false);
-    //     }
-    // }, [setLoading, setUser, navigate]);
+    const updateUser = useCallback((data: Partial<User>) => {
+        setUser(prev => prev ? { ...prev, ...data } : null);
+    }, []);
 
     const login = useCallback(async (email: string, password: string) => {
         try {
@@ -133,6 +93,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, [navigate, setUser]);
 
     const logout = useCallback(async () => {
+        setIsLoggingOut(true);
         try {
             // 1. Call the API
             await apiLogout();
@@ -141,14 +102,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } finally {
             // 2. ALWAYS clear local state regardless of server response
             setUser(null);
-
+            
             // 3. 🚨 THE MISSING PIECE: Clear local persistence
-            // If you store tokens in localStorage, remove them:
             localStorage.removeItem('auth_token'); 
             
-            // If you use cookies, you might need to manually clear them 
-            // or ensure axios is configured to drop credentials
-            
+            setIsLoggingOut(false);
             // 4. Force a clean redirect
             navigate("/login", { replace: true });
         }
@@ -161,8 +119,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         loading,
         login, 
         logout, 
+        updateUser,
         remember,
-    }), [user, loading, login, logout, remember]); 
+        isLoggingOut
+    }), [user, loading, login, logout, updateUser, remember, isLoggingOut]); 
 
     return (
         <AuthContext.Provider value={contextValue}>

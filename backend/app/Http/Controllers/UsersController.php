@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\User; // 1. Import the User Model
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class UsersController extends Controller
 {
@@ -94,9 +95,60 @@ class UsersController extends Controller
         // 9. Return success response with no content
         return response()->json(['message' => 'User deleted successfully.'], 204); // 204 No Content
     }
+
+    public function updateProfile(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        $validatedData = $request->validate([
+            'name'  => 'sometimes|required|string|max:255',
+            'email' => ['sometimes', 'required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
+        ]);
+
+        $user->update($validatedData);
+
+        return response()->json([
+            'message' => 'Profile updated successfully.',
+            'user' => $user
+        ]);
+    }
+
+    public function uploadAvatar(Request $request)
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+        ]);
+
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        if ($request->hasFile('image')) {
+            // Delete old avatar if exists
+            if ($user->avatar) {
+                // Remove asset URL part if present to get relative path
+                $relative = str_replace(asset('storage/'), '', $user->avatar);
+                Storage::disk('public')->delete($relative);
+            }
+
+            $image = $request->file('image');
+            $fileName = time() . '_avatar_' . $user->id . '.' . $image->getClientOriginalExtension();
+            $path = $image->storeAs('avatars', $fileName, 'public');
+            
+            // Store relative path in DB
+            $user->update(['avatar' => $path]);
+
+            return response()->json([
+                'url' => url('/api/proxy-image?path=' . urlencode($path)),
+                'avatar' => $path,
+                'message' => 'Avatar uploaded successfully.'
+            ]);
+        }
+
+        return response()->json(['error' => 'No image uploaded'], 400);
+    }
     
     // The 'create' and 'edit' methods are typically used for rendering HTML forms 
-    // in traditional web apps, but are usually left empty or removed for pure APIs.
     public function create() { /* empty for API */ }
     public function edit(string $id) { /* empty for API */ }
 }

@@ -3,6 +3,7 @@ export interface Template {
   name: string;
   front_config: any;
   back_config: any;
+  logo?: string;
   is_active: boolean;
   preview_images?: any;
 }

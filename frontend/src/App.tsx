@@ -20,6 +20,10 @@ import ImportReports from "./pages/Admin/Reports/importReports";
 import ReportsExport from "./pages/Admin/Reports/ReportsExport";
 import DepartmentList from "./pages/Admin/Departments/DepartmentsIndex";
 import CardManagement from "./pages/cardManagement";
+import SettingsPage from "./pages/Admin/Settings/SettingsPage";
+import History from "./pages/Admin/History/HistoryIndex";
+import NotificationsPage from "./pages/Admin/Notifications/NotificationsPage";
+import { SystemSettingsProvider, useSystemSettings } from "./context/SystemSettingsContext";
 
 import DesignerWorkspace from "./components/DesignerWorkspace";
 import { StudentProvider } from "./context/StudentContext";
@@ -51,17 +55,30 @@ const RoleGuard = ({
   return <>{children}</>;
 };
 
-function App() {
-  const { user, loading } = useAuth();
+const MainContent = () => {
+  const { user } = useAuth();
+  const { settings } = useSystemSettings();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isAdmin = user?.role === 'admin';
 
-  if (loading) {
-    return <div className="flex h-screen items-center justify-center">Loading...</div>;
-  }
+  // Calculate inverse scale for "Inward Scaling"
+  // If scale is 1.2 (120%), the virtual width should be 83.33% (100/1.2)
+  const scale = settings.componentScale;
+  const invScale = (1 / scale) * 100;
 
   return (
-    <div className="flex h-screen w-full bg-white dark:bg-[#eef3ff] overflow-hidden">
+    <div 
+      className="bg-background text-foreground transition-all duration-300 origin-top-left overflow-hidden"
+      style={{
+        width: `${invScale}%`,
+        height: `${invScale}%`,
+        transform: `scale(${scale})`,
+        display: 'flex',
+        position: 'fixed',
+        top: 0,
+        left: 0
+      }}
+    >
       <ToastContainer theme="dark" />
       {user && isAdmin && <Sidebar isCollapsed={isCollapsed} />}
 
@@ -69,16 +86,13 @@ function App() {
         {user && isAdmin && <Header isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />}
 
         <main className="flex-1 overflow-y-auto custom-scrollbar">
-          {/* Suspense is REQUIRED when using lazy components */}
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Navigate to="/login" replace />} />
-
               <Route
                 path="/login"
                 element={user ? <Navigate to="/dashboard" replace /> : <Login />}
               />
-
               <Route element={<ProtectedRoute />}>
                 <Route
                   element={
@@ -89,7 +103,6 @@ function App() {
                     </StudentProvider>
                   }
                 >
-
                   <Route
                     path="/card-management"
                     element={
@@ -146,11 +159,32 @@ function App() {
                       </RoleGuard>
                     }
                   />
+                  <Route
+                    path="/history"
+                    element={
+                      <RoleGuard allowedRoles={['admin']}>
+                        <History />
+                      </RoleGuard>
+                    }
+                  />
+                  <Route
+                    path="/notifications"
+                    element={
+                      <RoleGuard allowedRoles={['admin']}>
+                        <NotificationsPage />
+                      </RoleGuard>
+                    }
+                  />
+                  <Route
+                    path="/settings"
+                    element={
+                      <RoleGuard allowedRoles={['admin']}>
+                        <SettingsPage />
+                      </RoleGuard>
+                    }
+                  />
                 </Route>
               </Route>
-
-
-
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
@@ -159,5 +193,19 @@ function App() {
     </div>
   );
 };
+
+function App() {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return <div className="flex h-full items-center justify-center">Loading...</div>;
+  }
+
+  return (
+    <SystemSettingsProvider>
+      <MainContent />
+    </SystemSettingsProvider>
+  );
+}
 
 export default App;

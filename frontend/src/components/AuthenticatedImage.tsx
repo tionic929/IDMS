@@ -96,17 +96,17 @@ const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({ src, fallback, 
 
     if (loading) {
         return (
-            <div className={`flex items-center justify-center bg-slate-50 ${className}`}>
-                <Loader2 className="w-8 h-8 text-primary/20 animate-spin" />
+            <div className={`flex items-center justify-center bg-muted/30 border border-border animate-pulse ${className}`}>
+                <Loader2 className="w-8 h-8 text-primary/30 animate-spin" />
             </div>
         );
     }
 
     if (error || !imgUrl) {
         return fallback || (
-            <div className={`flex flex-col items-center justify-center text-slate-300 bg-slate-50 ${className}`}>
+            <div className={`flex flex-col items-center justify-center text-muted-foreground bg-muted/20 border border-muted-foreground/10 border-dashed ${className}`}>
                 <ImageOff size={48} className="mb-2 opacity-50" />
-                <p className="text-[10px] font-black uppercase tracking-widest">Load Failed</p>
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Load Failed</p>
             </div>
         );
     }

@@ -112,23 +112,23 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
             onClick={(e) => e.target === e.currentTarget && onClose()}
         >
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onClose} />
 
             {/* Panel */}
-            <div className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl shadow-slate-900/20 border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-4 duration-200">
+            <div className="relative w-full max-w-xl bg-card rounded-lg shadow-2xl shadow-primary/20 border border-border overflow-hidden animate-in fade-in slide-in-from-top-4 duration-200">
 
                 {/* Search input */}
-                <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-100">
-                    <Search size={16} className="text-slate-400 shrink-0" />
+                <div className="flex items-center gap-3 px-4 py-4 border-b border-border">
+                    <Search size={16} className="text-muted-foreground shrink-0" />
                     <input
                         ref={inputRef}
                         type="text"
                         placeholder="Search commands..."
                         value={query}
                         onChange={e => setQuery(e.target.value)}
-                        className="flex-1 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none bg-transparent"
+                        className="flex-1 text-sm font-medium text-foreground placeholder-muted-foreground outline-none bg-transparent"
                     />
-                    <div className="flex items-center gap-1 text-[10px] font-black text-slate-400 bg-slate-50 border border-slate-200 px-2 py-1 rounded-lg">
+                    <div className="flex items-center gap-1 text-[10px] font-black text-muted-foreground bg-muted border border-border px-2 py-1 rounded-md">
                         <Command size={10} />
                         ESC
                     </div>
@@ -137,7 +137,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
                 {/* Results */}
                 <div ref={listRef} className="max-h-80 overflow-y-auto py-2 scrollbar-hide">
                     {filtered.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
                             <Zap size={24} strokeWidth={1.5} className="mb-3 opacity-40" />
                             <p className="text-xs font-bold uppercase tracking-widest">No commands found</p>
                         </div>
@@ -145,7 +145,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
                         Object.entries(grouped).map(([category, cmds]) => (
                             <div key={category}>
                                 <div className="px-4 py-2">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{category}</span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{category}</span>
                                 </div>
                                 {cmds.map((cmd) => {
                                     const globalIdx = allFiltered.indexOf(cmd);
@@ -155,16 +155,16 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
                                             key={cmd.id}
                                             onClick={() => execute(cmd)}
                                             onMouseEnter={() => setActiveIndex(globalIdx)}
-                                            className={`w-full flex items-center gap-3 px-4 py-2.5 transition-all text-left ${isActive ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-700'
+                                            className={`w-full flex items-center gap-3 px-4 py-2.5 transition-all text-left ${isActive ? 'bg-primary text-primary-foreground' : 'hover:bg-accent text-foreground'
                                                 }`}
                                         >
-                                            <div className={`p-1.5 rounded-lg ${isActive ? 'bg-white/20' : 'bg-slate-100'}`}>
-                                                <cmd.icon size={14} className={isActive ? 'text-white' : 'text-slate-500'} />
+                                            <div className={`p-1.5 rounded-lg ${isActive ? 'bg-primary-foreground/20' : 'bg-muted'}`}>
+                                                <cmd.icon size={14} className={isActive ? 'text-primary-foreground' : 'text-muted-foreground'} />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <p className={`text-xs font-bold truncate ${isActive ? 'text-white' : 'text-slate-900'}`}>{cmd.label}</p>
+                                                <p className={`text-xs font-bold truncate ${isActive ? 'text-primary-foreground' : 'text-foreground'}`}>{cmd.label}</p>
                                                 {cmd.description && (
-                                                    <p className={`text-[10px] truncate hidden sm:block ${isActive ? 'text-white/60' : 'text-slate-400'}`}>{cmd.description}</p>
+                                                    <p className={`text-[10px] truncate hidden sm:block ${isActive ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{cmd.description}</p>
                                                 )}
                                             </div>
                                             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end max-w-[40%] sm:max-w-max">
@@ -172,7 +172,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
                                                     {category}
                                                 </span>
                                                 {cmd.shortcut && (
-                                                    <span className={`text-[9px] font-black font-mono px-1.5 py-0.5 rounded border ${isActive ? 'bg-white/20 border-white/20 text-white' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>
+                                                    <span className={`text-[9px] font-black font-mono px-1.5 py-0.5 rounded border ${isActive ? 'bg-primary-foreground/20 border-primary-foreground/20 text-primary-foreground' : 'bg-muted border-border text-muted-foreground'}`}>
                                                         {cmd.shortcut}
                                                     </span>
                                                 )}
@@ -186,12 +186,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
                 </div>
 
                 {/* Footer */}
-                <div className="px-4 py-2.5 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-[10px] font-bold text-slate-400">
-                        <span className="flex items-center gap-1"><kbd className="bg-white border border-slate-200 rounded px-1">↑↓</kbd> Navigate</span>
-                        <span className="flex items-center gap-1"><kbd className="bg-white border border-slate-200 rounded px-1">↵</kbd> Execute</span>
+                <div className="px-4 py-2.5 border-t border-border bg-muted/50 flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground">
+                        <span className="flex items-center gap-1"><kbd className="bg-card border border-border rounded px-1">↑↓</kbd> Navigate</span>
+                        <span className="flex items-center gap-1"><kbd className="bg-card border border-border rounded px-1">↵</kbd> Execute</span>
                     </div>
-                    <span className="text-[10px] font-bold text-slate-400">{filtered.length} command{filtered.length !== 1 ? 's' : ''}</span>
+                    <span className="text-[10px] font-bold text-muted-foreground">{filtered.length} command{filtered.length !== 1 ? 's' : ''}</span>
                 </div>
             </div>
         </div>

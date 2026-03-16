@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getTemplate, handleActiveLayouts, createNewTemplate as apiCreateTemplate, deleteTemplate as apiDeleteTemplate, duplicateTemplate as apiDuplicateTemplate, saveLayout } from '../api/templates';
+import {
+    getTemplate,
+    createNewTemplate as apiCreateTemplate,
+    deleteTemplate as apiDeleteTemplate,
+    duplicateTemplate as apiDuplicateTemplate,
+    saveLayout,
+    uploadTemplateLogo
+} from '../api/templates';
 import type { Template } from '../types/templates';
 import { toast } from 'react-toastify';
 
@@ -7,11 +14,10 @@ interface TemplateContextType {
     templates: Template[];
     loading: boolean;
     refreshTemplates: () => Promise<void>;
-    setActiveTemplate: (id: number) => Promise<void>;
-    createTemplate: (name: string, bgColor: string, logo: string) => Promise<void>;
+    createTemplate: (name: string, bgColor: string, logo: string | File) => Promise<void>;
     deleteTemplate: (id: number) => Promise<void>;
     duplicateTemplate: (id: number) => Promise<void>;
-    renameTemplate: (id: number, newName: string, bgColor: string, logo: string) => Promise<void>;
+    renameTemplate: (id: number, newName: string, bgColor: string, logo: string | File) => Promise<void>;
 }
 
 const TemplateContext = createContext<TemplateContextType | undefined>(undefined);
@@ -33,19 +39,16 @@ export const TemplateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     }, []);
 
-    const setActiveTemplate = async (id: number) => {
+    const createTemplate = async (name: string, bgColor: string, logo: string | File) => {
         try {
-            await handleActiveLayouts(id);
-            await fetchTemplates(); // Refresh to get updated active status
-            toast.success("Template set as active");
-        } catch (error) {
-            toast.error("Error updating status");
-        }
-    };
+            let logoUrl = typeof logo === 'string' ? logo : '';
 
-    const createTemplate = async (name: string, bgColor: string, logo: string) => {
-        try {
-            const data = await apiCreateTemplate(name, bgColor, logo);
+            if (logo instanceof File) {
+                const uploadRes = await uploadTemplateLogo(logo);
+                logoUrl = uploadRes.url;
+            }
+
+            const data = await apiCreateTemplate(name, bgColor, logoUrl);
             setTemplates(prev => [...prev, data]);
             toast.success("Template created!");
         } catch (error) {
@@ -76,27 +79,34 @@ export const TemplateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
     };
 
-    const renameTemplate = async (id: number, newName: string, bgColor: string, logoUrl: string) => {
+    const renameTemplate = async (id: number, newName: string, bgColor: string, logo: string | File) => {
         try {
             const template = templates.find(t => t.id === id);
             if (!template) return;
-            
+
+            let logoUrl = typeof logo === 'string' ? logo : (template.logo || '');
+
+            if (logo instanceof File) {
+                const uploadRes = await uploadTemplateLogo(logo);
+                logoUrl = uploadRes.url;
+            }
+
             const updatedFront = { ...template.front_config };
             const updatedBack = { ...template.back_config };
-            
+
             // Overwrite any old top-level bg_color or template_logo we might have erroneously added
             if (updatedFront.bg_color) delete updatedFront.bg_color;
             if (updatedBack.bg_color) delete updatedBack.bg_color;
             if (updatedFront.template_logo) delete updatedFront.template_logo;
-            
-            updatedFront.template_meta = { 
-                ...updatedFront.template_meta, 
-                visible: false, 
-                bg_color: bgColor, 
-                logo: logoUrl 
+
+            updatedFront.template_meta = {
+                ...updatedFront.template_meta,
+                visible: false,
+                bg_color: bgColor,
+                logo: logoUrl
             };
 
-            const updated = await saveLayout(id, newName, { front: updatedFront, back: updatedBack }, template.preview_images || undefined);
+            const updated = await saveLayout(id, newName, { front: updatedFront, back: updatedBack }, template.preview_images || undefined, logoUrl);
             setTemplates(prev => prev.map(t => t.id === id ? updated : t));
             toast.success("Template updated!");
         } catch (error) {
@@ -114,7 +124,6 @@ export const TemplateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             templates,
             loading,
             refreshTemplates: fetchTemplates,
-            setActiveTemplate,
             createTemplate,
             deleteTemplate,
             duplicateTemplate,

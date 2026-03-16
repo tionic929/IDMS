@@ -22,17 +22,17 @@ const PropertyGroup = ({
   children: React.ReactNode;
   icon?: React.ElementType
 }) => (
-  <div className="border-b border-slate-100 pb-5 mb-5 last:border-0 last:mb-0">
+  <div className="border-b border-border pb-5 mb-5 last:border-0 last:mb-0">
     <div className="flex items-center gap-2 mb-3.5">
-      {Icon && <Icon size={11} className="text-slate-400" />}
-      <h3 className="text-[9px] font-black uppercase tracking-widest text-slate-400">{title}</h3>
+      {Icon && <Icon size={11} className="text-muted-foreground" />}
+      <h3 className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">{title}</h3>
     </div>
     <div className="space-y-3.5">{children}</div>
   </div>
 );
 
 const Label = ({ children }: { children: string }) => (
-  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5 ml-0.5">{children}</span>
+  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5 ml-0.5">{children}</span>
 );
 
 /** Compact number input with label */
@@ -49,9 +49,9 @@ const NumInput = ({
 }) => (
   <div className="flex flex-col gap-1">
     <div className="flex justify-between items-center">
-      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{label}</span>
+      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide">{label}</span>
     </div>
-    <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg overflow-hidden focus-within:border-slate-900 transition-colors">
+    <div className="flex items-center bg-muted/50 border border-border rounded-lg overflow-hidden focus-within:border-primary transition-colors">
       <input
         type="number"
         min={min}
@@ -59,10 +59,10 @@ const NumInput = ({
         step={step}
         value={Math.round(value)}
         onChange={e => onChange(parseFloat(e.target.value) || 0)}
-        className="flex-1 bg-transparent px-2 py-1.5 text-[11px] font-black text-slate-900 outline-none w-0 min-w-0 text-center"
+        className="flex-1 bg-transparent px-2 py-1.5 text-[11px] font-black text-foreground outline-none w-0 min-w-0 text-center"
       />
       {suffix && (
-        <span className="pr-2 text-[9px] font-bold text-slate-400 shrink-0">{suffix}</span>
+        <span className="pr-2 text-[9px] font-bold text-muted-foreground shrink-0">{suffix}</span>
       )}
     </div>
   </div>
@@ -77,8 +77,8 @@ const SliderInput = ({
 }) => (
   <div className="space-y-1.5">
     <div className="flex justify-between items-center">
-      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">{label}</span>
-      <span className="text-[10px] font-black text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+      <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wide">{label}</span>
+      <span className="text-[10px] font-black text-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
         {Math.round(value)}{suffix}
       </span>
     </div>
@@ -86,7 +86,7 @@ const SliderInput = ({
       type="range"
       min={min} max={max} step={step} value={value}
       onChange={e => onChange(parseFloat(e.target.value))}
-      className="w-full h-1 bg-slate-100 rounded-full appearance-none cursor-pointer accent-slate-900"
+      className="w-full h-1 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
     />
   </div>
 );
@@ -101,15 +101,15 @@ const ToggleGroup = ({
 }) => (
   <div>
     <Label>{label}</Label>
-    <div className="flex gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
+    <div className="flex gap-1 bg-muted p-1 rounded-lg border border-border">
       {options.map(opt => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
           title={opt.title}
-          className={`flex-1 flex items-center justify-center p-1.5 rounded-lg transition-all ${value === opt.value
-            ? 'bg-white shadow-sm text-slate-900 border border-slate-200/50'
-            : 'text-slate-400 hover:text-slate-600'
+          className={`flex-1 flex items-center justify-center p-1.5 rounded-md transition-all ${value === opt.value
+            ? 'bg-card shadow-sm text-foreground border border-border'
+            : 'text-muted-foreground hover:text-foreground'
             }`}
         >
           <opt.icon size={13} />
@@ -149,7 +149,7 @@ export const DesignerPropertyPanel: React.FC = () => {
                 type="text" 
                 value={previewData?.fullName || ''} 
                 onChange={(e) => updateOverride('fullName', e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors"
+                className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary transition-colors"
               />
             </div>
             <div>
@@ -158,7 +158,7 @@ export const DesignerPropertyPanel: React.FC = () => {
                 type="text" 
                 value={previewData?.course || ''} 
                 onChange={(e) => updateOverride('course', e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors"
+                className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary transition-colors"
               />
             </div>
             <div>
@@ -167,7 +167,7 @@ export const DesignerPropertyPanel: React.FC = () => {
                 type="text" 
                 value={previewData?.idNumber || ''} 
                 onChange={(e) => updateOverride('idNumber', e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors"
+                className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary transition-colors"
               />
             </div>
           </>
@@ -179,7 +179,7 @@ export const DesignerPropertyPanel: React.FC = () => {
                 type="text" 
                 value={previewData?.guardian_name || ''} 
                 onChange={(e) => updateOverride('guardian_name', e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors"
+                className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary transition-colors"
               />
             </div>
             <div>
@@ -187,7 +187,7 @@ export const DesignerPropertyPanel: React.FC = () => {
               <textarea 
                 value={previewData?.address || ''} 
                 onChange={(e) => updateOverride('address', e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors h-20 resize-none"
+                className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary transition-colors h-20 resize-none"
               />
             </div>
             <div>
@@ -196,7 +196,7 @@ export const DesignerPropertyPanel: React.FC = () => {
                 type="text" 
                 value={previewData?.guardian_contact || ''} 
                 onChange={(e) => updateOverride('guardian_contact', e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:border-slate-900 transition-colors"
+                className="w-full bg-muted/50 border border-border rounded-lg px-3 py-2 text-xs font-bold text-foreground outline-none focus:border-primary transition-colors"
               />
             </div>
           </>
@@ -206,15 +206,15 @@ export const DesignerPropertyPanel: React.FC = () => {
           <Label>{isFront ? "Photo Override" : "Signature Override"}</Label>
           <button 
             onClick={() => document.getElementById('asset-override-input')?.click()}
-            className="w-full h-24 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 hover:bg-white hover:border-slate-900 transition-all overflow-hidden relative group"
+            className="w-full h-24 bg-muted/50 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 hover:bg-accent hover:border-primary transition-all overflow-hidden relative group"
           >
             {isFront ? (
               previewData?.photo ? (
                 <img src={previewData.photo} className="w-full h-full object-cover" />
               ) : (
                 <>
-                  <Camera size={18} className="text-slate-300" />
-                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Upload Photo</span>
+                  <Camera size={18} className="text-muted-foreground/50" />
+                  <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Upload Photo</span>
                 </>
               )
             ) : (
@@ -222,15 +222,15 @@ export const DesignerPropertyPanel: React.FC = () => {
                 <img src={previewData.signature} className="w-full h-full object-contain p-2" />
               ) : (
                 <>
-                  <ImageIcon size={18} className="text-slate-300" />
-                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Upload Signature</span>
+                  <ImageIcon size={18} className="text-muted-foreground/50" />
+                  <span className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Upload Signature</span>
                 </>
               )
             )}
             
             {(isFront ? previewData?.photo : previewData?.signature) && (
-               <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                 <RefreshCw size={16} className="text-white animate-spin-hover" />
+               <div className="absolute inset-0 bg-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                 <RefreshCw size={16} className="text-background animate-spin-hover" />
                </div>
             )}
           </button>
@@ -255,13 +255,13 @@ export const DesignerPropertyPanel: React.FC = () => {
   // Empty state - Show Student Details even when nothing selected
   if (!selectedId || !currentSideData[selectedId]) {
     return (
-      <div className="w-64 border-l border-slate-200 bg-white flex flex-col overflow-y-auto shrink-0 scrollbar-hide">
-        <div className="px-4 py-6 border-b border-slate-100 flex flex-col items-center text-center">
-            <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-slate-900/10">
-              <Layout size={20} className="text-white" />
+      <div className="w-64 border-l border-border bg-card flex flex-col overflow-y-auto shrink-0 scrollbar-hide">
+        <div className="px-4 py-6 border-b border-border flex flex-col items-center text-center">
+            <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center mb-4 shadow-lg shadow-primary/20">
+              <Layout size={20} className="text-primary-foreground" />
             </div>
-            <h2 className="text-xs font-black uppercase tracking-tight text-slate-900">Application Info</h2>
-            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Live data editing</p>
+            <h2 className="text-xs font-black uppercase tracking-tight text-foreground">Application Info</h2>
+            <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-1">Live data editing</p>
         </div>
         <div className="flex-1 px-4 py-4 space-y-4">
           {StudentDetailsSection}
@@ -285,24 +285,24 @@ export const DesignerPropertyPanel: React.FC = () => {
   };
 
   return (
-    <div className="w-64 border-l border-slate-200 bg-white flex flex-col overflow-y-auto shrink-0 scrollbar-hide">
+    <div className="w-64 border-l border-border bg-card flex flex-col overflow-y-auto shrink-0 scrollbar-hide">
 
       {/* ── HEADER ── */}
-      <div className="px-4 py-4 border-b border-slate-100 flex items-center justify-between">
+      <div className="px-4 py-4 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="p-2 bg-slate-900 rounded-xl shadow-md shadow-slate-900/10 shrink-0">
+          <div className="p-2 bg-primary rounded-lg shadow-md shadow-primary/10 shrink-0">
             {isText
-              ? <Type size={14} className="text-white" />
+              ? <Type size={14} className="text-primary-foreground" />
               : isImage
-                ? <ImageIcon size={14} className="text-white" />
-                : <Layers size={14} className="text-white" />
+                ? <ImageIcon size={14} className="text-primary-foreground" />
+                : <Layers size={14} className="text-primary-foreground" />
             }
           </div>
           <div className="min-w-0">
-            <h2 className="text-[11px] font-black uppercase tracking-tight text-slate-900 truncate">
+            <h2 className="text-[11px] font-black uppercase tracking-tight text-foreground truncate">
               {config.name || config.type || 'Element'}
             </h2>
-            <span className="text-[9px] text-slate-400 font-bold font-mono">#{selectedId.split('_')[0]}</span>
+            <span className="text-[9px] text-muted-foreground font-bold font-mono">#{selectedId.split('_')[0]}</span>
           </div>
         </div>
 
@@ -310,7 +310,7 @@ export const DesignerPropertyPanel: React.FC = () => {
           <button
             onClick={() => handleDuplicate(selectedIds)}
             title="Duplicate"
-            className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-900 hover:bg-slate-50 transition-all"
+            className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-all"
           >
             <Copy size={13} />
           </button>
@@ -319,7 +319,7 @@ export const DesignerPropertyPanel: React.FC = () => {
             title={config.locked ? 'Unlock' : 'Lock'}
             className={`p-1.5 rounded-lg border transition-all ${config.locked
               ? 'bg-orange-500/10 border-orange-200 text-orange-600'
-              : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-900'
+              : 'bg-muted border-border text-muted-foreground hover:text-foreground'
               }`}
           >
             {config.locked ? <Lock size={13} /> : <Unlock size={13} />}
@@ -331,7 +331,7 @@ export const DesignerPropertyPanel: React.FC = () => {
       <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-hide">
 
         {/* APPLICATION DETAILS (BIG 4) */}
-        <div className="mb-6 border-b border-slate-100 pb-6">
+        <div className="mb-6 border-b border-border pb-6">
            {StudentDetailsSection}
         </div>
 
@@ -339,7 +339,7 @@ export const DesignerPropertyPanel: React.FC = () => {
         <PropertyGroup title="Arrange" icon={Layers}>
           <div>
             <Label>Layer Order</Label>
-            <div className="grid grid-cols-4 gap-1 p-1 bg-slate-50 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-4 gap-1 p-1 bg-muted rounded-lg border border-border">
               {([
                 { dir: 'top' as const, icon: ArrowUpToLine, label: 'Bring to Front' },
                 { dir: 'up' as const, icon: ArrowUp, label: 'Bring Forward' },
@@ -350,7 +350,7 @@ export const DesignerPropertyPanel: React.FC = () => {
                   key={dir}
                   onClick={() => moveLayer(dir)}
                   title={label}
-                  className="p-2 hover:bg-white text-slate-400 hover:text-slate-900 rounded-lg transition-all hover:shadow-sm flex items-center justify-center"
+                  className="p-2 hover:bg-card text-muted-foreground hover:text-foreground rounded-md transition-all hover:shadow-sm flex items-center justify-center"
                 >
                   <Icon size={13} />
                 </button>
@@ -407,7 +407,7 @@ export const DesignerPropertyPanel: React.FC = () => {
               <textarea
                 value={config.text || ''}
                 onChange={e => updateItem(selectedId, { text: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-medium text-slate-900 outline-none focus:border-slate-900 transition-colors h-20 resize-none leading-relaxed"
+                className="w-full bg-muted/50 border border-border rounded-lg p-2.5 text-xs font-medium text-foreground outline-none focus:border-primary transition-colors h-20 resize-none leading-relaxed"
                 placeholder="Enter text…"
               />
             </div>
@@ -434,7 +434,7 @@ export const DesignerPropertyPanel: React.FC = () => {
             {/* Style toggles */}
             <div>
               <Label>Style</Label>
-              <div className="flex gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200">
+              <div className="flex gap-1 bg-muted p-1 rounded-lg border border-border">
                 {([
                   { key: 'bold', label: 'B', title: 'Bold' },
                   { key: 'italic', label: 'I', title: 'Italic' },
@@ -444,9 +444,9 @@ export const DesignerPropertyPanel: React.FC = () => {
                     key={key}
                     onClick={() => updateItem(selectedIds[0], { [key]: !config[key] })}
                     title={title}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-black transition-all ${config[key]
-                      ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50'
-                      : 'text-slate-400 hover:text-slate-600'
+                    className={`flex-1 py-1.5 rounded-md text-xs font-black transition-all ${config[key]
+                      ? 'bg-card text-foreground shadow-sm border border-border'
+                      : 'text-muted-foreground hover:text-foreground'
                       } ${key === 'italic' ? 'italic' : ''} ${key === 'underline' ? 'underline' : ''}`}
                   >
                     {label}
@@ -482,18 +482,18 @@ export const DesignerPropertyPanel: React.FC = () => {
             {/* Color */}
             <div>
               <Label>Color</Label>
-              <div className="flex items-center gap-2.5 p-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="flex items-center gap-2.5 p-1.5 bg-muted/50 border border-border rounded-lg">
                 <input
                   type="color"
                   value={config.fill || '#000000'}
                   onChange={e => updateItem(selectedId, { fill: e.target.value })}
-                  className="w-8 h-8 rounded-lg cursor-pointer border-none bg-transparent"
+                  className="w-8 h-8 rounded-md cursor-pointer border-none bg-transparent"
                 />
                 <input
                   type="text"
                   value={(config.fill || '#000000').toUpperCase()}
                   onChange={e => updateItem(selectedId, { fill: e.target.value })}
-                  className="flex-1 bg-transparent text-[10px] font-black font-mono tracking-widest text-slate-600 outline-none uppercase"
+                  className="flex-1 bg-transparent text-[10px] font-black font-mono tracking-widest text-muted-foreground outline-none uppercase"
                 />
               </div>
             </div>
@@ -501,14 +501,14 @@ export const DesignerPropertyPanel: React.FC = () => {
             {/* Overflow (was "Fitting Mode") */}
             <div>
               <Label>Overflow</Label>
-              <div className="grid grid-cols-4 gap-0.5 bg-slate-50 p-1 rounded-xl border border-slate-200">
+              <div className="grid grid-cols-4 gap-0.5 bg-muted p-1 rounded-lg border border-border">
                 {(['none', 'wrap', 'shrink', 'stretch'] as const).map(m => (
                   <button
                     key={m}
                     onClick={() => updateItem(selectedId, { fit: m })}
-                    className={`px-1.5 py-1.5 text-[8px] uppercase font-black rounded-lg transition-all ${config.fit === m
-                      ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
-                      : 'text-slate-400 hover:text-slate-600'
+                    className={`px-1.5 py-1.5 text-[8px] uppercase font-black rounded-md transition-all ${config.fit === m
+                      ? 'bg-card text-foreground shadow-sm border border-border'
+                      : 'text-muted-foreground hover:text-foreground'
                       }`}
                   >
                     {m}
@@ -532,9 +532,9 @@ export const DesignerPropertyPanel: React.FC = () => {
         {/* IMAGE INFO GROUP */}
         {isImage && (
           <PropertyGroup title="Image" icon={ImageIcon}>
-            <div className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-              <Maximize2 size={14} className="text-slate-400 shrink-0" />
-              <div className="text-[10px] text-slate-500 font-bold">
+            <div className="flex items-center gap-3 p-2.5 bg-muted/50 rounded-lg border border-border">
+              <Maximize2 size={14} className="text-muted-foreground shrink-0" />
+              <div className="text-[10px] text-muted-foreground font-bold">
                 {Math.round(config.width || 0)} × {Math.round(config.height || 0)} px
               </div>
             </div>
@@ -543,12 +543,12 @@ export const DesignerPropertyPanel: React.FC = () => {
       </div>
 
       {/* ── DELETE ── */}
-      <div className="px-4 py-4 border-t border-slate-100 shrink-0">
+      <div className="px-4 py-4 border-t border-border shrink-0">
         <button
           onClick={onDelete}
-          className={`w-full py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border ${deleteArmed
-            ? 'bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/20 animate-pulse'
-            : 'bg-red-50 hover:bg-red-500 text-red-500 hover:text-white border-red-200 hover:border-red-500'
+          className={`w-full py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 border ${deleteArmed
+            ? 'bg-destructive text-destructive-foreground border-destructive shadow-lg shadow-destructive/20 animate-pulse'
+            : 'bg-destructive/10 hover:bg-destructive text-destructive hover:text-destructive-foreground border-destructive/20 hover:border-destructive'
             }`}
         >
           <Trash2 size={13} />

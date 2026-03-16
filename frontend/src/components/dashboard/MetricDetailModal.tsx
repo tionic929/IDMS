@@ -27,8 +27,8 @@ export interface MetricModalMeta {
 const Tooltip_ = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
-        <div className="bg-white border border-slate-200 shadow-xl rounded-xl px-4 py-3 text-[10px] font-bold uppercase tracking-wider">
-            <p className="text-slate-400 mb-1">{label}</p>
+        <div className="bg-card border border-border shadow-xl rounded-lg px-4 py-3 text-[10px] font-bold uppercase tracking-wider">
+            <p className="text-muted-foreground mb-1">{label}</p>
             <p className="text-primary text-lg">{payload[0].value?.toLocaleString()}</p>
         </div>
     );
@@ -66,7 +66,7 @@ export const MetricDetailModal: React.FC<{
         >
             {/* Current value hero */}
             <div className="flex items-end gap-3 mb-8">
-                <span className="text-5xl font-black text-slate-900 tracking-tighter tabular-nums">
+                <span className="text-5xl font-black text-foreground tracking-tighter tabular-nums">
                     {typeof value === 'number' ? value.toLocaleString() : value}
                 </span>
                 {stats && (
@@ -86,9 +86,9 @@ export const MetricDetailModal: React.FC<{
                         { label: 'Highest', val: stats.max.toLocaleString() },
                         { label: 'Lowest', val: stats.min.toLocaleString() },
                     ].map(s => (
-                        <div key={s.label} className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
-                            <p className="text-xl font-black text-slate-900 tabular-nums">{s.val}</p>
+                        <div key={s.label} className="bg-muted/30 border border-border rounded-lg p-4">
+                            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1">{s.label}</p>
+                            <p className="text-xl font-black text-foreground tabular-nums">{s.val}</p>
                         </div>
                     ))}
                 </div>
@@ -104,16 +104,16 @@ export const MetricDetailModal: React.FC<{
                                 <stop offset="100%" stopColor="#00928a" stopOpacity={0} />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
+                        <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
                         <XAxis
                             dataKey="month"
                             axisLine={false} tickLine={false}
-                            tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 700 }}
+                            tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))', fontWeight: 700 }}
                             dy={10}
                         />
                         <YAxis
                             axisLine={false} tickLine={false}
-                            tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 700 }}
+                            tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))', fontWeight: 700 }}
                         />
                         {stats && (
                             <ReferenceLine
@@ -142,20 +142,20 @@ export const MetricDetailModal: React.FC<{
             {meta.distribution && (
                 <div className="mb-10">
                     <div className="flex items-center gap-3 mb-5">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Composition Breakdown</span>
-                        <div className="flex-1 h-px bg-slate-100" />
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Composition Breakdown</span>
+                        <div className="flex-1 h-px bg-border" />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {meta.distribution.map((item, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 border border-slate-100/50 hover:bg-white hover:shadow-sm transition-all group">
+                            <div key={idx} className="flex items-center justify-between p-3.5 rounded-lg bg-muted/30 border border-border hover:bg-card hover:shadow-sm transition-all group">
                                 <div className="flex items-center gap-3">
                                     <div
                                         className="w-2 h-2 rounded-full"
                                         style={{ backgroundColor: item.color || '#3b82f6' }}
                                     />
-                                    <span className="text-[11px] font-bold text-slate-600 uppercase tracking-tight group-hover:text-slate-900">{item.name}</span>
+                                    <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight group-hover:text-foreground">{item.name}</span>
                                 </div>
-                                <span className="text-xs font-black text-slate-800 tabular-nums">
+                                <span className="text-xs font-black text-foreground tabular-nums">
                                     {item.value.toLocaleString()}
                                 </span>
                             </div>
@@ -165,24 +165,24 @@ export const MetricDetailModal: React.FC<{
             )}
 
             {/* Month-by-month breakdown table */}
-            <div className="border border-slate-100 rounded-xl overflow-hidden bg-white shadow-sm">
+            <div className="border border-border rounded-lg overflow-hidden bg-card shadow-sm">
                 <table className="w-full text-[10px]">
                     <thead>
-                        <tr className="bg-slate-50/50 border-b border-slate-100">
-                            <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-widest">Period</th>
-                            <th className="px-4 py-3 text-right font-bold text-slate-400 uppercase tracking-widest">Amount</th>
-                            <th className="px-4 py-3 text-right font-bold text-slate-400 uppercase tracking-widest">Change</th>
+                        <tr className="bg-muted/50 border-b border-border">
+                            <th className="px-4 py-3 text-left font-bold text-muted-foreground uppercase tracking-widest">Period</th>
+                            <th className="px-4 py-3 text-right font-bold text-muted-foreground uppercase tracking-widest">Amount</th>
+                            <th className="px-4 py-3 text-right font-bold text-muted-foreground uppercase tracking-widest">Change</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
+                    <tbody className="divide-y divide-border">
                         {[...trends].reverse().map((t, i, arr) => {
                             const prev = arr[i + 1]?.count;
                             const diff = prev != null ? t.count - prev : null;
                             const pos = diff != null && diff >= 0;
                             return (
-                                <tr key={t.month} className="hover:bg-slate-50 transition-colors group">
-                                    <td className="px-4 py-3 font-bold text-slate-600 uppercase group-hover:text-slate-900 transition-colors">{t.month}</td>
-                                    <td className="px-4 py-3 text-right font-bold text-slate-900 tabular-nums">{t.count.toLocaleString()}</td>
+                                <tr key={t.month} className="hover:bg-accent transition-colors group">
+                                    <td className="px-4 py-3 font-bold text-muted-foreground uppercase group-hover:text-foreground transition-colors">{t.month}</td>
+                                    <td className="px-4 py-3 text-right font-bold text-foreground tabular-nums">{t.count.toLocaleString()}</td>
                                     <td className="px-4 py-3 text-right tabular-nums">
                                         {diff != null ? (
                                             <span className={`inline-flex items-center gap-1 font-bold ${pos ? 'text-emerald-600' : 'text-red-600'}`}>

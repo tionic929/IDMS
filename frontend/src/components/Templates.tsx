@@ -56,11 +56,13 @@ const Templates: React.FC<TemplatesProps> = ({ onSelect, activeId, refreshTrigge
   const [deletingTemplate, setDeletingTemplate] = useState<Template | null>(null);
   const [renamingTemplate, setRenamingTemplate] = useState<Template | null>(null);
   const [renameInput, setRenameInput] = useState("");
-  const [renameBgColor, setRenameBgColor] = useState("");
-  const [renameLogo, setRenameLogo] = useState("");
-
   const [newBgColor, setNewBgColor] = useState("");
   const [newLogo, setNewLogo] = useState("");
+  const [newLogoFile, setNewLogoFile] = useState<File | null>(null);
+
+  const [renameBgColor, setRenameBgColor] = useState("");
+  const [renameLogo, setRenameLogo] = useState("");
+  const [renameLogoFile, setRenameLogoFile] = useState<File | null>(null);
 
   useEffect(() => {
     refreshTemplates();
@@ -70,10 +72,11 @@ const Templates: React.FC<TemplatesProps> = ({ onSelect, activeId, refreshTrigge
     if (!newTemplateName.trim()) return;
     setIsCreating(true);
     try {
-      await createTemplate(newTemplateName, newBgColor, newLogo);
+      await createTemplate(newTemplateName, newBgColor, newLogoFile || newLogo);
       setNewTemplateName("");
       setNewBgColor("");
       setNewLogo("");
+      setNewLogoFile(null);
       setIsDialogOpen(false);
     } catch (error) {
       // Error handled in context
@@ -125,8 +128,9 @@ const Templates: React.FC<TemplatesProps> = ({ onSelect, activeId, refreshTrigge
     if (renamingTemplate && renameInput.trim()) {
       setActionLoading(`rename-${renamingTemplate.id}`);
       try {
-        await renameTemplate(renamingTemplate.id, renameInput, renameBgColor, renameLogo);
+        await renameTemplate(renamingTemplate.id, renameInput, renameBgColor, renameLogoFile || renameLogo);
         setRenamingTemplate(null);
+        setRenameLogoFile(null);
       } finally {
         setActionLoading(null);
       }
@@ -218,6 +222,7 @@ const Templates: React.FC<TemplatesProps> = ({ onSelect, activeId, refreshTrigge
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
+                          setNewLogoFile(file);
                           setNewLogo(URL.createObjectURL(file));
                         }
                       }}
@@ -251,7 +256,7 @@ const Templates: React.FC<TemplatesProps> = ({ onSelect, activeId, refreshTrigge
           const isActive = activeId === template.id;
           const meta = (template as any).front_config?.template_meta || {};
           const bgColor = meta.bg_color && meta.bg_color !== '#ffffff' ? meta.bg_color : undefined;
-          const logo = meta.logo || "";
+          const logo = template.logo || meta.logo || "";
           
           return (
             <div
@@ -293,7 +298,8 @@ const Templates: React.FC<TemplatesProps> = ({ onSelect, activeId, refreshTrigge
                         e.stopPropagation(); 
                         setRenameInput(template.name);
                         setRenameBgColor(meta.bg_color || "");
-                        setRenameLogo(meta.logo || "");
+                        setRenameLogo(template.logo || meta.logo || "");
+                        setRenameLogoFile(null);
                         setRenamingTemplate(template); 
                       }}
                       className={cn(
@@ -456,6 +462,7 @@ const Templates: React.FC<TemplatesProps> = ({ onSelect, activeId, refreshTrigge
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
+                      setRenameLogoFile(file);
                       setRenameLogo(URL.createObjectURL(file));
                     }
                   }}

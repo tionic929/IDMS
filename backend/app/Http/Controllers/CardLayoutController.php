@@ -23,6 +23,7 @@ class CardLayoutController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'logo' => 'nullable|string',
             'front_config' => 'required|array',
             'back_config' => 'required|array',
         ]);
@@ -41,6 +42,7 @@ class CardLayoutController extends Controller
         
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
+            'logo' => 'sometimes|nullable|string',
             'front_config' => 'required|array',
             'back_config' => 'required|array',
         ]);
@@ -71,5 +73,28 @@ class CardLayoutController extends Controller
         $newLayout->save();
 
         return response()->json($newLayout, 201);
+    }
+
+    /**
+     * Handle logo uploads for templates.
+     */
+    public function uploadLogo(Request $request)
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+        ]);
+
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $fileName = time() . '_' . $image->getClientOriginalName();
+            $path = $image->storeAs('logos', $fileName, 'public');
+            
+            return response()->json([
+                'url' => asset('storage/' . $path),
+                'path' => $path
+            ]);
+        }
+
+        return response()->json(['error' => 'No image uploaded'], 400);
     }
 }

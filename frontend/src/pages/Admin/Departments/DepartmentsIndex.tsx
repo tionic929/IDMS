@@ -53,34 +53,34 @@ const LOGO_MAP: Record<string, string> = {
 
 // --- SKELETONS ---
 const NavItemSkeleton = () => (
-  <div className="flex items-center justify-between px-4 py-3 rounded-xl animate-pulse bg-slate-50 border border-slate-100 mb-1">
+  <div className="flex items-center justify-between px-4 py-3 rounded-lg animate-pulse bg-muted border border-border mb-1">
     <div className="flex items-center gap-3">
-      <div className="w-8 h-8 rounded-lg bg-slate-100" />
-      <div className="h-2 w-20 bg-slate-100 rounded" />
+      <div className="w-8 h-8 rounded-md bg-muted-foreground/10" />
+      <div className="h-2 w-20 bg-muted-foreground/10 rounded" />
     </div>
-    <div className="w-5 h-3 bg-slate-100 rounded" />
+    <div className="w-5 h-3 bg-muted-foreground/10 rounded" />
   </div>
 );
 
 const MetricSkeleton = () => (
-  <Card className="h-28 overflow-hidden bg-white border-slate-100 shadow-sm animate-pulse">
+  <Card className="h-28 overflow-hidden bg-card border-border shadow-sm animate-pulse">
     <CardContent className="p-6 flex items-center justify-between">
       <div className="space-y-3">
-        <div className="h-2 w-20 bg-slate-100 rounded" />
-        <div className="h-8 w-16 bg-slate-100 rounded-lg" />
+        <div className="h-2 w-20 bg-muted rounded" />
+        <div className="h-8 w-16 bg-muted rounded-md" />
       </div>
-      <div className="w-12 h-12 bg-slate-50 rounded-xl" />
+      <div className="w-12 h-12 bg-muted rounded-lg" />
     </CardContent>
   </Card>
 );
 
 const TableRowSkeleton = () => (
   <TableRow className="animate-pulse">
-    <TableCell className="pl-8 py-6"><div className="h-3 bg-slate-50 rounded w-20" /></TableCell>
-    <TableCell className="py-6"><div className="space-y-2"><div className="h-3 bg-slate-50 rounded w-40" /><div className="h-2 bg-slate-50 rounded w-24" /></div></TableCell>
-    <TableCell className="py-6"><div className="h-6 bg-slate-50 rounded-md w-16 mx-auto" /></TableCell>
-    <TableCell className="py-6"><div className="space-y-2"><div className="h-2 bg-slate-50 rounded w-32" /><div className="h-1 bg-slate-50 rounded w-48" /></div></TableCell>
-    <TableCell className="pr-8 py-6"><div className="h-8 w-8 bg-slate-50 rounded-lg ml-auto" /></TableCell>
+    <TableCell className="pl-8 py-6"><div className="h-3 bg-muted rounded w-20" /></TableCell>
+    <TableCell className="py-6"><div className="space-y-2"><div className="h-3 bg-muted rounded w-40" /><div className="h-2 bg-muted rounded w-24" /></div></TableCell>
+    <TableCell className="py-6"><div className="h-6 bg-muted rounded-md w-16 mx-auto" /></TableCell>
+    <TableCell className="py-6"><div className="space-y-2"><div className="h-2 bg-muted rounded w-32" /><div className="h-1 bg-muted rounded w-48" /></div></TableCell>
+    <TableCell className="pr-8 py-6"><div className="h-8 w-8 bg-muted rounded-lg ml-auto" /></TableCell>
   </TableRow>
 );
 
@@ -152,15 +152,15 @@ const DepartmentList: React.FC = () => {
 
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center p-8 bg-slate-50">
-        <Card className="max-w-md w-full border-red-100 shadow-xl rounded-[2.5rem] bg-white">
+      <div className="flex h-screen items-center justify-center p-8 bg-background">
+        <Card className="max-w-md w-full border-destructive/10 shadow-xl rounded-[2.5rem] bg-card">
           <CardContent className="p-8 text-center space-y-6">
-            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-red-500/10">
+            <div className="w-16 h-16 bg-destructive/10 text-destructive rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-destructive/10">
               <AlertCircle size={32} />
             </div>
             <div className="space-y-2">
-              <h3 className="text-xl font-black uppercase tracking-tight text-slate-900">Sync Failed</h3>
-              <p className="text-slate-500 text-sm font-medium">Failed to establish connection with department records.</p>
+              <h3 className="text-xl font-black uppercase tracking-tight text-foreground">Sync Failed</h3>
+              <p className="text-muted-foreground text-sm font-medium">Failed to establish connection with department records.</p>
             </div>
             <Button onClick={handleRefresh} variant="destructive" className="w-full h-12 rounded-xl font-bold uppercase tracking-wider text-xs bg-red-600 hover:bg-red-700">
               Retry Synchronization
@@ -172,16 +172,16 @@ const DepartmentList: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full bg-slate-50 text-slate-950 overflow-hidden font-sans selection:bg-primary/10">
+    <div className="flex h-full bg-background text-foreground overflow-hidden font-sans selection:bg-primary/10">
       {/* SIDEBAR */}
-      <aside className="w-[320px] bg-white border-r border-slate-200 flex flex-col h-full z-10 shadow-sm relative">
-        <div className="p-8 border-b border-slate-50">
+      <aside className="w-[320px] bg-card border-r border-border flex flex-col h-full z-10 shadow-sm relative">
+        <div className="p-8 border-b border-border/50">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Registry</span>
-            <span className="w-1 h-1 rounded-full bg-slate-200" />
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] opacity-80">Units</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] opacity-80">Registry</span>
+            <span className="w-1 h-1 rounded-full bg-border" />
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] opacity-80">Units</span>
           </div>
-          <h2 className="text-xl font-black uppercase tracking-tight text-slate-900">Directory</h2>
+          <h2 className="text-xl font-black uppercase tracking-tight text-foreground">Directory</h2>
         </div>
 
         <ScrollArea className="flex-1 px-4 py-6 scrollbar-none">
@@ -198,28 +198,28 @@ const DepartmentList: React.FC = () => {
                     key={dept.department}
                     onClick={() => handleDeptChange(dept.department)}
                     className={cn(
-                      "w-full flex items-center justify-between p-3.5 rounded-2xl transition-all duration-300 group text-left relative overflow-hidden",
+                      "w-full flex items-center justify-between p-3.5 rounded-lg transition-all duration-300 group text-left relative overflow-hidden",
                       isActive
-                        ? "bg-primary text-white shadow-lg shadow-primary/25 border-none"
-                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent"
+                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/10 border-none"
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground border border-transparent"
                     )}
                   >
                     <div className="flex items-center gap-4 min-w-0 z-10">
                       <div className={cn(
-                        "w-9 h-9 shrink-0 rounded-xl flex items-center justify-center overflow-hidden transition-all duration-300",
-                        isActive ? "bg-white shadow-sm scale-105" : "bg-slate-100 border border-slate-200"
+                        "w-9 h-9 shrink-0 rounded-md flex items-center justify-center overflow-hidden transition-all duration-300",
+                        isActive ? "bg-primary-foreground shadow-sm scale-105" : "bg-muted border border-border"
                       )}>
                         {deptLogo ? (
                           <img src={deptLogo} alt={dept.department} className={cn("w-full h-full object-contain p-1", !isActive && "opacity-60")} />
                         ) : (
-                          <GraduationCap size={18} className={cn(!isActive && "text-slate-400")} />
+                          <GraduationCap size={18} className={cn(!isActive && "text-muted-foreground")} />
                         )}
                       </div>
                       <span className="text-[11px] font-bold truncate uppercase tracking-tight">{dept.department}</span>
                     </div>
                     <div className={cn(
-                      "px-2.5 py-1 rounded-lg text-[9px] font-black shrink-0 z-10 tabular-nums shadow-sm",
-                      isActive ? "bg-white/20 text-white" : "bg-slate-50 text-slate-400"
+                      "px-2.5 py-1 rounded-md text-[9px] font-black shrink-0 z-10 tabular-nums shadow-sm",
+                      isActive ? "bg-white/20 text-primary-foreground" : "bg-muted text-muted-foreground"
                     )}>
                       {dept.applicant_count}
                     </div>
@@ -241,9 +241,9 @@ const DepartmentList: React.FC = () => {
           {/* HEADER */}
           <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-10">
             <div className="relative">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Reports / Departments</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Reports / Departments</span>
               <div className="flex items-baseline gap-4">
-                <h1 className="text-5xl font-black tracking-tighter text-slate-950 uppercase leading-none">{selectedDeptName}</h1>
+                <h1 className="text-5xl font-black tracking-tighter text-foreground uppercase leading-none">{selectedDeptName}</h1>
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary/5 text-primary text-[9px] font-bold uppercase tracking-[0.1em]">
                   {selectedDeptObj?.applicant_count} ACTIVE RECORDS
                 </div>
@@ -252,19 +252,19 @@ const DepartmentList: React.FC = () => {
 
             <div className="flex items-center gap-4 w-full lg:w-auto">
               <div className="relative flex-1 lg:w-96 group">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={18} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                 <Input
                   placeholder="Find record by name or ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-10 border-slate-200 bg-white shadow-sm shadow-slate-100 focus-visible:ring-primary/20 focus-visible:border-primary transition-all rounded-xl"
+                  className="pl-10 h-10 border-border bg-card shadow-sm shadow-primary/5 focus-visible:ring-primary/20 focus-visible:border-primary transition-all rounded-lg"
                 />
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/reports/export')}
-                className="h-10 px-4 rounded-xl bg-white border-slate-200 text-slate-400 hover:text-primary transition-all shadow-sm gap-2 text-[10px] font-bold uppercase tracking-wider"
+                className="h-10 px-4 rounded-lg bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-all shadow-sm gap-2 text-[10px] font-bold uppercase tracking-wider"
               >
                 <Download className="h-4 w-4" />
                 Export
@@ -274,7 +274,7 @@ const DepartmentList: React.FC = () => {
                 size="icon"
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="h-10 w-10 min-w-[40px] rounded-xl bg-white border-slate-200 text-slate-400 hover:text-primary transition-all shadow-sm"
+                className="h-10 w-10 min-w-[40px] rounded-lg bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-all shadow-sm"
               >
                 <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
               </Button>
@@ -304,7 +304,7 @@ const DepartmentList: React.FC = () => {
                   trendLabel="Unit Completion"
                 />
 
-                <Card className="bg-primary/95 overflow-hidden border-none text-white shadow-lg shadow-primary/20 rounded-[2rem] relative group cursor-default">
+                <Card className="bg-primary overflow-hidden border-none text-primary-foreground shadow-lg shadow-primary/10 rounded-lg relative group cursor-default">
                   <CardContent className="p-8 flex flex-col justify-center h-full">
                     <div className="relative z-10">
                       <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">UNIT PARITY</span>
@@ -312,7 +312,7 @@ const DepartmentList: React.FC = () => {
                         {parityPercent}% OF GLOBAL
                       </p>
                     </div>
-                    <GraduationCap className="absolute -right-6 -bottom-6 text-white/10 group-hover:scale-110 transition-transform duration-700" size={160} />
+                    <GraduationCap className="absolute -right-6 -bottom-6 text-primary-foreground/10 group-hover:scale-110 transition-transform duration-700" size={160} />
                   </CardContent>
                 </Card>
               </>
@@ -322,27 +322,27 @@ const DepartmentList: React.FC = () => {
           {/* DATA TABLE */}
           <div className="space-y-5">
             <div className="flex items-center gap-4">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Listing Log</span>
-              <div className="flex-1 h-px bg-slate-200" />
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Listing Log</span>
+              <div className="flex-1 h-px bg-border" />
             </div>
 
-            <Card className="border border-slate-200 rounded-[2.5rem] overflow-hidden shadow-sm shadow-slate-100 bg-white">
+            <Card className="border border-border rounded-lg overflow-hidden shadow-sm shadow-primary/5 bg-card">
               <div className="relative overflow-hidden flex flex-col">
                 {(isFetching && isPlaceholderData) && (
-                  <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-background/40 backdrop-blur-[2px] z-20 flex items-center justify-center transition-all duration-300">
                     <Loader2 className="animate-spin text-primary" size={32} />
                   </div>
                 )}
 
                 <div className="overflow-x-auto text-slate-900 font-sans">
                   <Table>
-                    <TableHeader className="bg-slate-50/80 border-b border-slate-100">
+                    <TableHeader className="bg-muted/50 border-b border-border">
                       <TableRow className="hover:bg-transparent">
-                        <TableHead className="pl-8 w-[150px] text-[10px] font-bold text-slate-400 uppercase tracking-widest py-4">ID Number</TableHead>
-                        <TableHead className="w-[280px] text-[10px] font-bold text-slate-400 uppercase tracking-widest py-4">Identity</TableHead>
-                        <TableHead className="text-center w-[120px] text-[10px] font-bold text-slate-400 uppercase tracking-widest py-4">Status</TableHead>
-                        <TableHead className="text-[10px] font-bold text-slate-400 uppercase tracking-widest py-4">Location</TableHead>
-                        <TableHead className="text-right pr-8 w-[120px] text-[10px] font-bold text-slate-400 uppercase tracking-widest py-4">Actions</TableHead>
+                        <TableHead className="pl-8 w-[150px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">ID Number</TableHead>
+                        <TableHead className="w-[280px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Identity</TableHead>
+                        <TableHead className="text-center w-[120px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Status</TableHead>
+                        <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Location</TableHead>
+                        <TableHead className="text-right pr-8 w-[120px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -350,16 +350,16 @@ const DepartmentList: React.FC = () => {
                         [...Array(10)].map((_, i) => <TableRowSkeleton key={i} />)
                       ) : students.length > 0 ? (
                         students.map((s: any) => (
-                          <TableRow key={s.id} className="group hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">
+                          <TableRow key={s.id} className="group hover:bg-accent/50 transition-colors border-b border-border/50 last:border-0">
                             <TableCell className="pl-8 font-mono text-[11px] font-bold text-primary">{s.id_number}</TableCell>
                             <TableCell>
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-primary/5 flex items-center justify-center text-primary text-[11px] font-bold border border-primary/10">
+                                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-foreground text-[11px] font-bold border border-border">
                                   {s.first_name[0]}{s.last_name[0]}
                                 </div>
                                 <div className="flex flex-col">
-                                  <span className="text-xs font-bold text-slate-700">{getFullName(s)}</span>
-                                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter opacity-70">{s.course}</span>
+                                  <span className="text-xs font-bold text-foreground">{getFullName(s)}</span>
+                                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-tighter opacity-70">{s.course}</span>
                                 </div>
                               </div>
                             </TableCell>
@@ -367,23 +367,23 @@ const DepartmentList: React.FC = () => {
                               <div className={cn(
                                 "inline-flex items-center gap-1.5 rounded-md px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border",
                                 s.has_card
-                                  ? "bg-emerald-50 text-emerald-600 border-emerald-100"
-                                  : "bg-red-50 text-red-600 border-red-100"
+                                  ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400"
+                                  : "bg-destructive/10 text-destructive border-destructive/20 dark:text-red-400"
                               )}>
-                                <div className={cn("h-1.5 w-1.5 rounded-full", s.has_card ? "bg-emerald-500" : "bg-red-500")} />
+                                <div className={cn("h-1.5 w-1.5 rounded-full", s.has_card ? "bg-emerald-500" : "bg-destructive")} />
                                 {s.has_card ? "Issued" : "No ID"}
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-col">
-                                <span className="text-[10px] font-bold text-slate-600 truncate max-w-[200px]">{s.guardian_name}</span>
-                                <span className="text-[9px] text-slate-400 flex items-center gap-1 font-medium italic opacity-80">
+                                <span className="text-[10px] font-bold text-foreground truncate max-w-[200px]">{s.guardian_name}</span>
+                                <span className="text-[9px] text-muted-foreground flex items-center gap-1 font-medium italic opacity-80">
                                   <MapPin size={9} /> {s.address || 'Location Unknown'}
                                 </span>
                               </div>
                             </TableCell>
                             <TableCell className="text-right pr-8">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary hover:bg-primary/10 transition-all active:scale-90">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all active:scale-90">
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </TableCell>
@@ -391,7 +391,7 @@ const DepartmentList: React.FC = () => {
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={5} className="h-80 text-center text-slate-300 text-[11px] font-black uppercase tracking-[0.3em] bg-slate-50/20 italic">
+                          <TableCell colSpan={5} className="h-80 text-center text-muted-foreground text-[11px] font-black uppercase tracking-[0.3em] bg-muted/5 italic">
                             No records found in this unit directory
                           </TableCell>
                         </TableRow>
@@ -402,13 +402,13 @@ const DepartmentList: React.FC = () => {
               </div>
 
               {/* FOOTER / PAGINATION */}
-              <div className="bg-slate-50/50 px-10 py-5 border-t border-slate-100 flex items-center justify-between">
+              <div className="bg-muted/50 px-10 py-5 border-t border-border flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                     {isFetching ? 'Synchronizing records...' : 'Systems nominal'}
                   </span>
-                  <div className="h-1 w-1 rounded-full bg-slate-200" />
-                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                  <div className="h-1 w-1 rounded-full bg-border" />
+                  <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest">
                     {data?.pagination?.total || 0} Records Found
                   </span>
                 </div>
@@ -418,7 +418,7 @@ const DepartmentList: React.FC = () => {
                     size="icon"
                     disabled={!prevCursor || isFetching}
                     onClick={handlePrev}
-                    className="h-10 w-10 border-slate-200 bg-white hover:text-primary hover:border-primary/30 transition-all shadow-sm rounded-xl"
+                    className="h-10 w-10 border-border bg-card hover:text-foreground hover:bg-accent transition-all shadow-sm rounded-lg"
                   >
                     <ChevronLeft size={18} />
                   </Button>
@@ -426,7 +426,7 @@ const DepartmentList: React.FC = () => {
                     variant="default"
                     disabled={!hasMore || isFetching}
                     onClick={handleNext}
-                    className="h-10 px-8 gap-2 font-black text-[10px] uppercase tracking-widest bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 rounded-xl"
+                    className="h-10 px-8 gap-2 font-black text-[10px] uppercase tracking-widest bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/10 rounded-lg"
                   >
                     Next Page <ChevronRight size={16} />
                   </Button>
@@ -452,11 +452,11 @@ const DepartmentList: React.FC = () => {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #e2e8f0;
+          background: hsl(var(--muted-foreground) / 0.2);
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #cbd5e1;
+          background: hsl(var(--muted-foreground) / 0.3);
         }
       `}</style>
     </div>

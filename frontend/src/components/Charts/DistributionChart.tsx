@@ -15,7 +15,7 @@ export const DistributionChart: React.FC<{
     return (
       <ChartContainer title={title}>
         <div className="h-full flex items-center justify-center">
-          <p className="text-[10px] font-bold uppercase text-slate-300 tracking-widest">No Data</p>
+          <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">No Data</p>
         </div>
       </ChartContainer>
     );
@@ -50,12 +50,12 @@ export const DistributionChart: React.FC<{
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '12px',
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: 'var(--radius)',
                   fontSize: '10px',
                   fontWeight: '700',
-                  color: '#0f172a',
+                  color: 'hsl(var(--foreground))',
                   padding: '8px 12px',
                   boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'
                 }}
@@ -66,8 +66,8 @@ export const DistributionChart: React.FC<{
           </ResponsiveContainer>
 
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Total</span>
-            <span className="text-xl font-black text-slate-900 tabular-nums tracking-tighter">{totalCount.toLocaleString()}</span>
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Total</span>
+            <span className="text-xl font-black text-foreground tabular-nums tracking-tighter">{totalCount.toLocaleString()}</span>
           </div>
         </div>
 
@@ -79,19 +79,19 @@ export const DistributionChart: React.FC<{
               onClick={() => onSliceClick?.(item.name)}
             >              <div className="flex items-center gap-2 min-w-0">
                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: LIGHT_COLORS[i % LIGHT_COLORS.length] }} />
-                <span className="text-[9px] font-bold text-slate-500 uppercase truncate tracking-tight group-hover/legend:text-slate-900 transition-colors">
+                <span className="text-[9px] font-bold text-muted-foreground uppercase truncate tracking-tight group-hover/legend:text-primary transition-colors">
                   {item.name}
                 </span>
               </div>
-              <span className="text-[9px] font-bold text-slate-600 tabular-nums">
+              <span className="text-[9px] font-bold text-foreground tabular-nums">
                 {item.percentage}%
               </span>
             </div>
           ))}
         </div>
 
-        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+        <div className="pt-3 border-t border-border flex items-center justify-between">
+          <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
             {data.length > 3 ? `+${data.length - 3} More` : 'Complete'}
           </span>
           {onViewDetails && (

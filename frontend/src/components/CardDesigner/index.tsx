@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { DesignerProvider } from './context/DesignerContext';
 import { CanvasProvider } from './context/CanvasContext';
 import { LayerProvider } from './context/LayerContext';
@@ -142,7 +142,7 @@ const CardDesignerContent: React.FC<{
   ];
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 text-slate-900 overflow-hidden font-sans border border-slate-200 shadow-2xl select-none">
+    <div className="flex flex-col h-full bg-background text-foreground overflow-hidden font-sans border border-border shadow-2xl select-none">
       <DesignerTopBar
         stageRef={stageRef}
         isPreviewMode={isPreviewMode}
@@ -153,7 +153,7 @@ const CardDesignerContent: React.FC<{
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel — hidden in Preview mode */}
         {!isPreviewMode && (
-          <div className="flex bg-white border-r border-slate-200">
+          <div className="flex bg-card border-r border-border">
             <DesignerLeftToolbar />
             <DesignerLayersSidebar />
           </div>

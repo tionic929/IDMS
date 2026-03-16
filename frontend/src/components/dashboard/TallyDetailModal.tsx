@@ -60,26 +60,26 @@ export const TallyDetailModal: React.FC<{
             <div className="h-56 mb-8">
                 <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={sorted} margin={{ top: 10, right: 10, left: -25, bottom: 30 }}>
-                        <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="#f1f5f9" />
+                        <CartesianGrid strokeDasharray="4 4" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
                         <XAxis
                             dataKey="name"
                             axisLine={false} tickLine={false}
-                            tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }}
+                            tick={{ fontSize: 9, fontWeight: 700, fill: 'hsl(var(--muted-foreground))' }}
                             dy={10}
                         />
                         <YAxis
                             axisLine={false} tickLine={false}
-                            tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }}
+                            tick={{ fontSize: 9, fontWeight: 700, fill: 'hsl(var(--muted-foreground))' }}
                         />
                         <Tooltip
-                            cursor={{ fill: '#f8fafc', radius: 4 }}
+                            cursor={{ fill: 'hsl(var(--muted))', opacity: 0.1, radius: 4 }}
                             contentStyle={{
-                                backgroundColor: '#ffffff',
-                                border: '1px solid #e2e8f0',
-                                borderRadius: '12px',
+                                backgroundColor: 'hsl(var(--card))',
+                                border: '1px solid hsl(var(--border))',
+                                borderRadius: 'var(--radius)',
                                 fontSize: '10px',
                                 fontWeight: '700',
-                                color: '#0f172a',
+                                color: 'hsl(var(--foreground))',
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.05em'
                             }}
@@ -101,55 +101,55 @@ export const TallyDetailModal: React.FC<{
             </div>
 
             {/* Full ranked table */}
-            <div className="border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-sm">
+            <div className="border border-border rounded-lg overflow-hidden bg-card shadow-sm">
                 <table className="w-full text-[10px]">
                     <thead>
-                        <tr className="bg-slate-50/50 border-b border-slate-100">
-                            <th className="px-4 py-3 text-left text-slate-400 font-bold uppercase tracking-widest w-12">Rank</th>
-                            <th className="px-4 py-3 text-left text-slate-400 font-bold uppercase tracking-widest">Section</th>
-                            <th className="px-4 py-3 text-right text-slate-400 font-bold uppercase tracking-widest">Value</th>
-                            <th className="px-4 py-3 text-right text-slate-400 font-bold uppercase tracking-widest">Share</th>
-                            <th className="px-4 py-3 text-slate-400 font-bold uppercase tracking-widest text-center">Status</th>
+                        <tr className="bg-muted/50 border-b border-border">
+                            <th className="px-4 py-3 text-left text-muted-foreground font-bold uppercase tracking-widest w-12">Rank</th>
+                            <th className="px-4 py-3 text-left text-muted-foreground font-bold uppercase tracking-widest">Section</th>
+                            <th className="px-4 py-3 text-right text-muted-foreground font-bold uppercase tracking-widest">Value</th>
+                            <th className="px-4 py-3 text-right text-muted-foreground font-bold uppercase tracking-widest">Share</th>
+                            <th className="px-4 py-3 text-muted-foreground font-bold uppercase tracking-widest text-center">Status</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
+                    <tbody className="divide-y divide-border">
                         {sorted.map((dept, i) => {
                             const logo = LOGO_MAP[dept.name?.toUpperCase()];
                             const isFocused = dept.name === focusDept;
                             return (
                                 <tr
                                     key={dept.name}
-                                    className={`hover:bg-slate-50 transition-colors group ${isFocused ? 'bg-primary/5' : ''}`}
+                                    className={`hover:bg-accent transition-colors group ${isFocused ? 'bg-primary/5' : ''}`}
                                 >
                                     <td className="px-4 py-4">
-                                        <span className={`font-bold tabular-nums ${i < 3 ? 'text-primary' : 'text-slate-300'}`}>
+                                        <span className={`font-bold tabular-nums ${i < 3 ? 'text-primary' : 'text-muted-foreground/30'}`}>
                                             {(i + 1).toString().padStart(2, '0')}
                                         </span>
                                     </td>
                                     <td className="px-4 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-xl overflow-hidden border border-slate-100 bg-slate-50 flex items-center justify-center flex-shrink-0 group-hover:border-primary/50 transition-colors">
+                                            <div className="w-8 h-8 rounded-lg overflow-hidden border border-border bg-muted flex items-center justify-center flex-shrink-0 group-hover:border-primary/50 transition-colors">
                                                 {logo
                                                     ? <img src={logo} alt={dept.name} className="w-full h-full object-contain p-1" />
-                                                    : <span className="text-[8px] font-bold text-slate-400 uppercase">{dept.name.slice(0, 3)}</span>
+                                                    : <span className="text-[8px] font-bold text-muted-foreground uppercase">{dept.name.slice(0, 3)}</span>
                                                 }
                                             </div>
-                                            <span className={`font-bold uppercase tracking-widest ${isFocused ? 'text-primary' : 'text-slate-700'}`}>
+                                            <span className={`font-bold uppercase tracking-widest ${isFocused ? 'text-primary' : 'text-foreground/80'}`}>
                                                 {dept.name}
                                             </span>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-4 text-right font-black text-slate-900 tabular-nums text-sm">
+                                    <td className="px-4 py-4 text-right font-black text-foreground tabular-nums text-sm">
                                         {dept.total.toLocaleString()}
                                     </td>
                                     <td className="px-4 py-4 text-right">
-                                        <span className="text-[10px] font-bold text-slate-400 tabular-nums uppercase tracking-widest">
+                                        <span className="text-[10px] font-bold text-muted-foreground tabular-nums uppercase tracking-widest">
                                             {dept.percentage}%
                                         </span>
                                     </td>
                                     <td className="px-4 py-4 w-40">
                                         <div className="flex items-center gap-3">
-                                            <div className="h-[2px] flex-1 bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-[2px] flex-1 bg-muted rounded-full overflow-hidden">
                                                 <div
                                                     className="h-full bg-primary transition-all duration-1000"
                                                     style={{
@@ -157,7 +157,7 @@ export const TallyDetailModal: React.FC<{
                                                     }}
                                                 />
                                             </div>
-                                            <div className={cn("w-1.5 h-1.5 rounded-full", i < 3 ? "bg-primary animate-pulse" : "bg-slate-100")} />
+                                            <div className={cn("w-1.5 h-1.5 rounded-full", i < 3 ? "bg-primary animate-pulse" : "bg-muted")} />
                                         </div>
                                     </td>
                                 </tr>
@@ -165,14 +165,14 @@ export const TallyDetailModal: React.FC<{
                         })}
                     </tbody>
                     <tfoot>
-                        <tr className="bg-slate-50/50 border-t border-slate-100">
-                            <td colSpan={2} className="px-4 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        <tr className="bg-muted/50 border-t border-border">
+                            <td colSpan={2} className="px-4 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                                 Global Total
                             </td>
                             <td className="px-4 py-4 text-right font-black text-primary tabular-nums text-lg">
                                 {total.toLocaleString()}
                             </td>
-                            <td colSpan={2} className="px-4 py-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            <td colSpan={2} className="px-4 py-4 text-right text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                                 Data Verified 100%
                             </td>
                         </tr>

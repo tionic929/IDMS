@@ -128,12 +128,31 @@ export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSelectedIds([id]);
   }, [editSide, setTempLayout, tempLayout, pushHistory]);
 
-  const handleImageUpload = useCallback((file: File) => {
+  const handleImageUpload = useCallback(async (file: File) => {
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const src = event.target?.result as string;
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const uploadToast = toast.loading("Uploading image...");
+
+    try {
+      // Assuming a generic API utility exists or using fetch
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/card-layouts/upload-logo`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        },
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const data = await response.json();
+      const src = data.url;
+
       const img = new Image();
       img.onload = () => {
         pushHistory(tempLayout);
@@ -160,11 +179,23 @@ export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           [side]: { ...prev[side], [id]: newImage }
         }));
         setSelectedIds([id]);
-        toast.success("Image uploaded");
+        toast.update(uploadToast, { 
+          render: "Image uploaded successfully", 
+          type: "success", 
+          isLoading: false, 
+          autoClose: 2000 
+        });
       };
       img.src = src;
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Image upload error:', error);
+      toast.update(uploadToast, { 
+        render: "Failed to upload image", 
+        type: "error", 
+        isLoading: false, 
+        autoClose: 3000 
+      });
+    }
   }, [editSide, setTempLayout, tempLayout, pushHistory]);
 
   const handleDelete = useCallback((ids?: string[]) => {

@@ -12,7 +12,7 @@ export const VelocityChart: React.FC<{
     return (
       <ChartContainer title={title}>
         <div className="h-full flex items-center justify-center">
-          <p className="text-sm text-slate-400 font-medium">No activity recorded</p>
+          <p className="text-sm text-muted-foreground font-medium">No activity recorded</p>
         </div>
       </ChartContainer>
     );
@@ -32,12 +32,12 @@ export const VelocityChart: React.FC<{
       footer={
         <div className="w-full flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">System Status</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">System Status</span>
           </div>
           <div className="flex items-center gap-3">
             <div className={`px-2 py-0.5 rounded text-[10px] font-bold tabular-nums tracking-wider ${isPositive
-              ? 'bg-emerald-50 text-emerald-600'
-              : 'bg-red-50 text-red-600'
+              ? 'bg-emerald-500/10 text-emerald-600'
+              : 'bg-red-500/10 text-red-600'
               }`}>
               {isPositive ? '▲' : '▼'} {growthPercent}%
             </div>
@@ -67,13 +67,14 @@ export const VelocityChart: React.FC<{
           <CartesianGrid
             strokeDasharray="4 4"
             vertical={false}
-            stroke="#f1f5f9"
+            stroke="hsl(var(--border))"
+            opacity={0.5}
           />
           <XAxis
             dataKey="month"
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 9, fontWeight: 700, fill: '#94a3b8' }}
+            tick={{ fontSize: 9, fontWeight: 700, fill: 'hsl(var(--muted-foreground))' }}
             dy={10}
           />
           <YAxis
@@ -84,17 +85,17 @@ export const VelocityChart: React.FC<{
           <Tooltip
             cursor={{ stroke: '#e2e8f0', strokeWidth: 1 }}
             contentStyle={{
-              backgroundColor: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
+              backgroundColor: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: 'var(--radius)',
               fontSize: '10px',
               fontWeight: '700',
-              color: '#0f172a',
+              color: 'hsl(var(--foreground))',
               padding: '8px 12px',
               boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'
             }}
             itemStyle={{ color: '#00928a' }}
-            labelStyle={{ color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+            labelStyle={{ color: 'hsl(var(--muted-foreground))', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
           />
           <Area
             type="monotone"

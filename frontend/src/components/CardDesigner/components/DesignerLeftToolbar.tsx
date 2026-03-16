@@ -45,12 +45,12 @@ const ToolButton = ({
       onClick={onClick}
       title={`${label} (${shortcut})`}
       className={`
-        relative p-2.5 rounded-xl transition-all flex items-center justify-center border duration-200
+        relative p-2.5 rounded-lg transition-all flex items-center justify-center border duration-200
         ${active
-          ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-900/20'
+          ? 'bg-foreground text-background border-foreground shadow-lg shadow-foreground/10'
           : isCreate
-            ? 'text-slate-500 bg-white border-slate-100 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-200 active:scale-95'
-            : 'text-slate-500 bg-white border-transparent hover:bg-slate-100 hover:text-slate-900 active:scale-95'
+            ? 'text-muted-foreground bg-card border-border hover:bg-accent hover:text-foreground hover:border-border active:scale-95'
+            : 'text-muted-foreground bg-card border-transparent hover:bg-accent hover:text-foreground active:scale-95'
         }
       `}
     >
@@ -58,7 +58,7 @@ const ToolButton = ({
       {/* Shortcut badge bottom-right */}
       <span className={`
         absolute bottom-0.5 right-0.5 text-[7px] font-black leading-none
-        ${active ? 'text-white/50' : 'text-slate-300'}
+        ${active ? 'text-background/50' : 'text-muted-foreground/30'}
       `}>
         {shortcut}
       </span>
@@ -90,7 +90,7 @@ export const DesignerLeftToolbar: React.FC = () => {
         onChange={handleFileChange}
       />
 
-      <div className="w-14 border-r border-slate-100 bg-white flex flex-col items-center py-5 gap-2 z-20 shrink-0">
+      <div className="w-14 border-r border-border bg-card flex flex-col items-center py-5 gap-2 z-20 shrink-0">
 
         {/* Navigation tools */}
         <ToolButton
@@ -109,7 +109,7 @@ export const DesignerLeftToolbar: React.FC = () => {
         />
 
         {/* Divider */}
-        <div className="w-6 h-px bg-slate-100 my-1.5" />
+        <div className="w-6 h-px bg-border my-1.5" />
 
         {/* Creation tools */}
         <ToolButton

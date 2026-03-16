@@ -19,17 +19,17 @@ export const ChartContainer: React.FC<ContainerProps> = ({
   accent,
   className,
 }) => (
-  <Card className={cn("flex flex-col h-full min-h-[280px] overflow-hidden transition-all duration-300 bg-white border-slate-200 group relative shadow-sm hover:shadow-md", className)}>
+  <Card className={cn("flex flex-col h-full min-h-[280px] overflow-hidden transition-all duration-300 bg-card border-border group relative shadow-sm hover:shadow-md", className)}>
     <CardHeader className="flex flex-row items-center justify-between px-5 pt-5 pb-0 space-y-0 relative z-10">
       <div className="flex items-center gap-3">
         <div className="flex flex-col">
-          <CardTitle className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] leading-none mb-1">
+          <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] leading-none mb-1">
             {title}
           </CardTitle>
           <div className="h-[2px] w-4 bg-primary rounded-full" />
         </div>
         {badge && (
-          <span className="text-[9px] font-bold bg-slate-50 text-slate-600 px-2 py-0.5 rounded-md uppercase tracking-wider border border-slate-100">
+          <span className="text-[9px] font-bold bg-secondary text-foreground px-2 py-0.5 rounded-md uppercase tracking-wider border border-border">
             {badge}
           </span>
         )}
@@ -41,7 +41,7 @@ export const ChartContainer: React.FC<ContainerProps> = ({
     </CardContent>
 
     {footer && (
-      <div className="px-5 pb-4 pt-2 mt-auto border-t border-slate-100 relative z-10">
+      <div className="px-5 pb-4 pt-2 mt-auto border-t border-border relative z-10">
         {footer}
       </div>
     )}

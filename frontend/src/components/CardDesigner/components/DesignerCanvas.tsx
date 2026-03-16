@@ -303,7 +303,7 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
 
 
   return (
-    <div className="flex-1 relative bg-slate-100 flex flex-col overflow-hidden">
+    <div className="flex-1 relative bg-muted/50 flex flex-col overflow-hidden">
 
 
       <div className="flex-1 flex relative overflow-hidden">
@@ -315,7 +315,7 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
           <div
             ref={scrollContainerRef}
             onMouseDown={handleContainerMouseDown}
-            className={`flex-1 overflow-auto bg-slate-50 relative scrollbar-hide ${isPanning ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
+            className={`flex-1 overflow-auto bg-muted/30 relative scrollbar-hide ${isPanning ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
               }`}
           >
             <div
@@ -324,7 +324,7 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
               style={{ padding: '2000px' }}
             >
               <div
-                className="bg-white relative shrink-0 z-0 shadow-2xl shadow-slate-200 transition-shadow hover:shadow-slate-300"
+                className="bg-card relative shrink-0 z-0 shadow-2xl shadow-primary/5 transition-shadow hover:shadow-primary/10"
                 style={{
                   width: DESIGN_WIDTH * zoom,
 
@@ -338,8 +338,8 @@ export const DesignerCanvas: React.FC<{ stageRef: React.RefObject<any> }> = ({ s
                   <div
                     className="absolute inset-0 pointer-events-none opacity-[0.2] z-10"
                     style={{
-                      backgroundImage: `radial-gradient(#cbd5e1 1px, transparent 1px)`,
-
+                      backgroundImage: `radial-gradient(currentColor 1px, transparent 1px)`,
+                      color: 'var(--muted-foreground)',
                       backgroundSize: `${20 * zoom}px ${20 * zoom}px`
                     }}
                   />

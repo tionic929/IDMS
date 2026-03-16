@@ -90,17 +90,17 @@ const ApplicantsIndex: React.FC = () => {
   const activeSortLabel = SORT_OPTIONS.find(o => o.value === sortBy)?.label || 'Default';
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950 font-sans selection:bg-primary/10">
-      <div className="px-6 py-8 lg:px-12 lg:py-12 max-w-[1600px] mx-auto">
+    <div className="flex-1 bg-background text-foreground font-sans selection:bg-primary/10 transition-colors duration-300 flex flex-col min-h-full">
+      <div className="px-6 py-2">
 
         {/* ── PAGE HEADER ────────────────────────────────────────── */}
         <div className="mb-8">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Reports / All Students</span>
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Reports / All Students</span>
           <div className="flex items-center justify-between mt-1">
             <div className="flex items-center gap-5">
-              <h1 className="text-3xl font-black tracking-tight text-slate-900">All Students</h1>
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 text-[9px] font-bold uppercase tracking-[0.1em]">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <h1 className="text-3xl font-black tracking-tight text-foreground">All Students</h1>
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[9px] font-bold uppercase tracking-[0.1em]">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                 Live
               </div>
             </div>
@@ -109,7 +109,7 @@ const ApplicantsIndex: React.FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => navigate('/reports/export')}
-                className="gap-2 h-9 bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                className="gap-2 h-9 bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent"
               >
                 <Download className="h-4 w-4" />
                 Export
@@ -119,7 +119,7 @@ const ApplicantsIndex: React.FC = () => {
                 size="sm"
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="gap-2 h-9 px-5 bg-primary hover:bg-primary/90 text-white font-bold text-[11px]"
+                className="gap-2 h-9 px-5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[11px]"
               >
                 <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
                 {isRefreshing ? 'Refreshing…' : 'Refresh'}
@@ -132,12 +132,12 @@ const ApplicantsIndex: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-8">
           {/* Search */}
           <div className="relative flex-1 max-w-lg">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by name or ID number…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="pl-10 h-10 border-slate-200 bg-white shadow-sm focus-visible:ring-primary/20 focus-visible:border-primary rounded-xl"
+              className="pl-10 h-10 border-border bg-card shadow-sm focus-visible:ring-primary/20 focus-visible:border-primary rounded-lg"
             />
           </div>
 
@@ -147,19 +147,19 @@ const ApplicantsIndex: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 h-10 bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 rounded-xl"
+                className="gap-2 h-10 bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg"
               >
                 <ArrowUpDown className="h-4 w-4" />
                 Sort: {activeSortLabel}
                 {sortBy && (
-                  <span className="text-[9px] font-bold text-slate-400 uppercase ml-1">
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase ml-1">
                     {sortDir === 'asc' ? '↑' : '↓'}
                   </span>
                 )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Sort by</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Sort by</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuRadioGroup value={sortBy} onValueChange={handleSortChange}>
                 {SORT_OPTIONS.map(opt => (
@@ -178,7 +178,7 @@ const ApplicantsIndex: React.FC = () => {
                   <DropdownMenuSeparator />
                   <button
                     onClick={() => { setSortBy(''); setSortDir('asc'); }}
-                    className="w-full px-2 py-1.5 text-[11px] font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded text-left"
+                    className="w-full px-2 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded text-left"
                   >
                     Clear Sort
                   </button>
@@ -191,10 +191,10 @@ const ApplicantsIndex: React.FC = () => {
           <button
             onClick={toggleRecentlyIssued}
             className={cn(
-              "gap-1.5 h-10 px-4 text-[11px] font-bold rounded-xl transition-all flex items-center border whitespace-nowrap",
+              "gap-1.5 h-10 px-4 text-[11px] font-bold rounded-lg transition-all flex items-center border whitespace-nowrap",
               statusFilter === 'recently-issued'
-                ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                : 'bg-white text-slate-500 border-slate-200 hover:text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200'
+                ? 'bg-primary/10 text-primary border-primary/30'
+                : 'bg-card text-muted-foreground border-border hover:text-primary hover:bg-primary/5 hover:border-primary/20'
             )}
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
@@ -237,11 +237,11 @@ const ApplicantsIndex: React.FC = () => {
             {/* DATA TABLE */}
             <div className="space-y-5">
               <div className="flex items-center gap-4">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">Student List</span>
-                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Student List</span>
+                <div className="flex-1 h-px bg-border" />
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm shadow-slate-100">
+              <div className="bg-card border border-border rounded-lg overflow-hidden shadow-sm shadow-primary/5">
                 <ApplicantsTable
                   query={query}
                   statusFilter={statusFilter}

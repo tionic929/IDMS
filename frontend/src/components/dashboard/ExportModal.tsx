@@ -126,25 +126,25 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onClose, departm
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
             onClick={onClose}
         >
             <div
-                className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden animate-[modal-in_0.18s_ease-out]"
+                className="relative w-full max-w-lg bg-card rounded-lg shadow-2xl border border-border flex flex-col max-h-[90vh] overflow-hidden animate-[modal-in_0.18s_ease-out]"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-slate-100 flex-shrink-0 bg-slate-50/50">
+                <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-border flex-shrink-0 bg-muted/50">
                     <div>
                         <div className="flex items-center gap-2">
                             <FileSpreadsheet className="h-5 w-5 text-primary" />
-                            <h2 className="text-base font-bold text-slate-900 uppercase tracking-wider">Export Spreadsheet</h2>
+                            <h2 className="text-base font-bold text-foreground uppercase tracking-wider">Export Spreadsheet</h2>
                         </div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">Configure and download your report</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Configure and download your report</p>
                     </div>
                     <button
                         onClick={onClose}
-                        className="ml-4 p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-900 flex-shrink-0"
+                        className="ml-4 p-1.5 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"
                     >
                         <X size={16} />
                     </button>
@@ -155,7 +155,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onClose, departm
 
                     {/* Date Range */}
                     <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 block">
                             <Calendar className="h-3 w-3 inline mr-1.5" />
                             Date Range
                         </label>
@@ -164,14 +164,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onClose, departm
                                 type="date"
                                 value={startDate}
                                 onChange={e => setStartDate(e.target.value)}
-                                className="flex-1 h-9 px-3 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                className="flex-1 h-9 px-3 text-xs border border-border rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             />
-                            <span className="text-[10px] font-bold text-slate-300 uppercase">to</span>
+                            <span className="text-[10px] font-bold text-muted-foreground/30 uppercase">to</span>
                             <input
                                 type="date"
                                 value={endDate}
                                 onChange={e => setEndDate(e.target.value)}
-                                className="flex-1 h-9 px-3 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                className="flex-1 h-9 px-3 text-xs border border-border rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                             />
                         </div>
                         <div className="flex gap-1.5 flex-wrap">
@@ -186,7 +186,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onClose, departm
                                 <button
                                     key={String(p.days)}
                                     onClick={() => quickRange(p.days)}
-                                    className="flex-1 min-w-[48px] h-7 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50 border border-slate-200 rounded-md hover:bg-primary hover:text-white hover:border-primary transition-all"
+                                    className="flex-1 min-w-[48px] h-7 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/30 border border-border rounded-md hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all"
                                 >
                                     {p.label}
                                 </button>
@@ -196,14 +196,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onClose, departm
 
                     {/* Department */}
                     <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 block">
                             <Filter className="h-3 w-3 inline mr-1.5" />
                             Department
                         </label>
                         <select
                             value={department}
                             onChange={e => setDepartment(e.target.value)}
-                            className="w-full h-9 px-3 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none"
+                            className="w-full h-9 px-3 text-xs border border-border rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none"
                         >
                             <option value="">All Departments</option>
                             {departments.map(d => (
@@ -214,7 +214,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onClose, departm
 
                     {/* Sort */}
                     <div>
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 block">
                             <ArrowUpDown className="h-3 w-3 inline mr-1.5" />
                             Sort By
                         </label>
@@ -222,7 +222,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onClose, departm
                             <select
                                 value={sortBy}
                                 onChange={e => setSortBy(e.target.value)}
-                                className="flex-1 h-9 px-3 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none"
+                                className="flex-1 h-9 px-3 text-xs border border-border rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none"
                             >
                                 <option value="name">Name (Last, First)</option>
                                 <option value="date">Date Applied</option>
@@ -232,7 +232,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onClose, departm
                             <select
                                 value={sortDir}
                                 onChange={e => setSortDir(e.target.value)}
-                                className="w-28 h-9 px-3 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none"
+                                className="w-28 h-9 px-3 text-xs border border-border rounded-md bg-transparent focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary appearance-none"
                             >
                                 <option value="asc">A → Z</option>
                                 <option value="desc">Z → A</option>
@@ -242,9 +242,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onClose, departm
 
                     {/* Divider */}
                     <div className="flex items-center gap-3">
-                        <div className="flex-1 h-px bg-slate-200" />
-                        <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Choose Export Type</span>
-                        <div className="flex-1 h-px bg-slate-200" />
+                        <div className="flex-1 h-px bg-border" />
+                        <span className="text-[10px] font-bold text-muted-foreground/30 uppercase tracking-widest">Choose Export Type</span>
+                        <div className="flex-1 h-px bg-border" />
                     </div>
 
                     {/* Export Buttons */}
@@ -253,16 +253,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onClose, departm
                         <button
                             onClick={() => handleExport('summary')}
                             disabled={!!exporting}
-                            className="group relative flex flex-col items-center gap-2.5 p-4 rounded-xl border-2 border-slate-200 bg-white hover:border-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="group relative flex flex-col items-center gap-2.5 p-4 rounded-lg border-2 border-border bg-card hover:border-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {exporting === 'summary' ? (
                                 <Loader2 className="h-7 w-7 text-primary animate-spin" />
                             ) : (
-                                <BarChart3 className="h-7 w-7 text-slate-400 group-hover:text-primary transition-colors" />
+                                <BarChart3 className="h-7 w-7 text-muted-foreground/40 group-hover:text-primary transition-colors" />
                             )}
                             <div className="text-center">
-                                <div className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">Summary</div>
-                                <div className="text-[9px] text-slate-400 mt-0.5">Stats & tally</div>
+                                <div className="text-[11px] font-bold text-foreground uppercase tracking-wider">Summary</div>
+                                <div className="text-[9px] text-muted-foreground mt-0.5">Stats & tally</div>
                             </div>
                         </button>
 
@@ -270,16 +270,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onClose, departm
                         <button
                             onClick={() => handleExport('students')}
                             disabled={!!exporting}
-                            className="group relative flex flex-col items-center gap-2.5 p-4 rounded-xl border-2 border-slate-200 bg-white hover:border-emerald-500 hover:bg-emerald-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="group relative flex flex-col items-center gap-2.5 p-4 rounded-lg border-2 border-border bg-card hover:border-emerald-500 hover:bg-emerald-500/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {exporting === 'students' ? (
                                 <Loader2 className="h-7 w-7 text-emerald-500 animate-spin" />
                             ) : (
-                                <ListOrdered className="h-7 w-7 text-slate-400 group-hover:text-emerald-500 transition-colors" />
+                                <ListOrdered className="h-7 w-7 text-muted-foreground/40 group-hover:text-emerald-500 transition-colors" />
                             )}
                             <div className="text-center">
-                                <div className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">Students</div>
-                                <div className="text-[9px] text-slate-400 mt-0.5">Flat student list</div>
+                                <div className="text-[11px] font-bold text-foreground uppercase tracking-wider">Students</div>
+                                <div className="text-[9px] text-muted-foreground mt-0.5">Flat student list</div>
                             </div>
                         </button>
 
@@ -287,7 +287,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onClose, departm
                         <button
                             onClick={() => handleExport('full')}
                             disabled={!!exporting}
-                            className="group relative flex flex-col items-center gap-2.5 p-4 rounded-xl border-2 border-primary/30 bg-primary/5 hover:border-primary hover:bg-primary/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="group relative flex flex-col items-center gap-2.5 p-4 rounded-lg border-2 border-primary/30 bg-primary/5 hover:border-primary hover:bg-primary/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {exporting === 'full' ? (
                                 <Loader2 className="h-7 w-7 text-primary animate-spin" />
@@ -295,8 +295,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({ open, onClose, departm
                                 <Users className="h-7 w-7 text-primary/60 group-hover:text-primary transition-colors" />
                             )}
                             <div className="text-center">
-                                <div className="text-[11px] font-bold text-slate-900 uppercase tracking-wider">Full Report</div>
-                                <div className="text-[9px] text-slate-400 mt-0.5">All + per-dept</div>
+                                <div className="text-[11px] font-bold text-foreground uppercase tracking-wider">Full Report</div>
+                                <div className="text-[9px] text-muted-foreground mt-0.5">All + per-dept</div>
                             </div>
                         </button>
                     </div>

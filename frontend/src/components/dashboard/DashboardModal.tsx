@@ -43,24 +43,24 @@ export const DashboardModal: React.FC<DashboardModalProps> = ({
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
             onClick={onClose}
         >
             <div
-                className={`relative w-full ${SIZE_CLASSES[size]} bg-white rounded-2xl shadow-2xl
-          border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden
+            className={`relative w-full ${SIZE_CLASSES[size]} bg-card rounded-lg shadow-2xl
+          border border-border flex flex-col max-h-[90vh] overflow-hidden
           animate-[modal-in_0.18s_ease-out]`}
                 onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-slate-100 flex-shrink-0 bg-slate-50/50">
+                <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-border flex-shrink-0 bg-muted/50">
                     <div>
-                        <h2 className="text-base font-bold text-slate-900 uppercase tracking-wider">{title}</h2>
-                        {subtitle && <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">{subtitle}</p>}
+                        <h2 className="text-base font-bold text-foreground uppercase tracking-wider">{title}</h2>
+                        {subtitle && <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">{subtitle}</p>}
                     </div>
                     <button
                         onClick={onClose}
-                        className="ml-4 p-1.5 rounded-lg hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-900 flex-shrink-0"
+                        className="ml-4 p-1.5 rounded-md hover:bg-accent transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"
                     >
                         <X size={16} />
                     </button>

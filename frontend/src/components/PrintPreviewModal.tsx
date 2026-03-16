@@ -252,22 +252,22 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
 `}</style>
 
       {/* Modal Container */}
-      <div className="fixed inset-0 z-[100] flex bg-slate-950 text-slate-200 overflow-hidden">
+      <div className="fixed inset-0 z-[100] flex bg-background text-foreground overflow-hidden">
 
         {/* Left Sidebar - Controls */}
-        <aside className="w-[30vw] h-full bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 shadow-2xl">
+        <aside className="w-[30vw] h-full bg-card border-r border-border flex flex-col shrink-0 shadow-xl">
 
           {/* Header */}
-          <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+          <div className="p-6 border-b border-border flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-white">Print Settings</h2>
-              <p className="text-xs text-slate-400 mt-0.5">{data.idNumber}</p>
+              <h2 className="text-lg font-semibold text-foreground">Print Settings</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">{data.idNumber}</p>
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-2 hover:bg-accent rounded-md transition-colors"
             >
-              <X size={18} className="text-slate-400" />
+              <X size={18} className="text-muted-foreground" />
             </button>
           </div>
 
@@ -277,19 +277,19 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             {/* Zoom Control */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Preview Zoom
                 </span>
-                <span className="text-sm font-mono font-semibold text-teal-400">
+                <span className="text-sm font-mono font-semibold text-primary">
                   {Math.round(zoom * 100)}%
                 </span>
               </div>
-              <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
                 <button
                   onClick={() => setZoom(Math.max(0.3, zoom - 0.1))}
-                  className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                  className="p-2 hover:bg-accent rounded-lg transition-colors"
                 >
-                  <ZoomOut size={14} className="text-slate-400" />
+                  <ZoomOut size={14} className="text-muted-foreground" />
                 </button>
                 <input
                   type="range"
@@ -298,66 +298,66 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                   step="0.1"
                   value={zoom}
                   onChange={(e) => setZoom(parseFloat(e.target.value))}
-                  className="flex-1 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                  className="flex-1 h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
                 />
                 <button
                   onClick={() => setZoom(Math.min(1.5, zoom + 0.1))}
-                  className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                  className="p-2 hover:bg-accent rounded-lg transition-colors"
                 >
-                  <ZoomIn size={14} className="text-slate-400" />
+                  <ZoomIn size={14} className="text-muted-foreground" />
                 </button>
               </div>
             </div>
 
             {/* Display Options */}
             <div className="space-y-3">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Display Options
               </p>
               <div className="flex flex-row gap-4">
                 <button
                   onClick={() => setShowCutLines(!showCutLines)}
-                  className={`w - full flex items - center justify - between p - 3 rounded - lg border - 2 transition - all ${showCutLines
-                      ? 'border-teal-500 bg-teal-500/10'
-                      : 'border-slate-700 hover:border-slate-600'
-                    } `}
+                  className={`flex-1 flex items-center justify-between p-3 rounded-lg border-2 transition-all ${showCutLines
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:bg-accent'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Scissors size={16} className={showCutLines ? 'text-teal-400' : 'text-slate-400'} />
+                    <Scissors size={16} className={showCutLines ? 'text-primary' : 'text-muted-foreground'} />
                     <span className="text-sm font-medium">Cut Guides</span>
                   </div>
-                  <div className={`w - 2 h - 2 rounded - full ${showCutLines ? 'bg-teal-400' : 'bg-slate-600'} `} />
+                  <div className={`w-2 h-2 rounded-full ${showCutLines ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
                 </button>
                 <button
                   onClick={() => setMirrorBack(!mirrorBack)}
-                  className={`w - full flex items - center justify - between p - 3 rounded - lg border - 2 transition - all ${mirrorBack
-                      ? 'border-teal-500 bg-teal-500/10'
-                      : 'border-slate-700 hover:border-slate-600'
-                    } `}
+                  className={`flex-1 flex items-center justify-between p-3 rounded-lg border-2 transition-all ${mirrorBack
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border hover:bg-accent'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
-                    <FlipHorizontal size={16} className={mirrorBack ? 'text-teal-400' : 'text-slate-400'} />
+                    <FlipHorizontal size={16} className={mirrorBack ? 'text-primary' : 'text-muted-foreground'} />
                     <span className="text-sm font-medium">Mirror Back</span>
                   </div>
-                  <div className={`w - 2 h - 2 rounded - full ${mirrorBack ? 'bg-teal-400' : 'bg-slate-600'} `} />
+                  <div className={`w-2 h-2 rounded-full ${mirrorBack ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
                 </button>
               </div>
             </div>
 
             {/* Margin Settings */}
             <div className="space-y-3">
-              <span className='flex flex-row justify-between items-center text-xs font-semibold text-slate-400 uppercase tracking-wider'>
+              <span className='flex flex-row justify-between items-center text-xs font-semibold text-muted-foreground uppercase tracking-wider'>
                 Margin Settings
-                <Settings size={14} className='text-slate-500' />
+                <Settings size={14} className='text-muted-foreground/50' />
               </span>
-              <div className="p-3 bg-slate-950/50 rounded-lg border border-slate-800 space-y-4">
+              <div className="p-3 bg-muted/30 rounded-lg border border-border space-y-4">
                 {/* Quick Presets */}
                 <div className="grid grid-cols-2 gap-2">
                   {marginPresets.map((preset) => (
                     <button
                       key={preset.label}
                       onClick={() => applyMarginPreset(preset)}
-                      className="py-2 px-3 text-xs font-medium bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
+                      className="py-2 px-3 text-xs font-medium bg-secondary hover:bg-accent rounded-lg transition-colors"
                     >
                       {preset.label}
                     </button>
@@ -373,8 +373,8 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                 ].map(({ label, value, setter }) => (
                   <div key={label}>
                     <div className="flex justify-between text-xs mb-1.5">
-                      <span className="font-medium text-slate-400">{label}</span>
-                      <span className="font-semibold text-teal-400">{value}px</span>
+                      <span className="font-medium text-muted-foreground">{label}</span>
+                      <span className="font-semibold text-primary">{value}px</span>
                     </div>
                     <input
                       type="range"
@@ -382,7 +382,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                       max="50"
                       value={value}
                       onChange={(e) => setter(Number(e.target.value))}
-                      className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-500"
+                      className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
                     />
                   </div>
                 ))}
@@ -390,30 +390,30 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             </div>
 
             {/* Output Info */}
-            <div className="p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-              <div className="flex items-center gap-2 text-indigo-400 mb-2">
+            <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
+              <div className="flex items-center gap-2 text-primary mb-2">
                 <Info size={14} />
                 <span className="text-xs font-semibold uppercase tracking-wider">
                   Output Specs
                 </span>
               </div>
-              <div className="space-y-1 text-xs text-slate-400">
+              <div className="space-y-1 text-xs text-muted-foreground">
                 <div className="flex justify-between">
                   <span>Resolution:</span>
-                  <span className="font-mono text-slate-300">{PRINT_WIDTH}×{PRINT_HEIGHT}px</span>
+                  <span className="font-mono text-foreground/80">{PRINT_WIDTH}×{PRINT_HEIGHT}px</span>
                 </div>
                 <div className="flex justify-between">
                   <span>DPI:</span>
-                  <span className="font-mono text-slate-300">300</span>
+                  <span className="font-mono text-foreground/80">300</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Format:</span>
-                  <span className="font-mono text-slate-300">CR80</span>
+                  <span className="font-mono text-foreground/80">CR80</span>
                 </div>
                 {(marginTop + marginBottom + marginLeft + marginRight) > 0 && (
-                  <div className="flex justify-between pt-2 border-t border-indigo-500/20">
+                  <div className="flex justify-between pt-2 border-t border-primary/10">
                     <span>With Margins:</span>
-                    <span className="font-mono text-slate-300">{totalWidth}×{totalHeight}px</span>
+                    <span className="font-mono text-foreground/80">{totalWidth}×{totalHeight}px</span>
                   </div>
                 )}
               </div>
@@ -421,27 +421,27 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
           </div>
 
           {/* Action Buttons */}
-          <div className="p-6 bg-slate-950 border-t border-slate-800 space-y-3">
+          <div className="p-6 bg-muted/50 border-t border-border space-y-3">
             <button
               onClick={handleDownloadImages}
               disabled={isGeneratingImages}
-              className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-2.5 px-4 bg-secondary hover:bg-accent text-foreground rounded-lg font-bold text-xs uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              <Download size={16} />
+              <Download size={14} />
               {isGeneratingImages ? 'Processing...' : 'Download Images'}
             </button>
             <button
               onClick={handleEmail}
               disabled={isGeneratingImages}
-              className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-2.5 px-4 bg-secondary hover:bg-accent text-foreground rounded-lg font-bold text-xs uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              <Mail size={16} />
+              <Mail size={14} />
               Email Notification
             </button>
             <button
               onClick={handleSilentPrint}
               disabled={isGeneratingImages}
-              className="w-full py-3 px-4 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-teal-500/20"
+              className="w-full py-3 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-bold text-xs uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
             >
               <Printer size={16} />
               {isGeneratingImages ? 'Processing...' : 'Print Cards'}
@@ -450,12 +450,13 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             {data.paymentProof && (
               <button
                 onClick={() => setViewingPaymentProof(data.paymentProof || null)}
-                className="w-full mt-2 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-teal-400 border border-teal-500/30 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2 shadow-lg"
+                className="w-full mt-2 py-2.5 px-4 bg-primary/5 hover:bg-primary/10 text-primary border border-primary/20 rounded-lg font-bold text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2"
               >
-                <Receipt size={16} />
+                <Receipt size={14} />
                 View Payment Proof
               </button>
             )}
+
           </div>
         </aside>
 
@@ -476,8 +477,8 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                   isPrinting={false}
                 />
               </div>
-              <div className="px-4 py-1.5 rounded-full bg-slate-800 border border-slate-700">
-                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              <div className="px-4 py-1.5 rounded-full bg-muted border border-border">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                   Front Side
                 </span>
               </div>
@@ -497,8 +498,8 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                   isPrinting={false}
                 />
               </div>
-              <div className="px-4 py-1.5 rounded-full bg-slate-800 border border-slate-700">
-                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              <div className="px-4 py-1.5 rounded-full bg-muted border border-border">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
                   Back Side
                 </span>
               </div>

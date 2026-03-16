@@ -56,11 +56,11 @@ const toCard = (s: Students): ApplicantCard => ({
 const ZoomStrip = ({ scale, onIn, onOut, onReset }: {
     scale: number; onIn: () => void; onOut: () => void; onReset: () => void;
 }) => (
-    <div className="flex items-center bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden divide-x divide-zinc-200 dark:divide-zinc-700">
-        <button onClick={onOut} className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500 transition-colors"><ZoomOut size={12} /></button>
-        <span className="px-2.5 text-[9px] font-black text-zinc-500 tabular-nums select-none min-w-[40px] text-center">{Math.round(scale * 100)}%</span>
-        <button onClick={onIn} className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-500 transition-colors"><ZoomIn size={12} /></button>
-        <button onClick={onReset} className="p-1.5 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-400 transition-colors"><RotateCcw size={11} /></button>
+    <div className="flex items-center bg-muted/50 border border-border rounded-lg overflow-hidden divide-x divide-border">
+        <button onClick={onOut} className="p-1.5 hover:bg-muted text-muted-foreground transition-colors"><ZoomOut size={12} /></button>
+        <span className="px-2.5 text-[9px] font-black text-muted-foreground tabular-nums select-none min-w-[40px] text-center">{Math.round(scale * 100)}%</span>
+        <button onClick={onIn} className="p-1.5 hover:bg-muted text-muted-foreground transition-colors"><ZoomIn size={12} /></button>
+        <button onClick={onReset} className="p-1.5 hover:bg-muted text-muted-foreground transition-colors"><RotateCcw size={11} /></button>
     </div>
 );
 
@@ -75,18 +75,18 @@ const PendingRow = React.memo(({
         onClick={() => onView(student.id)}
         className={cn(
             'group cursor-pointer transition-colors select-none',
-            isActive ? 'bg-teal-500/5 hover:bg-teal-500/8' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
+            isActive ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-accent/40'
         )}
     >
         <TableCell className="pl-3 w-8 py-2" onClick={e => { e.stopPropagation(); onSelect(student.id); }}>
             {isSelected
-                ? <CheckSquare size={13} className="text-teal-500" />
+                ? <CheckSquare size={13} className="text-primary" />
                 : <Square size={13} className="opacity-20 group-hover:opacity-50 transition-opacity" />}
         </TableCell>
         <TableCell className="py-2">
-            <p className="text-[10px] font-black uppercase text-zinc-900 dark:text-white leading-tight">{student.last_name}, {student.first_name}</p>
+            <p className="text-[10px] font-black uppercase text-foreground leading-tight">{student.last_name}, {student.first_name}</p>
         </TableCell>
-        <TableCell className="py-2 font-mono text-[9px] font-bold text-zinc-400">{student.id_number}</TableCell>
+        <TableCell className="py-2 font-mono text-[9px] font-bold text-muted-foreground">{student.id_number}</TableCell>
         <TableCell className="py-2">
             <span className={cn('text-[8px] font-black uppercase px-1.5 py-0.5 rounded border',
                 courses[student.course]?.border || 'border-zinc-200',
@@ -113,13 +113,13 @@ const ConfirmedRow = React.memo(({
         onClick={() => onView(student.id)}
         className={cn(
             'group cursor-pointer transition-colors select-none',
-            isActive ? 'bg-teal-500/5 hover:bg-teal-500/8' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
+            isActive ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-accent/40'
         )}
     >
         <TableCell className="pl-4 py-2">
-            <p className="text-[10px] font-black uppercase text-zinc-900 dark:text-white leading-tight">{student.last_name}, {student.first_name}</p>
+            <p className="text-[10px] font-black uppercase text-foreground leading-tight">{student.last_name}, {student.first_name}</p>
         </TableCell>
-        <TableCell className="py-2 font-mono text-[9px] font-bold text-zinc-400">{student.id_number}</TableCell>
+        <TableCell className="py-2 font-mono text-[9px] font-bold text-muted-foreground">{student.id_number}</TableCell>
         <TableCell className="py-2">
             <span className={cn('text-[8px] font-black uppercase px-1.5 py-0.5 rounded border',
                 courses[student.course]?.border || 'border-zinc-200',
@@ -129,13 +129,13 @@ const ConfirmedRow = React.memo(({
         <TableCell className="py-2 pr-2">
             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
                 <button onClick={e => { e.stopPropagation(); onArchive(student.id); }}
-                    className="h-5 w-5 flex items-center justify-center rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
                     title="Archive"><Database size={10} /></button>
                 <button onClick={e => { e.stopPropagation(); onDelete(student.id); }}
-                    className="h-5 w-5 flex items-center justify-center rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
                     title="Delete"><Trash2 size={10} /></button>
                 <button onClick={e => { e.stopPropagation(); onPrint(student); }}
-                    className="h-5 px-2 flex items-center gap-1 rounded bg-teal-500 hover:bg-teal-600 text-white font-black text-[8px] uppercase transition-all"
+                    className="h-5 px-2 flex items-center gap-1 rounded bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[8px] uppercase transition-all shadow-sm shadow-primary/20"
                     title="Print"><Printer size={9} /> Print</button>
             </div>
         </TableCell>
@@ -161,9 +161,9 @@ const OverrideField = ({ label, value, onChange }: {
     label: string; value: string; onChange: (v: string) => void;
 }) => (
     <div className="space-y-1">
-        <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider block">{label}</span>
+        <span className="text-[8px] font-black text-muted-foreground uppercase tracking-wider block">{label}</span>
         <input type="text" value={value} onChange={e => onChange(e.target.value)}
-            className="w-full bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:border-zinc-500 dark:focus:border-zinc-500 transition-colors" />
+            className="w-full bg-muted/50 border border-border rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-foreground outline-none focus:border-primary transition-colors" />
     </div>
 );
 
@@ -368,7 +368,7 @@ const Dashboard: React.FC = () => {
 
     // ═════════════════════════════════════════════════════════════════════════
     return (
-        <div className="h-full bg-zinc-50 dark:bg-[#020617] text-zinc-900 dark:text-zinc-100 flex overflow-hidden">
+        <div className="h-full bg-background text-foreground flex overflow-hidden transition-colors duration-300">
             <Suspense fallback={
                 <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
                     <RefreshCw className="animate-spin text-white" size={48} />
@@ -382,35 +382,35 @@ const Dashboard: React.FC = () => {
             {/* ══════════════════════════════════════════════════════
                 LEFT SIDEBAR — two fixed-height sections, each scrollable
             ══════════════════════════════════════════════════════ */}
-            <div className="w-[260px] shrink-0 border-r border-zinc-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 flex flex-col overflow-hidden">
+            <div className="w-[260px] shrink-0 border-r border-border bg-card flex flex-col overflow-hidden">
 
                 {/* Search */}
-                <div className="px-3 py-2.5 border-b border-zinc-100 dark:border-zinc-900 shrink-0">
+                <div className="px-3 py-2.5 border-b border-border shrink-0">
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-900 dark:text-white">Applications</span>
-                        <span className="text-[8px] font-bold text-zinc-400">{effectiveStudents.length} total</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-foreground">Applications</span>
+                        <span className="text-[8px] font-bold text-muted-foreground">{effectiveStudents.length} total</span>
                     </div>
                     <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" size={11} />
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={11} />
                         <input type="text" placeholder="Search by name, ID or course…"
-                            className="w-full pl-7 pr-3 py-1.5 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg outline-none text-[10px] font-bold focus:border-zinc-400 transition-colors"
+                            className="w-full pl-7 pr-3 py-1.5 bg-muted/50 border border-border rounded-lg outline-none text-[10px] font-bold focus:border-primary transition-colors"
                         />
                     </div>
                 </div>
 
                 {/* ── SECTION A: Pending Queue — fixed half height */}
-                <div className="h-1/2 flex flex-col border-b border-zinc-200 dark:border-zinc-900 overflow-hidden">
+                <div className="h-1/2 flex flex-col border-b border-border overflow-hidden">
                     {/* Section header */}
-                    <div className="px-3 py-2 flex items-center justify-between shrink-0 bg-zinc-50/80 dark:bg-zinc-900/30 border-b border-zinc-100 dark:border-zinc-900">
+                    <div className="px-3 py-2 flex items-center justify-between shrink-0 bg-muted/30 border-b border-border">
                         <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300">Pending Queue</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Pending Queue</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                             {someSelected && (
                                 <button
                                     onClick={handleConfirmSelected}
-                                    className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-500 hover:bg-teal-600 text-white font-black text-[8px] uppercase transition-all shadow-sm shadow-teal-500/30"
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[8px] uppercase transition-all shadow-sm shadow-primary/30"
                                 >
                                     <CheckCircle2 size={9} /> Confirm {selectedIds.length > 0 ? `(${selectedIds.length})` : ''}
                                 </button>
@@ -428,7 +428,7 @@ const Dashboard: React.FC = () => {
                                 <TableRow className="hover:bg-transparent border-none">
                                     <TableHead className="pl-3 w-8 h-7 cursor-pointer py-0" onClick={toggleSelectAll}>
                                         {allSelected
-                                            ? <CheckSquare size={12} className="text-teal-500" />
+                                            ? <CheckSquare size={12} className="text-primary" />
                                             : <Square size={12} className="opacity-30 hover:opacity-60 transition-opacity" />}
                                     </TableHead>
                                     <TableHead className="text-[8px] font-black uppercase h-7 py-0">Identity</TableHead>
@@ -460,10 +460,10 @@ const Dashboard: React.FC = () => {
                 {/* ── SECTION B: Issued / Printed — fixed half height */}
                 <div className="h-1/2 flex flex-col overflow-hidden">
                     {/* Section header */}
-                    <div className="px-3 py-2 flex items-center justify-between shrink-0 bg-zinc-50/80 dark:bg-zinc-900/30 border-b border-zinc-100 dark:border-zinc-900">
+                    <div className="px-3 py-2 flex items-center justify-between shrink-0 bg-muted/30 border-b border-border">
                         <div className="flex items-center gap-1.5">
                             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-700 dark:text-zinc-300">Issued / Printed</span>
+                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Issued / Printed</span>
                         </div>
                         <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[8px] font-black tabular-nums">
                             {confirmedStudents.length}
@@ -506,21 +506,21 @@ const Dashboard: React.FC = () => {
             {/* ══════════════════════════════════════════════════════
                 CENTER — ID CARD PREVIEW (large)
             ══════════════════════════════════════════════════════ */}
-            <div className="flex-1 flex flex-col bg-zinc-50 dark:bg-[#020617] overflow-hidden min-w-0">
+            <div className="flex-1 flex flex-col bg-background overflow-hidden min-w-0">
                 {previewStudent && previewCard && previewLayout ? (
                     <>
                         {/* Cards */}
                         <div className="flex-1 overflow-auto custom-scrollbar flex items-center justify-center gap-8 p-8">
-                            <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-zinc-200 dark:ring-zinc-800 shrink-0">
+                            <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-border shrink-0">
                                 <IDCardPreview data={previewCard} layout={previewLayout} side="FRONT" scale={previewScale} />
                             </div>
-                            <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-zinc-200 dark:ring-zinc-800 shrink-0">
+                            <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-border shrink-0">
                                 <IDCardPreview data={previewCard} layout={previewLayout} side="BACK" scale={previewScale} />
                             </div>
                         </div>
 
                         {/* Bottom action bar */}
-                        <div className="shrink-0 bg-white dark:bg-zinc-950 border-t border-zinc-200 dark:border-zinc-900 px-6 py-3 flex items-center justify-between gap-4">
+                        <div className="shrink-0 bg-card border-t border-border px-6 py-3 flex items-center justify-between gap-4">
                             {/* Zoom */}
                             <ZoomStrip
                                 scale={previewScale}
@@ -534,7 +534,7 @@ const Dashboard: React.FC = () => {
                                 {/* Reject (archive) */}
                                 <button
                                     onClick={() => handleArchive(previewStudent.id)}
-                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-black text-[10px] uppercase transition-all shadow-lg shadow-red-500/20"
+                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-destructive hover:bg-destructive/90 active:bg-destructive text-destructive-foreground font-black text-[10px] uppercase transition-all shadow-lg shadow-destructive/20"
                                 >
                                     <X size={13} /> Reject
                                 </button>
@@ -543,7 +543,7 @@ const Dashboard: React.FC = () => {
                                 {previewSection === 'queued' && (
                                     <button
                                         onClick={handleConfirmSelected}
-                                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-white font-black text-[10px] uppercase transition-all shadow-lg"
+                                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[10px] uppercase transition-all shadow-lg"
                                     >
                                         <CheckCircle2 size={13} />
                                         {selectedIds.length > 1 ? `Confirm (${selectedIds.length})` : 'Confirm'}
@@ -553,7 +553,7 @@ const Dashboard: React.FC = () => {
                                 {/* Print */}
                                 <button
                                     onClick={handlePrintPreview}
-                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-600 active:bg-teal-700 text-white font-black text-[10px] uppercase transition-all shadow-lg shadow-teal-500/20"
+                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 active:bg-primary text-primary-foreground font-black text-[10px] uppercase transition-all shadow-lg shadow-primary/20"
                                 >
                                     <Printer size={13} /> Print
                                 </button>
@@ -571,15 +571,15 @@ const Dashboard: React.FC = () => {
             {/* ══════════════════════════════════════════════════════
                 RIGHT PANEL — APPLICATION INFO (overrides)
             ══════════════════════════════════════════════════════ */}
-            <div className="w-[200px] shrink-0 border-l border-zinc-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 flex flex-col overflow-hidden">
+            <div className="w-[200px] shrink-0 border-l border-border bg-card flex flex-col overflow-hidden">
 
                 {/* Header */}
-                <div className="px-3 py-3 border-b border-zinc-100 dark:border-zinc-900 flex flex-col items-center text-center shrink-0">
-                    <div className="w-9 h-9 bg-zinc-900 dark:bg-zinc-800 rounded-xl flex items-center justify-center mb-1.5 shadow">
-                        <Database size={15} className="text-white" />
+                <div className="px-3 py-3 border-b border-border flex flex-col items-center text-center shrink-0">
+                    <div className="w-9 h-9 bg-primary text-primary-foreground rounded-xl flex items-center justify-center mb-1.5 shadow">
+                        <Database size={15} />
                     </div>
-                    <p className="text-[9px] font-black uppercase tracking-tight text-zinc-900 dark:text-white">Application Info</p>
-                    <p className="text-[7px] text-zinc-400 font-bold uppercase tracking-widest mt-0.5">Live data editing</p>
+                    <p className="text-[9px] font-black uppercase tracking-tight text-foreground">Application Info</p>
+                    <p className="text-[7px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Live data editing</p>
                 </div>
 
                 {previewStudent && previewCard ? (
@@ -588,8 +588,8 @@ const Dashboard: React.FC = () => {
                         <div className={cn(
                             'flex items-center justify-between px-3 py-1.5 text-[8px] font-black uppercase tracking-widest transition-all border-b',
                             hasOverrides
-                                ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 text-amber-600 dark:text-amber-400'
-                                : 'bg-zinc-50 dark:bg-zinc-900/50 border-zinc-100 dark:border-zinc-900 text-zinc-400'
+                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
+                                : 'bg-muted/50 border-border text-muted-foreground'
                         )}>
                             <span>{hasOverrides ? '● Overrides' : '○ No changes'}</span>
                             {hasOverrides && (
@@ -604,8 +604,8 @@ const Dashboard: React.FC = () => {
                             {/* Front side */}
                             <div className="space-y-2.5">
                                 <div className="flex items-center gap-1.5">
-                                    <UserIcon size={9} className="text-zinc-400" />
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Front Side</p>
+                                    <UserIcon size={9} className="text-muted-foreground" />
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Front Side</p>
                                 </div>
                                 <OverrideField label="Full Name" value={previewCard.fullName || ''} onChange={v => updateOverride('fullName', v)} />
                                 <OverrideField label="Course / Dept." value={previewCard.course || ''} onChange={v => updateOverride('course', v)} />
@@ -614,10 +614,10 @@ const Dashboard: React.FC = () => {
                                 <div className="space-y-1">
                                     <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider block">Photo</span>
                                     <button onClick={() => document.getElementById('photo-input')?.click()}
-                                        className="w-full h-14 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex flex-col items-center justify-center gap-1 hover:border-zinc-400 transition-all overflow-hidden">
+                                        className="w-full h-14 bg-muted/50 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:border-primary transition-all overflow-hidden">
                                         {previewCard.photo
                                             ? <img src={previewCard.photo} className="w-full h-full object-cover" alt="" />
-                                            : <><Camera size={14} className="text-zinc-300" /><span className="text-[7px] font-black uppercase text-zinc-400">Upload Photo</span></>
+                                            : <><Camera size={14} className="text-muted-foreground" /><span className="text-[7px] font-black uppercase text-muted-foreground">Upload Photo</span></>
                                         }
                                     </button>
                                     <input id="photo-input" type="file" hidden accept="image/*"
@@ -628,24 +628,24 @@ const Dashboard: React.FC = () => {
                             {/* Back side */}
                             <div className="space-y-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-900">
                                 <div className="flex items-center gap-1.5">
-                                    <MapPin size={9} className="text-zinc-400" />
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Back Side</p>
+                                    <MapPin size={9} className="text-muted-foreground" />
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Back Side</p>
                                 </div>
                                 <OverrideField label="Guardian Name" value={previewCard.guardian_name || ''} onChange={v => updateOverride('guardian_name', v)} />
                                 <div className="space-y-1">
-                                    <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider block">Address</span>
+                                    <span className="text-[8px] font-black text-muted-foreground uppercase tracking-wider block">Address</span>
                                     <textarea value={previewCard.address || ''} onChange={e => updateOverride('address', e.target.value)}
-                                        className="w-full bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:border-zinc-500 transition-colors h-12 resize-none" />
+                                        className="w-full bg-muted/50 border border-border rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-foreground outline-none focus:border-primary transition-colors h-12 resize-none" />
                                 </div>
                                 <OverrideField label="Guardian Contact" value={previewCard.guardian_contact || ''} onChange={v => updateOverride('guardian_contact', v)} />
                                 {/* Signature */}
                                 <div className="space-y-1">
                                     <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider block">Signature</span>
                                     <button onClick={() => document.getElementById('sig-input')?.click()}
-                                        className="w-full h-14 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex flex-col items-center justify-center gap-1 hover:border-zinc-400 transition-all overflow-hidden">
+                                        className="w-full h-14 bg-muted/50 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:border-primary transition-all overflow-hidden">
                                         {previewCard.signature
                                             ? <img src={previewCard.signature} className="w-full h-full object-contain p-1.5" alt="" />
-                                            : <><RefreshCw size={14} className="text-zinc-300" /><span className="text-[7px] font-black uppercase text-zinc-400">Upload Sig.</span></>
+                                            : <><RefreshCw size={14} className="text-muted-foreground" /><span className="text-[7px] font-black uppercase text-muted-foreground">Upload Sig.</span></>
                                         }
                                     </button>
                                     <input id="sig-input" type="file" hidden accept="image/*"
@@ -664,22 +664,22 @@ const Dashboard: React.FC = () => {
 
             {/* Confirmation Modal */}
             <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
-                <DialogContent className="sm:max-w-[400px] bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-900 p-0 overflow-hidden rounded-2xl shadow-2xl">
+                <DialogContent className="sm:max-w-[400px] bg-card border-border p-0 overflow-hidden rounded-2xl shadow-2xl">
                     <div className="p-6">
                         <div className="flex items-center gap-4 mb-6">
-                            <div className="w-12 h-12 rounded-2xl bg-teal-500/10 flex items-center justify-center shrink-0 border border-teal-500/20">
-                                <CheckCircle2 className="text-teal-500" size={24} />
+                            <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+                                <CheckCircle2 className="text-primary" size={24} />
                             </div>
                             <div>
-                                <h3 className="text-lg font-black text-zinc-900 dark:text-white uppercase tracking-tight">Confirm Applicants</h3>
-                                <p className="text-xs font-medium text-zinc-500 mt-1">
-                                    You are about to move <span className="text-zinc-900 dark:text-zinc-100 font-bold">{idsToConfirm.length}</span> applicant(s) to the issued list.
+                                <h3 className="text-lg font-black text-foreground uppercase tracking-tight">Confirm Applicants</h3>
+                                <p className="text-xs font-medium text-muted-foreground mt-1">
+                                    You are about to move <span className="text-foreground font-bold">{idsToConfirm.length}</span> applicant(s) to the issued list.
                                 </p>
                             </div>
                         </div>
 
-                        <div className="bg-zinc-50 dark:bg-zinc-900/50 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800/50 mb-6">
-                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-relaxed">
+                        <div className="bg-muted/50 rounded-xl p-4 border border-border mb-6">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-relaxed">
                                 Proceeding will update the card status for these students and move them to the "Issued / Printed" section. This action can be reversed via the dashboard if needed.
                             </p>
                         </div>
@@ -688,13 +688,13 @@ const Dashboard: React.FC = () => {
                             <Button
                                 variant="ghost"
                                 onClick={() => setIsConfirmModalOpen(false)}
-                                className="flex-1 h-11 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-all border border-zinc-200 dark:border-zinc-800"
+                                className="flex-1 h-11 rounded-xl text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:bg-muted transition-all border border-border"
                             >
                                 Cancel
                             </Button>
                             <Button
                                 onClick={executeConfirmation}
-                                className="flex-1 h-11 rounded-xl bg-teal-500 hover:bg-teal-600 text-white text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-teal-500/25 border-none"
+                                className="flex-1 h-11 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/25 border-none"
                             >
                                 Confirm & Move
                             </Button>

@@ -116,14 +116,14 @@ function ImportReports() {
                         <CardContent className="space-y-4">
                             <div
                                 className={cn(
-                                    "border-2 border-dashed rounded-2xl p-8 transition-all flex flex-col items-center justify-center text-center gap-4 group cursor-pointer",
+                                    "border-2 border-dashed rounded-lg p-8 transition-all flex flex-col items-center justify-center text-center gap-4 group cursor-pointer",
                                     file ? "border-emerald-500/50 bg-emerald-500/5" : "border-muted-foreground/20 bg-muted/30 hover:bg-muted/50 hover:border-primary/50"
                                 )}
                                 onClick={() => !file && fileInputRef.current?.click()}
                             >
                                 {!file ? (
                                     <>
-                                        <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <div className="w-14 h-14 bg-primary/10 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
                                             <CloudUpload className="h-7 w-7 text-primary" />
                                         </div>
                                         <div>
@@ -133,7 +133,7 @@ function ImportReports() {
                                     </>
                                 ) : (
                                     <>
-                                        <div className="w-14 h-14 bg-emerald-500/10 rounded-2xl flex items-center justify-center">
+                                        <div className="w-14 h-14 bg-emerald-500/10 rounded-lg flex items-center justify-center">
                                             <FileSpreadsheet className="h-7 w-7 text-emerald-500" />
                                         </div>
                                         <div className="w-full">
@@ -144,7 +144,7 @@ function ImportReports() {
                                             <Button
                                                 onClick={(e) => { e.stopPropagation(); handleUpload(); }}
                                                 disabled={uploading}
-                                                className="w-full bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20"
+                                                className="w-full bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 rounded-lg"
                                             >
                                                 {uploading ? (
                                                     <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Processing</>

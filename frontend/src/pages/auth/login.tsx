@@ -42,7 +42,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-full flex items-center justify-center bg-slate-50 relative overflow-hidden font-sans">
+    <div className="h-full w-full flex items-center justify-center bg-slate-50 relative overflow-hidden font-sans">
       {/* Background Image with Overlay */}
       <div className="absolute inset-0 bg-white backdrop-blur-[5px]" />
 

@@ -53,12 +53,12 @@ export const DistributionDetailModal: React.FC<{
                                 </Pie>
                                 <Tooltip
                                     contentStyle={{
-                                        backgroundColor: '#ffffff',
-                                        border: '1px solid #e2e8f0',
-                                        borderRadius: '12px',
+                                        backgroundColor: 'hsl(var(--card))',
+                                        border: '1px solid hsl(var(--border))',
+                                        borderRadius: 'var(--radius)',
                                         fontSize: '10px',
                                         fontWeight: '700',
-                                        color: '#0f172a',
+                                        color: 'hsl(var(--foreground))',
                                         textTransform: 'uppercase',
                                         letterSpacing: '0.05em'
                                     }}
@@ -72,8 +72,8 @@ export const DistributionDetailModal: React.FC<{
 
                         {/* Center total */}
                         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total</span>
-                            <span className="text-3xl font-black text-slate-900 tabular-nums tracking-tighter">{total.toLocaleString()}</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total</span>
+                            <span className="text-3xl font-black text-foreground tabular-nums tracking-tighter">{total.toLocaleString()}</span>
                         </div>
                     </div>
 
@@ -82,21 +82,21 @@ export const DistributionDetailModal: React.FC<{
                         {sorted.slice(0, 10).map((d, i) => (
                             <div key={d.name} className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#00928a', opacity: 1 - (i * 0.08) }} />
-                                <span className="text-[9px] font-bold text-slate-400 uppercase truncate tracking-widest">{d.name}</span>
+                                <span className="text-[9px] font-bold text-muted-foreground uppercase truncate tracking-widest">{d.name}</span>
                             </div>
                         ))}
                     </div>
                 </div>
 
                 {/* Table */}
-                <div className="flex-1 border border-slate-100 rounded-2xl overflow-hidden self-start bg-white shadow-sm">
+                <div className="flex-1 border border-border rounded-lg overflow-hidden self-start bg-card shadow-sm">
                     <table className="w-full text-[10px]">
                         <thead>
-                            <tr className="bg-slate-50/50 border-b border-slate-100">
-                                <th className="px-4 py-3 text-left font-bold text-slate-400 uppercase tracking-widest">Section</th>
-                                <th className="px-4 py-3 text-right font-bold text-slate-400 uppercase tracking-widest">Total</th>
-                                <th className="px-4 py-3 text-right font-bold text-slate-400 uppercase tracking-widest">Percentage</th>
-                                <th className="px-4 py-3 text-slate-400 font-bold uppercase tracking-widest text-center">Status</th>
+                            <tr className="bg-muted/50 border-b border-border">
+                                <th className="px-4 py-3 text-left font-bold text-muted-foreground uppercase tracking-widest">Section</th>
+                                <th className="px-4 py-3 text-right font-bold text-muted-foreground uppercase tracking-widest">Total</th>
+                                <th className="px-4 py-3 text-right font-bold text-muted-foreground uppercase tracking-widest">Percentage</th>
+                                <th className="px-4 py-3 text-muted-foreground font-bold uppercase tracking-widest text-center">Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -105,17 +105,17 @@ export const DistributionDetailModal: React.FC<{
                                     <td className="px-4 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#00928a', opacity: 1 - (i * 0.08) }} />
-                                            <span className="font-bold text-slate-700 uppercase tracking-widest group-hover:text-slate-900 transition-colors">{d.name}</span>
+                                            <span className="font-bold text-muted-foreground uppercase tracking-widest group-hover:text-foreground transition-colors">{d.name}</span>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-4 text-right font-black text-slate-900 tabular-nums">
+                                    <td className="px-4 py-4 text-right font-black text-foreground tabular-nums">
                                         {d.total.toLocaleString()}
                                     </td>
                                     <td className="px-4 py-4 text-right">
-                                        <span className="font-bold text-slate-400 tabular-nums uppercase">{d.percentage}%</span>
+                                        <span className="font-bold text-muted-foreground tabular-nums uppercase">{d.percentage}%</span>
                                     </td>
                                     <td className="px-4 py-4 w-32">
-                                        <div className="h-[2px] bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-[2px] bg-secondary rounded-full overflow-hidden">
                                             <div
                                                 className="h-full bg-primary transition-all duration-1000"
                                                 style={{
@@ -129,12 +129,12 @@ export const DistributionDetailModal: React.FC<{
                             ))}
                         </tbody>
                         <tfoot>
-                            <tr className="bg-slate-50/50 border-t border-slate-100">
-                                <td className="px-4 py-4 font-bold text-slate-400 text-[10px] uppercase tracking-widest">Total Overall</td>
+                            <tr className="bg-muted/50 border-t border-border">
+                                <td className="px-4 py-4 font-bold text-muted-foreground text-[10px] uppercase tracking-widest">Total Overall</td>
                                 <td className="px-4 py-4 text-right font-black text-primary tabular-nums text-lg">
                                     {total.toLocaleString()}
                                 </td>
-                                <td className="px-4 py-4 text-right font-bold text-slate-400 uppercase tracking-widest">Verified</td>
+                                <td className="px-4 py-4 text-right font-bold text-muted-foreground uppercase tracking-widest">Verified</td>
                                 <td />
                             </tr>
                         </tfoot>

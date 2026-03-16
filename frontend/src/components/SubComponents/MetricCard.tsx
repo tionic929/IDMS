@@ -32,19 +32,19 @@ const MetricCard: React.FC<MetricCardProps> = ({
     <Card
       onClick={onClick}
       className={cn(
-        "relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group cursor-pointer bg-white border-slate-100",
+        "relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group cursor-pointer bg-card border-border",
         className
       )}
     >
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.15em] mb-1">{title}</p>
-            <div className="text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em] mb-1">{title}</p>
+            <div className="text-2xl font-black tracking-tight text-foreground tabular-nums">
               {typeof value === 'number' ? value.toLocaleString() : value}
             </div>
           </div>
-          <div className="p-2 rounded-xl border border-slate-100 bg-slate-50 transition-transform group-hover:scale-110 duration-500 text-primary">
+          <div className="p-2 rounded-lg border border-border bg-secondary transition-transform group-hover:scale-110 duration-500 text-primary">
             <Icon size={16} strokeWidth={2.5} />
           </div>
         </div>
@@ -75,9 +75,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
             <div className="flex items-center gap-1.5">
               <div className={cn(
                 "px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider flex items-center gap-1",
-                trend === 'up' ? 'bg-emerald-50 text-emerald-600'
-                  : trend === 'down' ? 'bg-red-50 text-red-600'
-                    : 'bg-slate-50 text-slate-400'
+                trend === 'up' ? 'bg-emerald-500/10 text-emerald-600'
+                  : trend === 'down' ? 'bg-red-500/10 text-red-600'
+                    : 'bg-muted text-muted-foreground'
               )}>
                 {trend === 'up' && <TrendingUp size={10} />}
                 {trend === 'down' && <TrendingDown size={10} />}
@@ -93,7 +93,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
       </CardContent>
 
       {/* Very subtle bottom line */}
-      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-slate-100" />
+      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-border/40" />
     </Card>
   );
 };

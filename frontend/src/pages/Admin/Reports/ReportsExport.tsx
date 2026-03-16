@@ -276,12 +276,12 @@ function ReportsExport() {
                                 <button
                                     onClick={() => handleExport('summary')}
                                     disabled={!!exporting}
-                                    className="group relative flex flex-col items-center gap-4 p-8 rounded-2xl border-2 border-border bg-card hover:border-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="group relative flex flex-col items-center gap-4 p-8 rounded-lg border-2 border-border bg-card hover:border-primary hover:bg-primary/5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {exporting === 'summary' ? (
                                         <Loader2 className="h-10 w-10 text-primary animate-spin" />
                                     ) : (
-                                        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <div className="w-16 h-16 bg-primary/10 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
                                             <BarChart3 className="h-8 w-8 text-primary/60 group-hover:text-primary transition-colors" />
                                         </div>
                                     )}
@@ -296,12 +296,12 @@ function ReportsExport() {
                                 <button
                                     onClick={() => handleExport('students')}
                                     disabled={!!exporting}
-                                    className="group relative flex flex-col items-center gap-4 p-8 rounded-2xl border-2 border-border bg-card hover:border-emerald-500 hover:bg-emerald-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="group relative flex flex-col items-center gap-4 p-8 rounded-lg border-2 border-border bg-card hover:border-emerald-500 hover:bg-emerald-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {exporting === 'students' ? (
                                         <Loader2 className="h-10 w-10 text-emerald-500 animate-spin" />
                                     ) : (
-                                        <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <div className="w-16 h-16 bg-emerald-500/10 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
                                             <ListOrdered className="h-8 w-8 text-emerald-500/60 group-hover:text-emerald-500 transition-colors" />
                                         </div>
                                     )}
@@ -316,12 +316,12 @@ function ReportsExport() {
                                 <button
                                     onClick={() => handleExport('full')}
                                     disabled={!!exporting}
-                                    className="group relative flex flex-col items-center gap-4 p-8 rounded-2xl border-2 border-primary/30 bg-primary/5 hover:border-primary hover:bg-primary/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="group relative flex flex-col items-center gap-4 p-8 rounded-lg border-2 border-primary/30 bg-primary/5 hover:border-primary hover:bg-primary/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {exporting === 'full' ? (
                                         <Loader2 className="h-10 w-10 text-primary animate-spin" />
                                     ) : (
-                                        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <div className="w-16 h-16 bg-primary/10 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
                                             <Users className="h-8 w-8 text-primary/60 group-hover:text-primary transition-colors" />
                                         </div>
                                     )}
@@ -335,7 +335,7 @@ function ReportsExport() {
                             </div>
 
                             {/* Current filter summary */}
-                            <div className="mt-8 p-4 rounded-xl bg-muted/30 border border-border">
+                            <div className="mt-8 p-4 rounded-lg bg-muted/30 border border-border">
                                 <div className="flex items-center gap-2 mb-2">
                                     <FileSpreadsheet className="h-4 w-4 text-primary" />
                                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Current Filter Preview</span>

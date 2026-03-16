@@ -10,6 +10,8 @@ use App\Http\Controllers\DepartmentsController;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\CardLayoutController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\HistoryExportController;
+use App\Http\Controllers\NotificationController;
 
 Route::get('/user', function (Request $request) {
     return $request->user();
@@ -37,6 +39,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/logout', [AuthController::class , 'logout']);
 
+    // User Profile Routes
+    Route::put('/user/profile', [UsersController::class, 'updateProfile']);
+    Route::post('/user/avatar', [UsersController::class, 'uploadAvatar']);
+
     Route::get('/total-applicants', [ApplicantsController::class , 'applicantsReport']);
 
     Route::get('/paginated-applicants', [ApplicantsController::class , 'paginatedApplicants']);
@@ -52,6 +58,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/analytics/dashboard', [AnalyticsController::class , 'getDashboardStats']);
     Route::get('/analytics/export', [AnalyticsController::class , 'exportSpreadsheet']);
 
+    // Notification Routes
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
+
     // FOR ID CARD DESIGNER
 
     Route::prefix('card-layouts')->group(function () {
@@ -60,8 +72,11 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/{id}', [CardLayoutController::class , 'update']);
             Route::delete('/{id}', [CardLayoutController::class , 'destroy']);
             Route::post('/{id}/duplicate', [CardLayoutController::class , 'duplicate']);
+            Route::post('/upload-logo', [CardLayoutController::class , 'uploadLogo']);
         }
         );
+
+        Route::get('/history/export', [HistoryExportController::class, 'exportCsv']);
 
         Route::get('/applicants/{id}/card-preview', [ApplicantsController::class , 'getPreview']);
 
