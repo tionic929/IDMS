@@ -26,7 +26,7 @@ export const DPI = 300;
  * This provides "super-sampling" for the printer, resulting in sharper output.
  * The Python print script will automatically scale this down to fit the physical card.
  */
-export const EXPORT_PIXEL_RATIO = 2;
+export const EXPORT_PIXEL_RATIO = 3;
 
 export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 3;

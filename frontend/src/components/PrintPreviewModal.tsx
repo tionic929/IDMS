@@ -12,7 +12,8 @@ import { toast } from 'react-toastify';
 import { confirmApplicant } from '../api/students';
 import {
   PRINT_WIDTH,
-  PRINT_HEIGHT
+  PRINT_HEIGHT,
+  EXPORT_PIXEL_RATIO
 } from '../constants/dimensions';
 
 interface PrintModalProps {
@@ -38,6 +39,8 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
   const [backImage, setBackImage] = useState<string>('');
   const [isGeneratingImages, setIsGeneratingImages] = useState(true);
   const [viewingPaymentProof, setViewingPaymentProof] = useState<string | null>(null);
+  const frontStageRef = useRef<any>(null);
+  const backStageRef = useRef<any>(null);
 
   // Margin Settings
   const [marginTop, setMarginTop] = useState(0);
@@ -64,17 +67,14 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
   useEffect(() => {
     setIsGeneratingImages(true);
     const timer = setTimeout(() => {
-      const frontCanvas = document.querySelector('#front-print-stage canvas') as HTMLCanvasElement;
-      const backCanvas = document.querySelector('#back-print-stage canvas') as HTMLCanvasElement;
-
-      if (frontCanvas) {
-        setFrontImage(frontCanvas.toDataURL('image/png', 1.0));
+      if (frontStageRef.current) {
+        setFrontImage(frontStageRef.current.toDataURL({ pixelRatio: EXPORT_PIXEL_RATIO }));
       }
-      if (backCanvas) {
-        setBackImage(backCanvas.toDataURL('image/png', 1.0));
+      if (backStageRef.current) {
+        setBackImage(backStageRef.current.toDataURL({ pixelRatio: EXPORT_PIXEL_RATIO }));
       }
       setIsGeneratingImages(false);
-    }, 1000);
+    }, 1200);
 
     return () => clearTimeout(timer);
   }, [data, layout]);
@@ -512,6 +512,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
       <div className="hidden-canvas">
         <div id="front-print-stage">
           <IDCardPreview
+            ref={frontStageRef}
             data={data}
             layout={layout}
             side="FRONT"
@@ -521,6 +522,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         </div>
         <div id="back-print-stage">
           <IDCardPreview
+            ref={backStageRef}
             data={data}
             layout={layout}
             side="BACK"

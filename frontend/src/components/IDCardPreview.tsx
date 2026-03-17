@@ -33,7 +33,7 @@ const DynamicImage = memo(({ src, common }: { src: string; common: any }) => {
   return <KonvaImage {...common} image={img} />;
 });
 
-const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrinting = false }) => {
+const IDCardPreview = React.forwardRef<any, Props>(({ data, layout, side, scale = 1, isPrinting = false }, ref) => {
   const isFront = side === 'FRONT';
 
   // Improved URL generation: Ensure we get a valid path for the proxy
@@ -185,13 +185,14 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
       }}
     >
       <Stage
+        ref={ref}
         width={stageWidth}
         height={stageHeight}
         scaleX={isPrinting ? 1 : scale}
         scaleY={isPrinting ? 1 : scale}
         pixelRatio={isPrinting ? EXPORT_PIXEL_RATIO : 1}
       >
-        <Layer>
+        <Layer imageSmoothingEnabled={true}>
           {/* Ensure a solid white background for printing (prevents transparency being turned black by PIL) */}
           <Rect width={internalWidth} height={internalHeight} fill="white" />
           {Object.entries(currentLayout).map(([key, config]) => renderElement(key, config))}
@@ -199,6 +200,6 @@ const IDCardPreview: React.FC<Props> = ({ data, layout, side, scale = 1, isPrint
       </Stage>
     </div>
   );
-};
+});
 
 export default memo(IDCardPreview);
