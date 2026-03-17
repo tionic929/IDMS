@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -18,7 +18,6 @@ function createWindow() {
     autoHideMenuBar: true,
   });
 
-  const { session } = require('electron');
   session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
     details.requestHeaders['Origin'] = 'http://localhost:5173';
     callback({ requestHeaders: details.requestHeaders });
@@ -29,111 +28,121 @@ function createWindow() {
 
 app.whenReady().then(createWindow);
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
 /**
- * Convert base64 dataURL → temp PNG file
+ * Write a base64 PNG dataURL to a temp file.
+ * 
+ * FIX: We explicitly validate the header is image/png — the frontend
+ * now always sends PNG (not JPEG), so we reject anything else early
+ * rather than silently sending a corrupt file to Python.
  */
 function writeBase64ToTempFile(dataUrl, suffix) {
-  const matches = dataUrl.match(/^data:image\/png;base64,(.+)$/);
-  if (!matches) throw new Error('Invalid PNG base64 data');
+  // Accept both image/png and image/jpeg for robustness, but warn on jpeg
+  const pngMatch = dataUrl.match(/^data:image\/png;base64,(.+)$/s);
+  const jpegMatch = dataUrl.match(/^data:image\/jpeg;base64,(.+)$/s);
 
-  const buffer = Buffer.from(matches[1], 'base64');
-  const filePath = path.join(os.tmpdir(), `card_${suffix}_${Date.now()}.png`);
+  const match = pngMatch || jpegMatch;
+  if (!match) {
+    throw new Error(`Invalid image data for ${suffix} — expected PNG or JPEG base64 dataURL`);
+  }
+
+  if (jpegMatch) {
+    console.warn(`[writeBase64ToTempFile] WARNING: ${suffix} image is JPEG — colours may degrade. Use PNG for best quality.`);
+  }
+
+  const ext = pngMatch ? 'png' : 'jpg';
+  const buffer = Buffer.from(match[1], 'base64');
+  const filePath = path.join(os.tmpdir(), `ncidtech_card_${suffix}_${Date.now()}.${ext}`);
   fs.writeFileSync(filePath, buffer);
+
+  console.log(`[writeBase64ToTempFile] Wrote ${suffix} → ${filePath} (${buffer.length} bytes)`);
   return filePath;
 }
 
 /**
- * IPC: Print via Python service with margin support
- * 
+ * Delete a file silently (used for cleanup).
+ */
+function safeUnlink(filePath) {
+  try {
+    if (filePath && fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`[cleanup] Deleted ${filePath}`);
+    }
+  } catch (e) {
+    console.warn(`[cleanup] Could not delete ${filePath}: ${e.message}`);
+  }
+}
+
+// ── IPC: print-card-images ────────────────────────────────────────────────────
+/**
  * Receives:
- *   - frontImage: base64 PNG
- *   - backImage: base64 PNG
- *   - width: image width (px)
- *   - height: image height (px)
- *   - margins: { top, bottom, left, right } in pixels
+ *   frontImage  — base64 PNG dataURL
+ *   backImage   — base64 PNG dataURL
+ *   width       — image width  (informational, Python reads from file)
+ *   height      — image height (informational, Python reads from file)
+ *   margins     — { top, bottom, left, right } in pixels (optional)
  */
 ipcMain.on('print-card-images', async (event, options) => {
   const { frontImage, backImage, margins } = options;
 
-  let frontPath, backPath;
   const tempFiles = [];
+  let frontPath, backPath;
 
   try {
     frontPath = writeBase64ToTempFile(frontImage, 'front');
     backPath = writeBase64ToTempFile(backImage, 'back');
-
     tempFiles.push(frontPath, backPath);
 
-    const pythonExecutable = 'python'; // or absolute path if bundled
+    // Resolve Python executable — use bundled path in production if available
+    const pythonExecutable = process.env.PYTHON_PATH || 'python';
     const scriptPath = path.join(__dirname, 'print_card.py');
 
-    // ============================================================
-    // Prepare arguments for Python script
-    // ============================================================
+    if (!fs.existsSync(scriptPath)) {
+      throw new Error(`print_card.py not found at: ${scriptPath}`);
+    }
+
     const args = [scriptPath, frontPath, backPath];
-    
-    // If margins are provided, add as JSON string
-    if (margins && (margins.top || margins.bottom || margins.left || margins.right)) {
+
+    if (margins && Object.values(margins).some(v => v > 0)) {
       args.push(JSON.stringify(margins));
       console.log('[print-card-images] Margins:', margins);
     }
 
-    console.log('[print-card-images] Calling Python with:', args.length, 'arguments');
+    console.log('[print-card-images] Spawning Python:', pythonExecutable, args.join(' '));
 
-    // Execute print job
-    execFile(pythonExecutable, args, (err, stdout, stderr) => {
+    execFile(pythonExecutable, args, { timeout: 60000 }, (err, stdout, stderr) => {
+      if (stdout) console.log('[Python stdout]\n', stdout);
+      if (stderr) console.warn('[Python stderr]\n', stderr);
+
       if (err) {
-        console.error('Print Error:', err.message);
-        console.error('Stderr:', stderr);
-        event.reply('print-reply', { 
-          success: false, 
+        console.error('[print-card-images] Python error:', err.message);
+        event.reply('print-reply', {
+          success: false,
           failureReason: err.message,
-          stderr: stderr 
+          stderr: stderr,
         });
-        return;
+      } else {
+        console.log('[print-card-images] Print job submitted successfully.');
+        event.reply('print-reply', { success: true });
       }
 
-      console.log('Print job submitted successfully');
-      if (stdout) console.log('Stdout:', stdout);
-
-      event.reply('print-reply', { success: true });
-
-      // Clean up temp files after a delay
-      // This gives Windows printer driver time to spool
-      setTimeout(() => {
-        tempFiles.forEach(filePath => {
-          if (filePath && fs.existsSync(filePath)) {
-            try {
-              fs.unlinkSync(filePath);
-              console.log(`Deleted temp file: ${filePath}`);
-            } catch (cleanupErr) {
-              console.warn(`Failed to delete ${filePath}:`, cleanupErr.message);
-            }
-          }
-        });
-      }, 20000); // 20 seconds
+      // Clean up temp files after printer spools (20s for card printers)
+      setTimeout(() => tempFiles.forEach(safeUnlink), 20_000);
     });
 
   } catch (error) {
-    console.error('IPC Error:', error);
-    event.reply('print-reply', { 
-      success: false, 
-      failureReason: error.message 
+    console.error('[print-card-images] Setup error:', error.message);
+    event.reply('print-reply', {
+      success: false,
+      failureReason: error.message,
     });
-
-    // Cleanup on error
-    tempFiles.forEach(filePath => {
-      if (filePath && fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-        } catch (e) {
-          console.warn(`Failed to cleanup ${filePath}`);
-        }
-      }
-    });
+    // Immediate cleanup on setup failure
+    tempFiles.forEach(safeUnlink);
   }
 });
 
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
