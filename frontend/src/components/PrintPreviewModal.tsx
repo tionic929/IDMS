@@ -463,12 +463,12 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         {/* Main Viewport - Card Preview */}
         <main className="flex-1 blueprint-grid relative flex items-center justify-center overflow-auto p-12 custom-scrollbar">
           <div
-            className="flex flex-col xl:flex-row gap-12 transition-transform duration-300 ease-out"
+            className="flex flex-col xl:flex-row gap-1 transition-transform duration-300 ease-out"
             style={{ transform: `scale(${zoom})` }}
           >
             {/* Front Card */}
             <div className="flex flex-col items-center gap-4">
-              <div className={`shadow - 2xl rounded - sm overflow - hidden ${showCutLines ? 'cut-guides' : ''} `}>
+              <div className={`shadow-2xl rounded-sm overflow-hidden ${showCutLines ? 'cut-guides' : ''} `}>
                 <IDCardPreview
                   data={data}
                   layout={layout}
@@ -477,8 +477,8 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                   isPrinting={false}
                 />
               </div>
-              <div className="px-4 py-1.5 rounded-full bg-muted border border-border">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+              <div className="px-6 py-1.5 rounded-full bg-muted border border-border">
+                <span className="text-[2rem] font-bold text-muted-foreground uppercase tracking-widest">
                   Front Side
                 </span>
               </div>
@@ -487,7 +487,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             {/* Back Card */}
             <div className="flex flex-col items-center gap-4">
               <div
-                className={`shadow - 2xl rounded - sm overflow - hidden ${showCutLines ? 'cut-guides' : ''} `}
+                className={`shadow-2xl rounded-sm overflow-hidden ${showCutLines ? 'cut-guides' : ''} `}
                 style={{ transform: mirrorBack ? 'scaleX(-1)' : 'none' }}
               >
                 <IDCardPreview
@@ -498,8 +498,8 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
                   isPrinting={false}
                 />
               </div>
-              <div className="px-4 py-1.5 rounded-full bg-muted border border-border">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+              <div className="px-6 py-1.5 rounded-full bg-muted border border-border">
+                <span className="text-[2rem] font-bold text-muted-foreground uppercase tracking-widest">
                   Back Side
                 </span>
               </div>
