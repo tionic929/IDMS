@@ -6,7 +6,9 @@ use Illuminate\Http\Request;
 use App\Models\User; // 1. Import the User Model
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use App\Models\ActivityLog;
 
 class UsersController extends Controller
 {
@@ -40,6 +42,16 @@ class UsersController extends Controller
             'email'     => $validatedData['email'],
             'password'  => Hash::make($validatedData['password']),
             'role'      => $validatedData['role'],
+        ]);
+
+        // Log activity
+        ActivityLog::create([
+            'user' => auth()->user()?->name ?? 'System',
+            'action' => 'User Added',
+            'type' => 'system',
+            'details' => "New {$user->role} '{$user->name}' was added to the system.",
+            'status' => 'success',
+            'ip' => request()->ip(),
         ]);
 
         return response()->json([

@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\CardLayout;
+use App\Models\User;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 class CardLayoutController extends Controller
@@ -31,6 +34,16 @@ class CardLayoutController extends Controller
 
         $layout = CardLayout::create($validated);
 
+        // Log activity
+        ActivityLog::create([
+            'user' => auth()->user()?->name ?? 'System',
+            'action' => 'Template Created',
+            'type' => 'activity',
+            'details' => "New card template '{$layout->name}' has been created.",
+            'status' => 'info',
+            'ip' => request()->ip(),
+        ]);
+
         return response()->json($layout, 201);
     }
 
@@ -49,6 +62,16 @@ class CardLayoutController extends Controller
         ]);
 
         $layout->update($validated);
+
+        // Log activity
+        ActivityLog::create([
+            'user' => auth()->user()?->name ?? 'System',
+            'action' => 'Template Updated',
+            'type' => 'activity',
+            'details' => "Card template '{$layout->name}' has been modified.",
+            'status' => 'info',
+            'ip' => request()->ip(),
+        ]);
 
         return response()->json($layout);
     }

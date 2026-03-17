@@ -64,6 +64,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
 
+    // Activity Logs
+    Route::get('/activity-logs', [App\Http\Controllers\ActivityLogController::class, 'index']);
+
     // FOR ID CARD DESIGNER
 
     Route::prefix('card-layouts')->group(function () {

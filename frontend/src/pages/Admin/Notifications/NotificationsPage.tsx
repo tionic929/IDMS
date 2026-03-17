@@ -19,6 +19,7 @@ import api from "@/api/axios";
 import { toast } from "react-toastify";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { echo } from "@/echo";
 
 interface Notification {
     id: string;
@@ -55,6 +56,32 @@ const NotificationsPage: React.FC = () => {
     useEffect(() => {
         fetchNotifications();
     }, [fetchNotifications]);
+
+    useEffect(() => {
+        const channel = echo.channel('dashboard');
+        
+        channel.notification((notification: any) => {
+            console.log('[Echo] New Notification Received:', notification);
+            
+            // Add new notification to the top of the list if it doesn't exist
+            setNotifications(prev => {
+                if (prev.some(n => n.id === notification.id)) return prev;
+                
+                // Show toast
+                toast.info(notification.data.message || "New Update Received", {
+                    onClick: () => {
+                        if (notification.data.action_url) navigate(notification.data.action_url);
+                    }
+                });
+
+                return [notification, ...prev];
+            });
+        });
+
+        return () => {
+            echo.leaveChannel('dashboard');
+        };
+    }, [navigate]);
 
     const markAsRead = async (id: string) => {
         try {

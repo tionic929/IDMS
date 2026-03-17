@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Events\ApplicationSubmitted;
-
 use App\Models\Applicant as Student;
+use App\Models\User;
+use App\Models\ActivityLog;
+use App\Notifications\SubmissionNotification;
+use Illuminate\Support\Facades\Notification;
 
 use Illuminate\Http\Request;
 use Carbon\Carbon;
@@ -65,6 +68,16 @@ class ApplicantsController extends Controller
             Log::info("ID Card issued successfully for Student ID: {$studentId}", [
                 'student_name' => $student->full_name,
                 'issued_at' => now()
+            ]);
+
+            // Log activity
+            ActivityLog::create([
+                'user' => auth()->user()?->name ?? 'System',
+                'action' => 'ID Card Issued',
+                'type' => 'card_issuance',
+                'details' => "ID Card for {$student->full_name} ({$student->id_number}) has been marked as ISSUED.",
+                'status' => 'success',
+                'ip' => request()->ip(),
             ]);
 
             return response()->json([
@@ -209,6 +222,10 @@ class ApplicantsController extends Controller
             Log::info('Attempting to broadcast ApplicationSubmitted for Student ID: ' . $student->id);
 
             broadcast(new ApplicationSubmitted($student));
+
+            // Notify Admins about new submission (Real-time)
+            $admins = User::where('role', 'admin')->get();
+            Notification::send($admins, new SubmissionNotification($student));
 
             return response()->json([
                 'message' => 'Student saved successfully',
@@ -438,6 +455,16 @@ class ApplicantsController extends Controller
                 'archived_at' => now()
             ]);
 
+            // Log activity
+            ActivityLog::create([
+                'user' => auth()->user()?->name ?? 'System',
+                'action' => 'Applicant Archived',
+                'type' => 'activity',
+                'details' => "Applicant {$student->full_name} has been archived.",
+                'status' => 'warning',
+                'ip' => request()->ip(),
+            ]);
+
             return response()->json([
                 'message' => 'Applicant archived successfully'
             ], 200);
@@ -459,7 +486,18 @@ class ApplicantsController extends Controller
     {
         try {
             $student = Student::findOrFail($id);
+            $fullName = $student->full_name;
             $student->delete();
+
+            // Log activity
+            ActivityLog::create([
+                'user' => auth()->user()?->name ?? 'System',
+                'action' => 'Applicant Deleted',
+                'type' => 'activity',
+                'details' => "Applicant {$fullName} was permanently deleted.",
+                'status' => 'error',
+                'ip' => request()->ip(),
+            ]);
 
             return response()->json([
                 'message' => 'Applicant permanently deleted'

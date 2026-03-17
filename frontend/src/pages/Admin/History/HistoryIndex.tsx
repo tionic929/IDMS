@@ -20,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from 'react-router-dom';
 import { cn } from "@/lib/utils";
 import MetricCard from "@/components/SubComponents/MetricCard";
+import api from "@/api/axios";
 
 // Shared data and child components
 import { logs } from './logsData';
@@ -33,32 +34,45 @@ const HistoryIndex = () => {
     const [activeTab, setActiveTab] = useState("all");
     const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchLogs = useCallback(async () => {
+        setLoading(true);
+        try {
+            const params: any = {};
+            if (activeTab === 'system') params.type = 'system';
+            else if (activeTab === 'activity') params.type = 'activity';
+            
+            if (searchQuery) params.query = searchQuery;
+
+            const response = await api.get('/activity-logs', { params });
+            setLogs(response.data.data);
+        } catch (error) {
+            console.error("Failed to fetch logs:", error);
+        } finally {
+            setLoading(false);
+            setIsRefreshing(false);
+        }
+    }, [activeTab, searchQuery]);
+
+    useEffect(() => {
+        fetchLogs();
+    }, [fetchLogs]);
 
     const handleRefresh = useCallback(() => {
         setIsRefreshing(true);
-        setTimeout(() => setIsRefreshing(false), 1000);
-    }, []);
+        fetchLogs();
+    }, [fetchLogs]);
 
     const metrics = useMemo(() => {
         const total = logs.length;
         const security = logs.filter(l => l.type === 'auth' || l.status === 'warning').length;
         const success = logs.filter(l => l.status === 'success').length;
         return { total, security, success };
-    }, []);
+    }, [logs]);
 
-    const filteredLogs = useMemo(() => {
-        return logs.filter(log => {
-            const matchesSearch =
-                log.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                log.action.toLowerCase().includes(searchQuery.toLowerCase());
-
-            const isSystem = log.type === 'system' || log.type === 'auth';
-
-            if (activeTab === 'system') return matchesSearch && isSystem;
-            if (activeTab === 'activity') return matchesSearch && !isSystem;
-            return matchesSearch;
-        });
-    }, [searchQuery, activeTab]);
+    const filteredLogs = logs; // Filtering is handled by API now
 
     return (
         <div className="flex-1 bg-background text-foreground font-sans selection:bg-primary/10 transition-colors duration-300 flex flex-col min-h-full">
