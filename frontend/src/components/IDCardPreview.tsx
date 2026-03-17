@@ -83,24 +83,21 @@ const IDCardPreview = React.forwardRef<any, Props>(
         opacity: config.opacity ?? 1,
       };
 
-      // ── Photo / Signature ─────────────────────────────────────────
-      if (isAsset) {
-        const img = isPhoto ? photoImage : sigImage;
-
+      // ── Photo ─────────────────────────────────────────────────────
+      // Photo gets a white rect behind it so card background never bleeds
+      // through transparent edges, and uses object-fit:cover scaling.
+      if (isPhoto) {
         return (
           <Group key={key} x={scaledX} y={scaledY} width={scaledWidth} height={scaledHeight}
             rotation={config.rotation || 0} opacity={config.opacity ?? 1}>
 
-            {/*
-                         * FIX 1: Explicit white fill behind the photo so the card
-                         * background never bleeds through when the image is loading
-                         * or when the photo has any transparency.
-                         */}
+            {/* White backing — ensures no card background bleeds through */}
             <Rect
               x={0} y={0}
               width={scaledWidth} height={scaledHeight}
               fill="white"
               cornerRadius={scaledRadius}
+              listening={false}
             />
 
             <Group
@@ -114,33 +111,66 @@ const IDCardPreview = React.forwardRef<any, Props>(
                 ctx.closePath();
               }}
             >
-              {img ? (
+              {photoImage ? (
                 <KonvaImage
-                  image={img}
+                  image={photoImage}
                   width={scaledWidth}
                   height={scaledHeight}
-                  /*
-                   * FIX 2: Use sceneFunc to object-fit: cover so the
-                   * photo fills the box without stretching, and the
-                   * white rect behind it handles any transparent edges.
-                   */
-                  sceneFunc={(context, shape) => {
-                    const iw = img.width;
-                    const ih = img.height;
-                    // cover: scale so the shorter side fills the box
+                  // object-fit: cover — fills box without stretching
+                  sceneFunc={(context) => {
+                    const iw = photoImage.width;
+                    const ih = photoImage.height;
                     const ratio = Math.max(scaledWidth / iw, scaledHeight / ih);
                     const w = iw * ratio;
                     const h = ih * ratio;
                     const x = (scaledWidth - w) / 2;
                     const y = (scaledHeight - h) / 2;
-                    context.drawImage(img, x, y, w, h);
+                    context.drawImage(photoImage, x, y, w, h);
                   }}
                 />
               ) : (
-                // Placeholder while image loads
                 <Rect width={scaledWidth} height={scaledHeight} fill="#f1f5f9" />
               )}
             </Group>
+          </Group>
+        );
+      }
+
+      // ── Signature ─────────────────────────────────────────────────
+      // Signatures are transparent PNGs that must overlay the card
+      // background — NO white rect behind them. Uses object-fit: contain
+      // so the full signature is visible without cropping.
+      if (isSig) {
+        return (
+          <Group key={key} x={scaledX} y={scaledY} width={scaledWidth} height={scaledHeight}
+            rotation={config.rotation || 0} opacity={config.opacity ?? 1}>
+            {sigImage ? (
+              <KonvaImage
+                image={sigImage}
+                width={scaledWidth}
+                height={scaledHeight}
+                // object-fit: contain — keeps full sig visible, transparent outside
+                sceneFunc={(context) => {
+                  const iw = sigImage.width;
+                  const ih = sigImage.height;
+                  const ratio = Math.min(scaledWidth / iw, scaledHeight / ih);
+                  const w = iw * ratio;
+                  const h = ih * ratio;
+                  const x = (scaledWidth - w) / 2;
+                  const y = (scaledHeight - h) / 2;
+                  context.drawImage(sigImage, x, y, w, h);
+                }}
+              />
+            ) : (
+              // Placeholder: transparent, only shows dashed border in preview
+              <Rect
+                width={scaledWidth} height={scaledHeight}
+                fill="transparent"
+                stroke="#cbd5e1"
+                strokeWidth={1}
+                dash={[4, 4]}
+              />
+            )}
           </Group>
         );
       }
@@ -160,12 +190,12 @@ const IDCardPreview = React.forwardRef<any, Props>(
       if (isShape) {
         if (config.type === 'circle') {
           return (
-            <Circle key={key} {...common} height={scaledHeight}
+            <Circle {...common} height={scaledHeight}
               radius={scaledWidth / 2} fill={config.fill || '#00ffe1ff'} />
           );
         }
         return (
-          <Rect key={key} {...common} height={scaledHeight}
+          <Rect {...common} height={scaledHeight}
             fill={config.fill || '#00ffe1ff'} cornerRadius={scaledRadius} />
         );
       }

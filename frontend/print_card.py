@@ -45,16 +45,19 @@ DPI          = 300
 
 def composite_on_white(img: Image.Image) -> Image.Image:
     """
-    FIX 1: Flatten any alpha/transparency onto a pure white background.
-    This is critical — PIL's convert("RGB") maps transparent pixels to BLACK,
-    which was causing the painted-photo issue and dark halos around the student
-    photo border.
+    Flatten transparency onto white for the FINAL composed card PNG.
+    The card PNG exported from Konva already has the signature composited
+    correctly with transparency. This function is only called on the
+    final card image, not on individual asset files.
+
+    PIL's convert("RGB") maps transparent pixels → BLACK, which was causing
+    dark halos. This correctly maps them → WHITE instead.
     """
     if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
         background = Image.new('RGBA', img.size, (255, 255, 255, 255))
         if img.mode != 'RGBA':
             img = img.convert('RGBA')
-        background.paste(img, mask=img.split()[3])   # paste using alpha channel
+        background.paste(img, mask=img.split()[3])
         return background.convert('RGB')
     return img.convert('RGB')
 
