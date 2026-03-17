@@ -1,9 +1,11 @@
 import React from 'react';
 import { Layout, ChevronLeft, ChevronRight } from 'lucide-react';
 import Templates from './Templates';
+import { useTemplates } from '../context/TemplateContext';
 import CardDesigner from './CardDesigner';
 import type { Students } from '../types/students';
 import { cn } from "@/lib/utils";
+
 
 interface DesignerWorkspaceProps {
   selectedTemplate: any;
@@ -20,55 +22,37 @@ const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({
   setSaveCount,
   allStudents
 }) => {
+  const { templates } = useTemplates();
   const [isTemplatesCollapsed, setIsTemplatesCollapsed] = React.useState(false);
 
   return (
-    <div className="flex h-full bg-card border border-border shadow-xl overflow-hidden rounded-lg relative">
+    <div className="flex h-full bg-card border border-border overflow-hidden rounded-lg relative">
       {/* LEFT SIDEBAR: Template Library */}
       <div 
         className={cn(
-          "relative border-r border-border shrink-0 bg-muted/30 transition-all duration-500 ease-in-out group/sidebar",
-          isTemplatesCollapsed ? "w-12" : "w-64"
+          "relative border-r border-border shrink-0 bg-background/50 backdrop-blur-md transition-all duration-500 ease-in-out group/sidebar",
+          isTemplatesCollapsed ? "w-[72px]" : "w-[280px]"
         )}
       >
         {/* Toggle Button */}
         <button
           onClick={() => setIsTemplatesCollapsed(!isTemplatesCollapsed)}
           className={cn(
-            "absolute -right-3 top-1/2 -translate-y-1/2 z-50 w-6 h-12 bg-card border border-border rounded-full flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 shadow-md transition-all active:scale-90",
-            isTemplatesCollapsed ? "rotate-0" : "rotate-0"
+            "absolute -right-3 top-24 z-50 w-6 h-12 bg-card border border-border rounded-full flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 shadow-md transition-all active:scale-90",
+            isTemplatesCollapsed ? "opacity-100" : "opacity-0 group-hover/sidebar:opacity-100"
           )}
         >
           {isTemplatesCollapsed ? <ChevronRight size={14} strokeWidth={3} /> : <ChevronLeft size={14} strokeWidth={3} />}
         </button>
 
-        <div className={cn(
-          "h-full transition-all duration-500",
-          isTemplatesCollapsed ? "opacity-0 pointer-events-none -translate-x-10" : "opacity-100"
-        )}>
+        <div className="h-full">
           <Templates
             activeId={selectedTemplate?.id}
             onSelect={(t) => setSelectedTemplate(t)}
             refreshTrigger={saveCount}
+            isCollapsed={isTemplatesCollapsed}
           />
         </div>
-
-        {/* Collapsed Indicator */}
-        {isTemplatesCollapsed && (
-          <div className="absolute inset-0 flex flex-col items-center py-8 gap-6 animate-in fade-in duration-500">
-            <div className="p-2 rounded-lg bg-primary/10 text-primary flex items-center justify-center overflow-hidden w-10 h-10">
-              {selectedTemplate?.logo ? (
-                <img src={selectedTemplate.logo} alt="Logo" className="w-full h-full object-contain" />
-              ) : (
-                <Layout size={18} />
-              )}
-            </div>
-            <div className="h-px w-4 bg-border" />
-            <span className="[writing-mode:vertical-lr] text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/40 rotate-180">
-              {selectedTemplate?.name || "Templates"}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* MAIN AREA: Card Designer */}

@@ -373,56 +373,6 @@ const SideBar: React.FC<{ isCollapsed: boolean }> = ({ isCollapsed }) => {
                 </div>
             </DialogContent>
           </Dialog>
-
-          <div className="flex flex-col gap-1">
-            <NavLink
-              to="/settings"
-              style={{ height: `${40 * settings.componentScale}px` }}
-              className={({ isActive }) => cn(
-                "flex items-center px-3 rounded-xl transition-all duration-300 text-muted-foreground hover:text-foreground hover:bg-accent group overflow-hidden",
-                isActive ? "bg-primary/10 text-primary" : "",
-                isCollapsed ? "justify-center" : "justify-start"
-              )}
-            >
-              <SettingsIcon 
-                className="shrink-0 transition-transform group-hover:rotate-45" 
-                style={{ width: `${16 * settings.componentScale}px`, height: `${16 * settings.componentScale}px` }}
-              />
-              <span 
-                className={cn(
-                    "font-bold ml-3 transition-all duration-300 origin-left shrink-0",
-                    isCollapsed ? "opacity-0 scale-90 -translate-x-4 pointer-events-none" : "opacity-100 scale-100"
-                )}
-                style={{ fontSize: `${12 * settings.componentScale}px` }}
-              >
-                Settings
-              </span>
-            </NavLink>
- 
-            <Button
-              variant="ghost"
-              onClick={() => logout()}
-              style={{ height: `${40 * settings.componentScale}px` }}
-              className={cn(
-                "flex items-center w-full px-3 rounded-xl transition-all duration-300 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 justify-start group overflow-hidden",
-                isCollapsed ? "justify-center" : ""
-              )}
-            >
-              <LogOut 
-                className="shrink-0 transition-transform group-hover:-translate-x-0.5" 
-                style={{ width: `${16 * settings.componentScale}px`, height: `${16 * settings.componentScale}px` }}
-              />
-              <span 
-                className={cn(
-                    "font-bold ml-3 transition-all duration-300 origin-left shrink-0",
-                    isCollapsed ? "opacity-0 scale-90 -translate-x-4 pointer-events-none" : "opacity-100 scale-100"
-                )}
-                style={{ fontSize: `${12 * settings.componentScale}px` }}
-              >
-                Sign Out
-              </span>
-            </Button>
-          </div>
         </div>
       </aside>
 

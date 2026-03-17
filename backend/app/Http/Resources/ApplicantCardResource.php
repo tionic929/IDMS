@@ -24,13 +24,13 @@ class ApplicantCardResource extends JsonResource
             'guardian_contact' => $this->guardian_contact,
             'address'   => $this->address,
             'photo'     => $this->id_picture
-                ? asset('storage/' . $this->id_picture)
+                ? route('proxy.image', ['path' => $this->id_picture])
                 : null,
             'signature' => $this->signature_picture
-                ? asset('storage/' . $this->signature_picture)
+                ? route('proxy.image', ['path' => $this->signature_picture])
                 : null,
             'paymentProof' => $this->payment_proof
-                ? asset('storage/' . $this->payment_proof)
+                ? route('proxy.image', ['path' => $this->payment_proof])
                 : null,
             'reissuance_reason' => $this->reissuance_reason,
         ];

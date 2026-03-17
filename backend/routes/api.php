@@ -24,7 +24,7 @@ Route::get('/proxy-image', function (Request $request) {
         return response()->json(['error' => 'File not found'], 404);
 
     return Storage::disk('public')->response($path);
-});
+})->name('proxy.image');
 
 Route::post('/login', [AuthController::class , 'login'])->name('login');
 Route::post('/register', [AuthController::class , 'register'])->name('register');

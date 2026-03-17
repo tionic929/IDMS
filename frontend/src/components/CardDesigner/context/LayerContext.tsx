@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { useDesignerContext } from './DesignerContext';
 import { reorderLayer } from '../../../utils/designerUtils';
 import { DESIGN_WIDTH, DESIGN_HEIGHT } from '../../../constants/dimensions';
+import { uploadTemplateLogo } from '../../../api/templates';
 
 interface LayerContextType {
   selectedIds: string[];
@@ -131,26 +132,10 @@ export const LayerProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const handleImageUpload = useCallback(async (file: File) => {
     if (!file) return;
 
-    const formData = new FormData();
-    formData.append('image', file);
-
     const uploadToast = toast.loading("Uploading image...");
 
     try {
-      // Assuming a generic API utility exists or using fetch
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/card-layouts/upload-logo`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        },
-        body: formData
-      });
-
-      if (!response.ok) throw new Error('Upload failed');
-
-      const data = await response.json();
+      const data = await uploadTemplateLogo(file);
       const src = data.url;
 
       const img = new Image();

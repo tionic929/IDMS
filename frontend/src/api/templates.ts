@@ -55,8 +55,6 @@ export const saveLayout = async (templateId: number, name: string, config: any, 
 export const uploadTemplateLogo = async (file: File) => {
     const formData = new FormData();
     formData.append('image', file);
-    const response = await api.post('/card-layouts/upload-logo', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-    });
+    const response = await api.post('/card-layouts/upload-logo', formData);
     return response.data; // { url: '...', path: '...' }
 }

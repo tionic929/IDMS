@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CardLayout;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class CardLayoutController extends Controller
 {
@@ -39,7 +40,7 @@ class CardLayoutController extends Controller
     public function update(Request $request, $id)
     {
         $layout = CardLayout::findOrFail($id);
-        
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'logo' => 'sometimes|nullable|string',
@@ -55,7 +56,7 @@ class CardLayoutController extends Controller
     public function destroy($id)
     {
         $layout = CardLayout::findOrFail($id);
-        
+
         if ($layout->is_active) {
             return response()->json(['error' => 'Cannot delete the active template'], 400);
         }
@@ -81,16 +82,20 @@ class CardLayoutController extends Controller
     public function uploadLogo(Request $request)
     {
         $request->validate([
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
         ]);
 
         if ($request->hasFile('image')) {
             $image = $request->file('image');
-            $fileName = time() . '_' . $image->getClientOriginalName();
+            $originalName = pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME);
+            $extension = $image->getClientOriginalExtension();
+            $sluggedName = Str::slug($originalName);
+            $fileName = time() . '_' . $sluggedName . '.' . $extension;
+
             $path = $image->storeAs('logos', $fileName, 'public');
-            
+
             return response()->json([
-                'url' => asset('storage/' . $path),
+                'url' => route('proxy.image', ['path' => $path]),
                 'path' => $path
             ]);
         }

@@ -83,8 +83,21 @@ const PendingRow = React.memo(({
                 ? <CheckSquare size={13} className="text-primary" />
                 : <Square size={13} className="opacity-20 group-hover:opacity-50 transition-opacity" />}
         </TableCell>
-        <TableCell className="py-2">
-            <p className="text-[10px] font-black uppercase text-foreground leading-tight">{student.last_name}, {student.first_name}</p>
+        <TableCell className="py-2 min-w-[200px]">
+            <div className="flex items-center gap-3">
+                <div className="flex flex-col">
+                    <span className="text-[7px] text-primary/70 font-bold uppercase leading-tight mb-0.5 tracking-wider">Inputted Name</span>
+                    <p className={cn("text-[10px] font-black uppercase leading-tight", 
+                        student.manual_full_name ? "text-primary" : "text-muted-foreground/30 italic")}>
+                        {student.manual_full_name || 'No Input'}
+                    </p>
+                </div>
+                <div className="w-px h-6 bg-border mx-1"></div>
+                <div className="flex flex-col">
+                    <span className="text-[7px] text-muted-foreground font-bold uppercase leading-tight mb-0.5 tracking-wider">Original Name</span>
+                    <p className="text-[9px] font-bold uppercase text-muted-foreground leading-tight">{student.first_name} {student.middle_initial ? `${student.middle_initial} ` : ''}{student.last_name}</p>
+                </div>
+            </div>
         </TableCell>
         <TableCell className="py-2 font-mono text-[9px] font-bold text-muted-foreground">{student.id_number}</TableCell>
         <TableCell className="py-2">
@@ -116,8 +129,21 @@ const ConfirmedRow = React.memo(({
             isActive ? 'bg-primary/10 hover:bg-primary/15' : 'hover:bg-accent/40'
         )}
     >
-        <TableCell className="pl-4 py-2">
-            <p className="text-[10px] font-black uppercase text-foreground leading-tight">{student.last_name}, {student.first_name}</p>
+        <TableCell className="pl-4 py-2 min-w-[200px]">
+            <div className="flex items-center gap-3">
+                <div className="flex flex-col">
+                    <span className="text-[7px] text-primary/70 font-bold uppercase leading-tight mb-0.5 tracking-wider">Inputted Name</span>
+                    <p className={cn("text-[10px] font-black uppercase leading-tight", 
+                        student.manual_full_name ? "text-primary" : "text-muted-foreground/30 italic")}>
+                        {student.manual_full_name || 'No Input'}
+                    </p>
+                </div>
+                <div className="w-px h-6 bg-border mx-1"></div>
+                <div className="flex flex-col">
+                    <span className="text-[7px] text-muted-foreground font-bold uppercase leading-tight mb-0.5 tracking-wider">Original Name</span>
+                    <p className="text-[9px] font-bold uppercase text-muted-foreground leading-tight">{student.first_name} {student.middle_initial ? `${student.middle_initial} ` : ''}{student.last_name}</p>
+                </div>
+            </div>
         </TableCell>
         <TableCell className="py-2 font-mono text-[9px] font-bold text-muted-foreground">{student.id_number}</TableCell>
         <TableCell className="py-2">
@@ -264,11 +290,13 @@ const Dashboard: React.FC = () => {
     const previewLayout = useMemo(() => getLayout(previewStudent), [previewStudent, getLayout]);
 
     // Build preview card with overrides
-    const previewCard = useMemo((): ApplicantCard | null => {
+    const previewCard = useMemo((): (ApplicantCard & { originalFullName: string }) | null => {
         if (!previewStudent) return null;
         const base = toCard(previewStudent);
+        const originalFullName = `${previewStudent.first_name} ${previewStudent.middle_initial ? `${previewStudent.middle_initial} ` : ''}${previewStudent.last_name}`;
         return {
             ...base,
+            originalFullName,
             fullName: overrides.fullName ?? base.fullName,
             idNumber: overrides.idNumber ?? base.idNumber,
             course: overrides.course ?? base.course,
@@ -510,12 +538,30 @@ const Dashboard: React.FC = () => {
                 {previewStudent && previewCard && previewLayout ? (
                     <>
                         {/* Cards */}
-                        <div className="flex-1 overflow-auto custom-scrollbar flex items-center justify-center gap-8 p-8">
-                            <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-border shrink-0">
-                                <IDCardPreview data={previewCard} layout={previewLayout} side="FRONT" scale={previewScale} />
+                        <div className="flex-1 overflow-auto custom-scrollbar flex flex-col items-center justify-center p-8">
+                            <div className="flex items-center justify-center gap-8 mb-8">
+                                <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-border shrink-0">
+                                    <IDCardPreview data={previewCard} layout={previewLayout} side="FRONT" scale={previewScale} />
+                                </div>
+                                <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-border shrink-0">
+                                    <IDCardPreview data={previewCard} layout={previewLayout} side="BACK" scale={previewScale} />
+                                </div>
                             </div>
-                            <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-border shrink-0">
-                                <IDCardPreview data={previewCard} layout={previewLayout} side="BACK" scale={previewScale} />
+                            
+                            {/* Comparison Banner */}
+                            <div className="flex items-center gap-6 bg-card/80 backdrop-blur-sm border border-border px-8 py-4 rounded-2xl shadow-xl">
+                                <div className="flex flex-col items-center">
+                                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 opacity-60">NAME (ORIGINAL)</span>
+                                    <p className="text-xl font-black uppercase text-foreground/40">{previewCard.originalFullName}</p>
+                                </div>
+                                <div className="w-px h-10 bg-border mx-2"></div>
+                                <div className="flex flex-col items-center">
+                                    <span className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">MANUAL NAME (FROM DB)</span>
+                                    <p className={cn("text-2xl font-black uppercase tracking-tight", 
+                                        previewCard.manual_full_name ? "text-primary" : "text-muted-foreground/30 italic")}>
+                                        {previewCard.manual_full_name || 'No Input'}
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
@@ -607,7 +653,13 @@ const Dashboard: React.FC = () => {
                                     <UserIcon size={9} className="text-muted-foreground" />
                                     <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Front Side</p>
                                 </div>
-                                <OverrideField label="Full Name" value={previewCard.fullName || ''} onChange={v => updateOverride('fullName', v)} />
+                                <div className="space-y-1 opacity-60">
+                                    <span className="text-[8px] font-black text-muted-foreground uppercase tracking-wider block">Original Name</span>
+                                    <div className="w-full bg-muted/30 border border-border/50 rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-muted-foreground cursor-not-allowed">
+                                        {previewCard.originalFullName}
+                                    </div>
+                                </div>
+                                <OverrideField label="Manual Full Name" value={previewCard.fullName || ''} onChange={v => updateOverride('fullName', v)} />
                                 <OverrideField label="Course / Dept." value={previewCard.course || ''} onChange={v => updateOverride('course', v)} />
                                 <OverrideField label="Student ID" value={previewCard.idNumber || ''} onChange={v => updateOverride('idNumber', v)} />
                                 {/* Photo */}
