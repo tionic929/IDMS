@@ -7,6 +7,7 @@ export interface Students {
   last_name: string;
   manual_full_name?: string;
   course: string;
+  email?: string;
   address: string;
   guardian_name: string;
   guardian_contact: string;

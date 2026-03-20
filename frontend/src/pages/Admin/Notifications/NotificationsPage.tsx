@@ -20,6 +20,7 @@ import { toast } from "react-toastify";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { echo } from "@/echo";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface Notification {
     id: string;
@@ -34,60 +35,49 @@ interface Notification {
 }
 
 const NotificationsPage: React.FC = () => {
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<'all' | 'unread'>('all');
     const [query, setQuery] = useState("");
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
-    const fetchNotifications = useCallback(async () => {
-        setLoading(true);
-        try {
+    const {
+        data: notificationsData,
+        isLoading: loading,
+        refetch,
+    } = useQuery({
+        queryKey: ['notifications'],
+        queryFn: async () => {
             const response = await api.get("/notifications");
-            setNotifications(response.data.data);
-        } catch (error) {
-            console.error("Failed to fetch notifications:", error);
-            toast.error("Failed to load notifications");
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+            return response.data.data as Notification[];
+        },
+    });
 
-    useEffect(() => {
-        fetchNotifications();
-    }, [fetchNotifications]);
+    const notifications = notificationsData || [];
 
     useEffect(() => {
         const channel = echo.channel('dashboard');
         
         channel.notification((notification: any) => {
             console.log('[Echo] New Notification Received:', notification);
-            
-            // Add new notification to the top of the list if it doesn't exist
-            setNotifications(prev => {
-                if (prev.some(n => n.id === notification.id)) return prev;
-                
-                // Show toast
-                toast.info(notification.data.message || "New Update Received", {
-                    onClick: () => {
-                        if (notification.data.action_url) navigate(notification.data.action_url);
-                    }
-                });
-
-                return [notification, ...prev];
+            toast.info(notification.data?.message || "New Update Received", {
+                onClick: () => {
+                    if (notification.data?.action_url) navigate(notification.data.action_url);
+                }
             });
+            // Invalidate cache to refetch fresh data
+            queryClient.invalidateQueries({ queryKey: ['notifications'] });
         });
 
         return () => {
             echo.leaveChannel('dashboard');
         };
-    }, [navigate]);
+    }, [navigate, queryClient]);
 
     const markAsRead = async (id: string) => {
         try {
             await api.post(`/notifications/${id}/read`);
-            setNotifications(prev => 
-                prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n)
+            queryClient.setQueryData(['notifications'], (old: Notification[] | undefined) =>
+                (old || []).map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n)
             );
         } catch (error) {
             console.error("Failed to mark as read:", error);
@@ -98,7 +88,9 @@ const NotificationsPage: React.FC = () => {
         const loadingToast = toast.loading("Marking all as read...");
         try {
             await api.post("/notifications/read-all");
-            setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
+            queryClient.setQueryData(['notifications'], (old: Notification[] | undefined) =>
+                (old || []).map(n => ({ ...n, read_at: new Date().toISOString() }))
+            );
             toast.update(loadingToast, { render: "All marked as read!", type: "success", isLoading: false, autoClose: 2000 });
         } catch (error) {
             toast.update(loadingToast, { render: "Failed to update", type: "error", isLoading: false, autoClose: 2000 });
@@ -108,7 +100,9 @@ const NotificationsPage: React.FC = () => {
     const deleteNotification = async (id: string) => {
         try {
             await api.delete(`/notifications/${id}`);
-            setNotifications(prev => prev.filter(n => n.id !== id));
+            queryClient.setQueryData(['notifications'], (old: Notification[] | undefined) =>
+                (old || []).filter(n => n.id !== id)
+            );
             toast.success("Notification deleted");
         } catch (error) {
             toast.error("Failed to delete");
@@ -166,7 +160,7 @@ const NotificationsPage: React.FC = () => {
                       <Button
                           variant="default"
                           size="sm"
-                          onClick={fetchNotifications}
+                          onClick={() => refetch()}
                           disabled={loading}
                           className="gap-2 h-9 px-5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[11px] uppercase tracking-wider rounded-lg"
                       >

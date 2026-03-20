@@ -4,6 +4,8 @@ import {
   Settings, X, ZoomIn, ZoomOut, Info, Receipt, Loader2, Mail
 } from 'lucide-react';
 import IDCardPreview from './IDCardPreview';
+import { Button } from './ui/button';
+import api from '../api/axios';
 import { type ApplicantCard } from '../types/card';
 import { Suspense, lazy } from 'react';
 
@@ -60,17 +62,15 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
   };
 
   // ── Capture high-res PNGs from the hidden Konva stage ────────────────────
-  // FIX: always use PNG (lossless) — JPEG lossy compression kills colour accuracy
   useEffect(() => {
     setIsGeneratingImages(true);
-    // Give Konva time to fully render all layers (images, fonts, gradients)
     const timer = setTimeout(() => {
       try {
         if (frontStageRef.current) {
           setFrontImage(
             frontStageRef.current.toDataURL({
               pixelRatio: EXPORT_PIXEL_RATIO,
-              mimeType: 'image/png', // lossless — never jpeg for print
+              mimeType: 'image/png',
               quality: 1,
             })
           );
@@ -89,26 +89,67 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         toast.error('Image generation failed — check console.');
       }
       setIsGeneratingImages(false);
-    }, 1500); // slightly longer to ensure all async images load inside Konva
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, [data, layout]);
 
   // ── Download ──────────────────────────────────────────────────────────────
-  const handleDownloadImages = () => {
+  const handleDownloadImages = async () => {
     if (!frontImage || !backImage) {
       toast.error('Images not ready. Please wait...');
       return;
     }
-    const dl = (href: string, name: string) => {
+
+    try {
+      const combined = await createCombinedImage(frontImage, backImage);
       const a = document.createElement('a');
-      a.download = name;
-      a.href = href;
+      a.download = `${data.idNumber}_ID_CARD.png`;
+      a.href = combined;
       a.click();
-    };
-    dl(frontImage, `${data.idNumber}_FRONT.png`);
-    setTimeout(() => dl(backImage, `${data.idNumber}_BACK.png`), 300);
-    toast.success('High-resolution images downloaded!');
+      toast.success('High-resolution combined image downloaded!');
+    } catch (err) {
+      console.error('Download error:', err);
+      toast.error('Failed to generate combined image.');
+    }
+  };
+
+  const createCombinedImage = (front: string, back: string, scale: number = 1.0, mimeType: string = 'image/png'): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const imgFront = new Image();
+      const imgBack = new Image();
+      let loadedCount = 0;
+
+      const onImageLoad = () => {
+        loadedCount++;
+        if (loadedCount === 2) {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'));
+            return;
+          }
+
+          const targetWidth = (imgFront.width + imgBack.width) * scale;
+          const targetHeight = Math.max(imgFront.height, imgBack.height) * scale;
+
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+
+          ctx.drawImage(imgFront, 0, 0, imgFront.width * scale, imgFront.height * scale);
+          ctx.drawImage(imgBack, imgFront.width * scale, 0, imgBack.width * scale, imgBack.height * scale);
+
+          resolve(canvas.toDataURL(mimeType, mimeType === 'image/jpeg' ? 0.7 : 1.0));
+        }
+      };
+
+      imgFront.onload = onImageLoad;
+      imgBack.onload = onImageLoad;
+      imgFront.onerror = () => reject(new Error('Failed to load front image'));
+      imgBack.onerror = () => reject(new Error('Failed to load back image'));
+      imgFront.src = front;
+      imgBack.src = back;
+    });
   };
 
   // ── Browser / Electron print ──────────────────────────────────────────────
@@ -118,18 +159,22 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
       return;
     }
 
+    // New flow: Download -> Email -> Print
+    handleDownloadImages();
+    await sendSoftcopyEmail();
+
     const checkIsElectron = () => {
       const win = window as ExtendedWindow;
       return !!(win.process?.type) || !!navigator.userAgent.includes('Electron');
     };
 
     const isElectron = checkIsElectron();
-    const hasRequire = typeof window.require !== 'undefined';
+    const hasRequire = typeof (window as any).require !== 'undefined';
 
     if (hasRequire || isElectron) {
       try {
         await confirmApplicant(data.id);
-        const { ipcRenderer } = window.require('electron');
+        const { ipcRenderer } = (window as any).require('electron');
 
         toast.info('Sending to local printer service...');
         ipcRenderer.send('print-card-images', {
@@ -153,7 +198,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         toast.error('Local printing failed. The Python service might be busy.');
       }
     } else {
-      // Browser fallback — trigger CSS @media print
       if (window.confirm('Mark as ISSUED and open print dialog?')) {
         try {
           await confirmApplicant(data.id);
@@ -167,29 +211,39 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
   };
 
   // ── Email ─────────────────────────────────────────────────────────────────
-  const handleEmail = () => {
-    const subject = encodeURIComponent(`Student ID Card - ${data.fullName}`);
-    const body = encodeURIComponent(
-      `Hello,\n\nYour ID card (${data.idNumber}) has been processed and is ready for pickup.\n\nDetails:\nName: ${data.fullName}\nCourse: ${data.course}\nID: ${data.idNumber}`
-    );
-    window.location.href = `mailto:${(data as any).email || ''}?subject=${subject}&body=${body}`;
-    toast.info('Opening email client...');
+  const sendSoftcopyEmail = async () => {
+    const recipientEmail = (data as any).email || '';
+
+    if (!recipientEmail) {
+      toast.error('Applicant email is missing! Cannot send softcopy.');
+      return;
+    }
+
+    try {
+      toast.info('Preparing high-quality softcopy...');
+
+      // Generate the combined full-resolution image for the backend
+      const combinedImage = await createCombinedImage(frontImage, backImage, 1.0, 'image/png');
+
+      toast.info('Sending softcopy via backend...');
+      await api.post('/send-softcopy-email', {
+        email: recipientEmail,
+        student_name: data.fullName,
+        image_data: combinedImage
+      });
+      
+      toast.success('Softcopy email sent successfully!');
+    } catch (err) {
+      console.error('Email Error:', err);
+      toast.error('Failed to send softcopy email.');
+    }
   };
 
   const totalWidth = PRINT_WIDTH + marginLeft + marginRight;
   const totalHeight = PRINT_HEIGHT + marginTop + marginBottom;
 
-  // ─────────────────────────────────────────────────────────────────────────
   return (
     <>
-      {/*
-             * ── PRINT STYLES ───────────────────────────────────────────────
-             * FIX 1: All hyphenated CSS properties had spaces injected — corrected.
-             * FIX 2: print-color-adjust: exact forces browsers to render backgrounds/
-             *        gradients/images in print rather than stripping them.
-             * FIX 3: #print-root uses the captured PNG data URLs, not a live
-             *        re-render of IDCardPreview, so colours are pixel-perfect.
-             */}
       <style>{`
 @media print {
     @page {
@@ -197,7 +251,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         size: ${PRINT_WIDTH}px ${PRINT_HEIGHT}px;
     }
 
-    /* Force ALL backgrounds, gradients and images to print */
     * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
@@ -210,7 +263,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         background: white !important;
     }
 
-    /* Hide everything except the print root */
     body > * { display: none !important; }
     #print-root { display: flex !important; }
 
@@ -247,13 +299,11 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         width: ${PRINT_WIDTH}px !important;
         height: ${PRINT_HEIGHT}px !important;
         display: block;
-        /* Prevent any anti-aliasing or browser resampling artefacts */
         image-rendering: -webkit-optimize-contrast;
         image-rendering: crisp-edges;
     }
 }
 
-/* Hidden canvas area — renders Konva offscreen for image capture */
 .hidden-canvas {
     position: absolute;
     left: -99999px;
@@ -262,7 +312,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
     visibility: hidden;
 }
 
-/* Blueprint grid background for the preview pane */
 .blueprint-grid {
     background-color: #0f172a;
     background-size: 30px 30px;
@@ -271,7 +320,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         linear-gradient(to bottom, rgba(100, 116, 139, 0.1) 1px, transparent 1px);
 }
 
-/* Cut guide overlay */
 .cut-guides {
     position: relative;
 }
@@ -284,20 +332,14 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
     pointer-events: none;
 }
 
-/* Scrollbar */
 .custom-scrollbar::-webkit-scrollbar       { width: 6px; height: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
 `}</style>
 
-      {/* ── Modal container ─────────────────────────────────────────── */}
       <div className="fixed inset-0 z-[100] flex bg-background text-foreground overflow-hidden">
-
-        {/* ── Left sidebar ──────────────────────────────────────────── */}
         <aside className="w-[30vw] h-full bg-card border-r border-border flex flex-col shrink-0 shadow-xl">
-
-          {/* Header */}
           <div className="p-6 border-b border-border flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-foreground">Print Settings</h2>
@@ -308,10 +350,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             </button>
           </div>
 
-          {/* Scrollable controls */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-
-            {/* Zoom */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -337,7 +376,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
               </div>
             </div>
 
-            {/* Display options */}
             <div className="space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Display Options
@@ -368,7 +406,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
               </div>
             </div>
 
-            {/* Margin settings */}
             <div className="space-y-3">
               <span className="flex flex-row justify-between items-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Margin Settings
@@ -403,7 +440,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
               </div>
             </div>
 
-            {/* Output specs */}
             <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
               <div className="flex items-center gap-2 text-primary mb-2">
                 <Info size={14} />
@@ -435,7 +471,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
               </div>
             </div>
 
-            {/* Image generation status */}
             {isGeneratingImages && (
               <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500">
                 <Loader2 size={14} className="animate-spin shrink-0" />
@@ -450,17 +485,11 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
             )}
           </div>
 
-          {/* Action buttons */}
           <div className="p-6 bg-muted/50 border-t border-border space-y-3">
             <button onClick={handleDownloadImages} disabled={isGeneratingImages}
               className="w-full py-2.5 px-4 bg-secondary hover:bg-accent text-foreground rounded-lg font-bold text-xs uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
               <Download size={14} />
               {isGeneratingImages ? 'Processing…' : 'Download PNG'}
-            </button>
-            <button onClick={handleEmail} disabled={isGeneratingImages}
-              className="w-full py-2.5 px-4 bg-secondary hover:bg-accent text-foreground rounded-lg font-bold text-xs uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-              <Mail size={14} />
-              Email Notification
             </button>
             <button onClick={handleSilentPrint} disabled={isGeneratingImages}
               className="w-full py-3 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg font-bold text-xs uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-primary/20">
@@ -477,17 +506,11 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
           </div>
         </aside>
 
-        {/* ── Main preview pane ──────────────────────────────────────── */}
         <main className="flex-1 blueprint-grid relative flex items-center justify-center overflow-auto p-12 custom-scrollbar">
-          {/*
-                     * Preview uses live IDCardPreview (good for interactivity).
-                     * The actual PRINT path uses captured PNG images (see #print-root below).
-                     */}
           <div
             className="flex flex-col xl:flex-row gap-10 transition-transform duration-300 ease-out"
             style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
           >
-            {/* Front */}
             <div className="flex flex-col items-center gap-4">
               <div className={`shadow-2xl rounded-sm overflow-hidden ${showCutLines ? 'cut-guides' : ''}`}>
                 <IDCardPreview data={data} layout={layout} side="FRONT" scale={1} isPrinting={false} />
@@ -497,7 +520,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
               </div>
             </div>
 
-            {/* Back */}
             <div className="flex flex-col items-center gap-4">
               <div
                 className={`shadow-2xl rounded-sm overflow-hidden ${showCutLines ? 'cut-guides' : ''}`}
@@ -513,12 +535,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         </main>
       </div>
 
-      {/*
-             * ── HIDDEN KONVA STAGE ──────────────────────────────────────────
-             * Renders IDCardPreview in isPrinting=true mode offscreen so we can
-             * call .toDataURL() and capture pixel-perfect PNG images.
-             * These are never shown to the user — only used for image capture.
-             */}
       <div className="hidden-canvas" aria-hidden="true">
         <div id="front-print-stage">
           <IDCardPreview
@@ -542,16 +558,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         </div>
       </div>
 
-      {/*
-             * ── PRINT-ONLY ROOT ─────────────────────────────────────────────
-             * FIX: uses the captured PNG data URLs instead of re-rendering
-             * IDCardPreview. This guarantees:
-             *   - Colours are identical to what the canvas produced (no CSS
-             *     colour-space shifts between screen and print rendering)
-             *   - Gradients, backgrounds and images are preserved (combined with
-             *     print-color-adjust: exact in the <style> block above)
-             *   - No Konva re-render race conditions during print
-             */}
       <div id="print-root" style={{ display: 'none' }}>
         <div
           className="print-page"
@@ -594,7 +600,6 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
         </div>
       </div>
 
-      {/* Payment proof modal */}
       {viewingPaymentProof && (
         <Suspense fallback={
           <div className="fixed inset-0 bg-black/40 z-[110] flex items-center justify-center">

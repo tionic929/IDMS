@@ -54,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/applicant/{student}', [ApplicantsController::class , 'destroy']);
     Route::post('/confirm-applicant/{studentId}', [ApplicantsController::class , 'updateApplicantsExcelFile']);
     Route::post('/confirm/{studentId}', [ApplicantsController::class , 'confirm']);
+    Route::post('/send-softcopy-email', [ApplicantsController::class , 'sendSoftcopyEmail']);
 
     Route::get('/analytics/dashboard', [AnalyticsController::class , 'getDashboardStats']);
     Route::get('/analytics/export', [AnalyticsController::class , 'exportSpreadsheet']);

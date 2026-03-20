@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import api from "@/api/axios";
 import { formatDistanceToNow } from "date-fns";
+import { echo } from "@/echo";
 
 interface HeaderProps {
   isCollapsed: boolean;
@@ -39,6 +40,7 @@ const PAGE_META: Record<string, { title: string; subtitle?: string }> = {
   '/card-management': { title: 'Card Management', subtitle: 'Records' },
   '/card-designer': { title: 'Card Management', subtitle: 'Designer' },
   '/applicants': { title: 'Reports', subtitle: 'Applicants' },
+  '/reports/archived': { title: 'Reports', subtitle: 'Archived' },
   '/departments': { title: 'Reports', subtitle: 'Departments' },
   '/reports/import': { title: 'Reports', subtitle: 'Import' },
   '/history': { title: 'History', subtitle: 'Logs' },
@@ -62,20 +64,36 @@ export default function Header({ isCollapsed, setIsCollapsed }: HeaderProps) {
     try {
       const response = await api.get("/notifications");
       const data = response.data.data || [];
-      setNotifications(data.slice(0, 5)); // Only show latest 5
+      setNotifications(data.slice(0, 5));
       setUnreadCount(data.filter((n: Notification) => !n.read_at).length);
     } catch (error) {
       console.error("Header notifications fetch failed:", error);
     }
   };
 
+  // Fetch once on mount
   useEffect(() => {
-    if (user) {
+    if (user) fetchNotifications();
+  }, [user]);
+
+  // Real-time updates via Pusher/Echo instead of polling
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = echo.channel('dashboard');
+
+    // Listen for new application submissions
+    const handleNewEvent = () => {
       fetchNotifications();
-      // Optional: Poll every 60 seconds
-      const interval = setInterval(fetchNotifications, 60000);
-      return () => clearInterval(interval);
-    }
+    };
+
+    channel.listen('.new-submission', handleNewEvent);
+    channel.listen('new-submission', handleNewEvent);
+
+    return () => {
+      channel.stopListening('.new-submission');
+      channel.stopListening('new-submission');
+    };
   }, [user]);
 
   const markAsRead = async (id: string, e: React.MouseEvent) => {

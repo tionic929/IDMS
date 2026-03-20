@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { importReports, getImportedReports } from "@/api/reports";
 import {
     CloudUpload, FileSpreadsheet, CheckCircle2,
@@ -21,18 +21,16 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 
 function ImportReports() {
     const [query, setQuery] = useState("");
     const [page, setPage] = useState(1);
-    const [lastPage, setLastPage] = useState(1);
-    const [loading, setLoading] = useState(true);
     const [file, setFile] = useState<File | null>(null);
-    const [uploading, setUploading] = useState(false);
-    const [importedReports, setImportedReports] = useState<ImportedReportsPayload[]>([]);
     const [status, setStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const queryClient = useQueryClient();
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -41,47 +39,42 @@ function ImportReports() {
         }
     };
 
-    const fetchImportedReports = async (pageNum = 1, search = "") => {
-        setLoading(true);
-        try {
-            const response = await getImportedReports(pageNum, search);
-            setImportedReports(response.data);
-            setPage(response.current_page);
-            setLastPage(response.last_page);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    }
+    const {
+        data: paginatedData,
+        isLoading: loading,
+    } = useQuery({
+        queryKey: ['importedReports', page, query],
+        queryFn: () => getImportedReports(page, query),
+    });
+
+    const importedReports = paginatedData?.data || [];
+    const currentPage = paginatedData?.current_page || 1;
+    const lastPage = paginatedData?.last_page || 1;
+
+    const uploadMutation = useMutation({
+        mutationFn: (formData: FormData) => importReports(formData),
+        onSuccess: () => {
+            setStatus({ type: 'success', msg: "Data imported successfully!" });
+            setFile(null);
+            queryClient.invalidateQueries({ queryKey: ['importedReports'] });
+        },
+        onError: (error: any) => {
+            setStatus({ type: 'error', msg: error.response?.data?.message || "Import failed" });
+        },
+    });
 
     const handleUpload = async () => {
         if (!file) return;
         const formData = new FormData();
         formData.append("file", file);
-
-        setUploading(true);
-        try {
-            await importReports(formData);
-            setStatus({ type: 'success', msg: "Data imported successfully!" });
-            setFile(null);
-            fetchImportedReports(1, query);
-        } catch (error: any) {
-            setStatus({ type: 'error', msg: error.response?.data?.message || "Import failed" });
-        } finally {
-            setUploading(false);
-        }
+        uploadMutation.mutate(formData);
     };
 
     const handlePageChange = (newPage: number) => {
         if (newPage >= 1 && newPage <= lastPage) {
-            fetchImportedReports(newPage, query);
+            setPage(newPage);
         }
     };
-
-    useEffect(() => {
-        fetchImportedReports(1, query);
-    }, []);
 
     return (
         <div className="max-w-[1400px] mx-auto p-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -99,7 +92,7 @@ function ImportReports() {
                         placeholder="Filter synchronization log..."
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && fetchImportedReports(1, query)}
+                        onKeyDown={(e) => e.key === 'Enter' && setPage(1)}
                         className="pl-10 h-11 shadow-sm"
                     />
                 </div>
@@ -143,10 +136,10 @@ function ImportReports() {
                                         <div className="flex flex-col w-full gap-2 mt-2">
                                             <Button
                                                 onClick={(e) => { e.stopPropagation(); handleUpload(); }}
-                                                disabled={uploading}
+                                                disabled={uploadMutation.isPending}
                                                 className="w-full bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 rounded-lg"
                                             >
-                                                {uploading ? (
+                                                {uploadMutation.isPending ? (
                                                     <><RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Processing</>
                                                 ) : "Initiate Import"}
                                             </Button>

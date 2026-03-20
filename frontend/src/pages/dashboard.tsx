@@ -31,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { cn } from "@/lib/utils";
 import { useStudents } from '@/context/StudentContext';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
+import { useQuery } from '@tanstack/react-query';
 
 const ErrorBoundary = ({ error, retry }: { error: any; retry: () => void }) => (
   <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6 flex items-start gap-4">
@@ -195,15 +196,9 @@ const DepartmentFilter = ({ departments, selectedDept, onChange }: { departments
 
 const Dashboard = () => {
   const { allStudents, loading: studentsLoading } = useStudents();
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<any>({ label: 'Last 30 days', days: 30 });
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
-  const [availableDepts, setAvailableDepts] = useState<string[]>([]);
   const [visibleMetrics, setVisibleMetrics] = useState({
     totalApplications: true,
     pendingApplications: true,
@@ -217,61 +212,29 @@ const Dashboard = () => {
   const [velocityModalOpen, setVelocityModalOpen] = useState(false);
   const [distModalOpen, setDistModalOpen] = useState(false);
 
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const filters: DashboardFilters = useMemo(() => ({
+    days: dateRange.days,
+    ...(selectedDept && { department: selectedDept }),
+  }), [dateRange.days, selectedDept]);
 
-  const fetchData = useCallback(async (isManualRefresh = false) => {
-    try {
-      if (isManualRefresh) setIsRefreshing(true);
-      else setLoading(true);
+  const {
+    data,
+    isLoading: loading,
+    isFetching: isRefreshing,
+    error,
+    refetch,
+    dataUpdatedAt,
+  } = useQuery({
+    queryKey: ['dashboard', filters],
+    queryFn: () => fetchDashboardData(filters),
+    staleTime: 1000 * 60 * 5,
+  });
 
-      abortControllerRef.current = new AbortController();
-
-      const filters: DashboardFilters = {
-        days: dateRange.days,
-        ...(selectedDept && { department: selectedDept }),
-      };
-
-      const response = await fetchDashboardData(filters);
-
-      if (!response?.summary) {
-        throw new Error('Invalid data format received from server');
-      }
-
-      setData(response);
-      setLastUpdate(new Date());
-      setError(null);
-
-      const depts = response.departments.full_list.map(d => d.name);
-      setAvailableDepts(depts);
-    } catch (err) {
-      if (err instanceof Error && err.name !== 'AbortError') {
-        setError(err);
-        console.error('Dashboard fetch failed:', err);
-      }
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [dateRange.days, selectedDept]);
-
-  useEffect(() => {
-    fetchData();
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, [fetchData]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchData(false);
-    }, 120000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
+  const lastUpdate = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
+  const availableDepts = data?.departments?.full_list?.map((d: any) => d.name) || [];
 
   const handleRefresh = () => {
-    fetchData(true);
+    refetch();
   };
 
   const handleDateRangeChange = (range: { days: number; label: string }) => {

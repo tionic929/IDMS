@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
     Search, Trash2, Printer, RefreshCw, CheckCircle2,
     Database, CheckSquare, Square, ZoomIn, ZoomOut, RotateCcw,
-    CreditCard, X, Camera, MapPin, User as UserIcon,
+    CreditCard, X, Camera, MapPin, User as UserIcon, Receipt,
 } from 'lucide-react';
 
 import { toast } from 'react-toastify';
@@ -50,6 +50,7 @@ const toCard = (s: Students): ApplicantCard => ({
     guardian_name: s.guardian_name,
     guardian_contact: s.guardian_contact,
     address: s.address,
+    email: s.email,
 });
 
 // ─── Zoom strip ───────────────────────────────────────────────────────────────
@@ -212,6 +213,7 @@ const Dashboard: React.FC = () => {
 
     const [previewScale, setPreviewScale] = useState(0.7);
     const [printData, setPrintData] = useState<{ student: ApplicantCard; layout: any } | null>(null);
+    const [viewingPaymentProof, setViewingPaymentProof] = useState<string | null>(null);
 
     // Confirmation Modal State
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -305,6 +307,7 @@ const Dashboard: React.FC = () => {
             guardian_name: overrides.guardian_name ?? base.guardian_name,
             guardian_contact: overrides.guardian_contact ?? base.guardian_contact,
             address: overrides.address ?? base.address,
+            email: overrides.email ?? base.email,
         };
     }, [previewStudent, overrides]);
 
@@ -404,6 +407,17 @@ const Dashboard: React.FC = () => {
             }>
                 <AnimatePresence>
                     {printData && <PrintPreviewModal data={printData.student} layout={printData.layout} onClose={() => setPrintData(null)} />}
+                </AnimatePresence>
+            </Suspense>
+
+            <Suspense fallback={null}>
+                <AnimatePresence>
+                    {viewingPaymentProof && (
+                        <PaymentProofModal
+                            url={viewingPaymentProof}
+                            onClose={() => setViewingPaymentProof(null)}
+                        />
+                    )}
                 </AnimatePresence>
             </Suspense>
 
@@ -596,6 +610,20 @@ const Dashboard: React.FC = () => {
                                     </button>
                                 )}
 
+                                {/* Payment Proof */}
+                                {previewStudent.payment_proof && (
+                                    <button
+                                        onClick={() => setViewingPaymentProof(
+                                            previewStudent.payment_proof!.startsWith('http')
+                                                ? previewStudent.payment_proof!
+                                                : `${VITE_API_URL}/storage/${previewStudent.payment_proof}`
+                                        )}
+                                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-muted hover:bg-accent border border-border text-foreground font-black text-[10px] uppercase transition-all"
+                                    >
+                                        <Receipt size={13} /> Payment Proof
+                                    </button>
+                                )}
+
                                 {/* Print */}
                                 <button
                                     onClick={handlePrintPreview}
@@ -690,6 +718,7 @@ const Dashboard: React.FC = () => {
                                         className="w-full bg-muted/50 border border-border rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-foreground outline-none focus:border-primary transition-colors h-12 resize-none" />
                                 </div>
                                 <OverrideField label="Guardian Contact" value={previewCard.guardian_contact || ''} onChange={v => updateOverride('guardian_contact', v)} />
+                                <OverrideField label="Applicant Email" value={previewCard.email || ''} onChange={v => updateOverride('email', v)} />
                                 {/* Signature */}
                                 <div className="space-y-1">
                                     <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider block">Signature</span>

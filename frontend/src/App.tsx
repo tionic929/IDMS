@@ -2,7 +2,6 @@ import React, { useEffect, useState, Suspense, lazy } from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 
 import Sidebar from "./layout/sidebar";
-// import Welcome from './pages/welcome'; // DELETED
 import Login from './pages/auth/login';
 import Register from './pages/auth/register';
 import { useAuth, type User } from './context/AuthContext';
@@ -11,21 +10,21 @@ import { ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
 import Header from './layout/header';
 
-// Lazy Load Admin Components
-// Administrative Components
-import CardDesignerPage from "./components/CardDesignerPage";
-import Dashboard from "./pages/dashboard";
-import ApplicantsIndex from "./pages/Admin/Applicants/ApplicantsIndex";
-import ImportReports from "./pages/Admin/Reports/importReports";
-import ReportsExport from "./pages/Admin/Reports/ReportsExport";
-import DepartmentList from "./pages/Admin/Departments/DepartmentsIndex";
-import CardManagement from "./pages/cardManagement";
-import SettingsPage from "./pages/Admin/Settings/SettingsPage";
-import History from "./pages/Admin/History/HistoryIndex";
-import NotificationsPage from "./pages/Admin/Notifications/NotificationsPage";
+// Lazy-loaded page components for code-splitting
+const CardDesignerPage = lazy(() => import("./components/CardDesignerPage"));
+const Dashboard = lazy(() => import("./pages/dashboard"));
+const ApplicantsIndex = lazy(() => import("./pages/Admin/Applicants/ApplicantsIndex"));
+const ArchivedApplicants = lazy(() => import("./pages/Admin/Applicants/ArchivedApplicants"));
+const ImportReports = lazy(() => import("./pages/Admin/Reports/importReports"));
+const ReportsExport = lazy(() => import("./pages/Admin/Reports/ReportsExport"));
+const DepartmentList = lazy(() => import("./pages/Admin/Departments/DepartmentsIndex"));
+const CardManagement = lazy(() => import("./pages/cardManagement"));
+const SettingsPage = lazy(() => import("./pages/Admin/Settings/SettingsPage"));
+const History = lazy(() => import("./pages/Admin/History/HistoryIndex"));
+const NotificationsPage = lazy(() => import("./pages/Admin/Notifications/NotificationsPage"));
 import { SystemSettingsProvider, useSystemSettings } from "./context/SystemSettingsContext";
 
-import DesignerWorkspace from "./components/DesignerWorkspace";
+const DesignerWorkspace = lazy(() => import("./components/DesignerWorkspace"));
 import { StudentProvider } from "./context/StudentContext";
 import { TemplateProvider } from "./context/TemplateContext";
 
@@ -140,6 +139,14 @@ const MainContent = () => {
                     element={
                       <RoleGuard allowedRoles={['admin']}>
                         <ApplicantsIndex />
+                      </RoleGuard>
+                    }
+                  />
+                  <Route
+                    path="/reports/archived"
+                    element={
+                      <RoleGuard allowedRoles={['admin']}>
+                        <ArchivedApplicants />
                       </RoleGuard>
                     }
                   />

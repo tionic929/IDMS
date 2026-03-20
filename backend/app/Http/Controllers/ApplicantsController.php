@@ -22,6 +22,8 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 use App\Http\Resources\ApplicantCardResource;
+use App\Mail\IDCardSoftcopyMail;
+use Illuminate\Support\Facades\Mail;
 
 class ApplicantsController extends Controller
 {
@@ -32,7 +34,7 @@ class ApplicantsController extends Controller
         $queueList = Student::active()->where('has_card', false)
             ->select([
                 'id', 'id_number', 'first_name', 'middle_initial', 'last_name', 'manual_full_name',
-                'course', 'address', 'guardian_name', 'guardian_contact',
+                'course', 'email', 'address', 'guardian_name', 'guardian_contact',
                 'id_picture', 'signature_picture', 'payment_proof', 'has_card', 'created_at'
             ])
             ->orderBy('created_at', 'asc')
@@ -42,7 +44,7 @@ class ApplicantsController extends Controller
         $history = Student::active()->where('has_card', true)
             ->select([
                 'id', 'id_number', 'first_name', 'middle_initial', 'last_name', 'manual_full_name',
-                'course', 'address', 'guardian_name', 'guardian_contact', 
+                'course', 'email', 'address', 'guardian_name', 'guardian_contact', 
                 'id_picture', 'signature_picture', 'payment_proof', 'has_card', 'created_at'
             ])
             ->orderBy('updated_at', 'desc')
@@ -353,6 +355,7 @@ class ApplicantsController extends Controller
             'last_name',
             'manual_full_name',
             'course',
+            'email',
             'created_at',
             'address',
             'guardian_name',
@@ -455,6 +458,19 @@ class ApplicantsController extends Controller
                 'archived_at' => now()
             ]);
 
+            // Notify applicant via email about the rejection
+            if (!empty($student->email)) {
+                try {
+                    \Illuminate\Support\Facades\Mail::to($student->email)
+                        ->send(new \App\Mail\ApplicationRejectedMail($student->full_name));
+                } catch (\Exception $mailEx) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send rejection email', [
+                        'student_id' => $id,
+                        'error' => $mailEx->getMessage()
+                    ]);
+                }
+            }
+
             // Log activity
             ActivityLog::create([
                 'user' => auth()->user()?->name ?? 'System',
@@ -511,6 +527,35 @@ class ApplicantsController extends Controller
 
             return response()->json([
                 'message' => 'Failed to delete applicant'
+            ], 500);
+        }
+    }
+
+    public function sendSoftcopyEmail(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'email' => 'required|email',
+                'student_name' => 'required|string',
+                'image_data' => 'required|string', // Base64 string
+            ]);
+
+            Mail::to($validated['email'])->send(new IDCardSoftcopyMail(
+                $validated['student_name'],
+                $validated['image_data']
+            ));
+
+            return response()->json([
+                'message' => 'Softcopy email sent successfully via backend'
+            ], 200);
+        } catch (\Exception $e) {
+            Log::error('Failed to send softcopy email', [
+                'error' => $e->getMessage(),
+                'student' => $request->student_name ?? 'Unknown'
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to send email: ' . $e->getMessage()
             ], 500);
         }
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import { getFullName, type Students } from "@/types/students";
 import { getPaginatedApplicants, deleteApplicant } from "@/api/students";
 import { ChevronLeft, ChevronRight, Loader2, MoreHorizontal, Eye, Trash2, AlertTriangle } from "lucide-react";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { preloadImage } from './AuthenticatedImage';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 
 interface ApplicantsTableProps {
   query: string;
@@ -32,29 +33,43 @@ interface ApplicantsTableProps {
 }
 
 const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter = '', sortBy = '', sortDir = 'asc', onViewDetails }) => {
-  const [students, setStudents] = useState<Students[]>([]);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [lastPage, setLastPage] = useState(1);
-
   const [applicantToDelete, setApplicantToDelete] = useState<Students | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const queryClient = useQueryClient();
 
-  const fetchApplicants = useCallback(async (p = 1) => {
-    setLoading(true);
-    try {
-      const res = await getPaginatedApplicants(query, p, statusFilter, sortBy, sortDir);
-      setStudents(res.data);
-      setPage(res.current_page);
-      setLastPage(res.last_page);
-    } catch (err) {
-      setStudents([]);
-    } finally {
-      // Small delay for better UX transition
-      setTimeout(() => setLoading(false), 400);
-    }
-  }, [query, statusFilter, sortBy, sortDir]);
+  // Debounce the query string
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedQuery(query);
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [query]);
 
+  // Reset page on filter/sort changes
+  React.useEffect(() => { setPage(1); }, [statusFilter, sortBy, sortDir]);
+
+  const {
+    data: paginatedData,
+    isLoading: loading,
+  } = useQuery({
+    queryKey: ['paginatedApplicants', debouncedQuery, page, statusFilter, sortBy, sortDir],
+    queryFn: () => getPaginatedApplicants(debouncedQuery, page, statusFilter, sortBy, sortDir),
+    placeholderData: keepPreviousData,
+  });
+
+  const students = paginatedData?.data || [];
+  const currentPage = paginatedData?.current_page || 1;
+  const lastPage = paginatedData?.last_page || 1;
+
+  const deleteMutation = useMutation({
+    mutationFn: (studentId: number) => deleteApplicant(studentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['paginatedApplicants'] });
+      setApplicantToDelete(null);
+    },
+  });
 
   const VITE_API_URL = import.meta.env.VITE_API_URL;
   const getImageUrl = (path: string | null | undefined) =>
@@ -75,26 +90,8 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
 
   const confirmDelete = async () => {
     if (!applicantToDelete) return;
-
-    try {
-      setIsDeleting(true);
-      await deleteApplicant(applicantToDelete.id);
-
-      // Update local state instead of doing a full refetch if we don't want a layout jump,
-      // or simply perform a full fetch to get properly paginated data again
-      setStudents(prev => prev.filter(s => s.id !== applicantToDelete.id));
-      setApplicantToDelete(null);
-    } catch (err) {
-      console.error('Failed to delete applicant:', err);
-    } finally {
-      setIsDeleting(false);
-    }
+    deleteMutation.mutate(applicantToDelete.id);
   };
-
-  useEffect(() => {
-    const handler = setTimeout(() => fetchApplicants(1), 500);
-    return () => clearTimeout(handler);
-  }, [query, fetchApplicants]);
 
   return (
     <div className="flex flex-col">
@@ -209,7 +206,7 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
             variant="outline"
             size="sm"
             disabled={page === 1 || loading}
-            onClick={() => fetchApplicants(page - 1)}
+            onClick={() => setPage(p => Math.max(1, p - 1))}
             className="h-8 px-4 text-[10px] font-bold uppercase tracking-wider bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-all shadow-sm rounded-lg"
           >
             <ChevronLeft className="mr-2 h-3 w-3" /> Prev
@@ -218,7 +215,7 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
             variant="outline"
             size="sm"
             disabled={page === lastPage || loading}
-            onClick={() => fetchApplicants(page + 1)}
+            onClick={() => setPage(p => p + 1)}
             className="h-8 px-4 text-[10px] font-bold uppercase tracking-wider bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-all shadow-sm rounded-lg"
           >
             Next <ChevronRight className="ml-2 h-3 w-3" />
@@ -226,7 +223,7 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
         </div>
       </div>
 
-      <Dialog open={!!applicantToDelete} onOpenChange={(open) => !open && !isDeleting && setApplicantToDelete(null)}>
+      <Dialog open={!!applicantToDelete} onOpenChange={(open) => !open && !deleteMutation.isPending && setApplicantToDelete(null)}>
         <DialogContent className="sm:max-w-md bg-card rounded-lg p-6 sm:p-8 border-border shadow-2xl">
           <DialogHeader className="mb-2">
             <div className="mx-auto w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center mb-4 text-destructive">
@@ -243,7 +240,7 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
             <Button
               type="button"
               variant="outline"
-              disabled={isDeleting}
+              disabled={deleteMutation.isPending}
               onClick={() => setApplicantToDelete(null)}
               className="w-full sm:w-1/2 rounded-lg text-muted-foreground border-border hover:bg-accent mt-2 sm:mt-0"
             >
@@ -252,12 +249,12 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
             <Button
               type="button"
               variant="destructive"
-              disabled={isDeleting}
+              disabled={deleteMutation.isPending}
               onClick={confirmDelete}
               className="w-full sm:w-1/2 rounded-lg bg-destructive hover:bg-destructive/90 font-bold text-destructive-foreground flex items-center justify-center gap-2"
             >
-              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-              {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+              {deleteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              {deleteMutation.isPending ? 'Deleting...' : 'Yes, Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
     Clock, Search, Download, RefreshCw,
@@ -21,9 +21,9 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from "@/lib/utils";
 import MetricCard from "@/components/SubComponents/MetricCard";
 import api from "@/api/axios";
+import { useQuery } from "@tanstack/react-query";
 
 // Shared data and child components
-import { logs } from './logsData';
 import type { LogEntry } from './logsData';
 import ActivityLogs from './components/ActivityLogs';
 import SystemLogs from './components/SystemLogs';
@@ -33,37 +33,34 @@ const HistoryIndex = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [activeTab, setActiveTab] = useState("all");
     const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const [logs, setLogs] = useState<LogEntry[]>([]);
-    const [loading, setLoading] = useState(true);
 
-    const fetchLogs = useCallback(async () => {
-        setLoading(true);
-        try {
+    // Debounce search
+    const [debouncedSearch, setDebouncedSearch] = useState("");
+    React.useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(searchQuery), 400);
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    const {
+        data: logsResponse,
+        isLoading: loading,
+        isFetching: isRefreshing,
+        refetch,
+    } = useQuery({
+        queryKey: ['activityLogs', activeTab, debouncedSearch],
+        queryFn: async () => {
             const params: any = {};
             if (activeTab === 'system') params.type = 'system';
             else if (activeTab === 'activity') params.type = 'activity';
-            
-            if (searchQuery) params.query = searchQuery;
-
+            if (debouncedSearch) params.query = debouncedSearch;
             const response = await api.get('/activity-logs', { params });
-            setLogs(response.data.data);
-        } catch (error) {
-            console.error("Failed to fetch logs:", error);
-        } finally {
-            setLoading(false);
-            setIsRefreshing(false);
-        }
-    }, [activeTab, searchQuery]);
+            return response.data.data as LogEntry[];
+        },
+    });
 
-    useEffect(() => {
-        fetchLogs();
-    }, [fetchLogs]);
+    const logs = logsResponse || [];
 
-    const handleRefresh = useCallback(() => {
-        setIsRefreshing(true);
-        fetchLogs();
-    }, [fetchLogs]);
+    const handleRefresh = () => refetch();
 
     const metrics = useMemo(() => {
         const total = logs.length;
@@ -72,7 +69,7 @@ const HistoryIndex = () => {
         return { total, security, success };
     }, [logs]);
 
-    const filteredLogs = logs; // Filtering is handled by API now
+    const filteredLogs = logs;
 
     return (
         <div className="flex-1 bg-background text-foreground font-sans selection:bg-primary/10 transition-colors duration-300 flex flex-col min-h-full">

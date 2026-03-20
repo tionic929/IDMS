@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Users, CreditCard, Search, ArrowUpDown,
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { ApplicantSkeleton } from "@/components/TableSkeleton";
+import { useQuery } from "@tanstack/react-query";
 
 
 const SORT_OPTIONS = [
@@ -33,11 +34,8 @@ const SORT_OPTIONS = [
 ] as const;
 
 const ApplicantsIndex: React.FC = () => {
-  const [report, setReport] = useState<{ total: number; pending: number; issued: number } | null>(null);
-  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [selectedApplicant, setSelectedApplicant] = useState<ApplicantCard | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -49,27 +47,23 @@ const ApplicantsIndex: React.FC = () => {
   const [sortBy, setSortBy] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  const fetchReport = useCallback(async (isManual = false) => {
-    try {
-      if (isManual) setIsRefreshing(true);
-      else setLoading(true);
+  const {
+    data: reportData,
+    isLoading: loading,
+    isFetching: isRefreshing,
+    refetch,
+  } = useQuery({
+    queryKey: ['applicantsReport'],
+    queryFn: getApplicantsReport,
+  });
 
-      const data = await getApplicantsReport();
-      setReport({
-        total: data.applicantsReport || 0,
-        pending: data.pendingCount || 0,
-        issued: data.issuedCount || 0,
-      });
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
+  const report = reportData ? {
+    total: reportData.applicantsReport || 0,
+    pending: reportData.pendingCount || 0,
+    issued: reportData.issuedCount || 0,
+  } : null;
 
-  useEffect(() => { fetchReport(); }, [fetchReport]);
-  const handleRefresh = () => fetchReport(true);
+  const handleRefresh = () => refetch();
 
   const handleSortChange = (value: string) => {
     if (value === sortBy) {
