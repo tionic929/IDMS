@@ -64,13 +64,21 @@ class ApplicantsController extends Controller
             $student = Student::findOrFail($studentId);
 
             // 2. Perform the update
-            $student->update(['has_card' => true]);
+            $student->update(['has_card' => true, 'application_status' => 'approved']);
 
             // 3. Log the successful card issuance for audit purposes
             Log::info("ID Card issued successfully for Student ID: {$studentId}", [
                 'student_name' => $student->full_name,
                 'issued_at' => now()
             ]);
+            
+            // 4. Notify idtechv2 webhook
+            try {
+                $v2Url = env('IDTECHV2_URL', 'http://localhost:8001'); // fallback for local dev
+                \Illuminate\Support\Facades\Http::timeout(10)->post("{$v2Url}/api/applications/{$student->id_number}/approve");
+            } catch (\Exception $e) {
+                Log::warning('Failed to sync approval to idtechv2', ['error' => $e->getMessage()]);
+            }
 
             // Log activity
             ActivityLog::create([
@@ -487,6 +495,65 @@ class ApplicantsController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to archive applicant',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function reject(Request $request, $id)
+    {
+        $request->validate([
+            'reason' => 'required|string|max:500' // Reject reason
+        ]);
+
+        try {
+            $student = Student::findOrFail($id);
+            $student->update([
+                'application_status' => 'rejected',
+                'rejection_reason' => $request->reason,
+                'is_archived' => true,
+                'archived_at' => now()
+            ]);
+
+            // Notify applicant via email about the rejection
+            if (!empty($student->email)) {
+                try {
+                    \Illuminate\Support\Facades\Mail::to($student->email)
+                        ->send(new \App\Mail\ApplicationRejectedMail($student->full_name));
+                } catch (\Exception $mailEx) {
+                    \Illuminate\Support\Facades\Log::error('Failed to send rejection email', [
+                        'student_id' => $id,
+                        'error' => $mailEx->getMessage()
+                    ]);
+                }
+            }
+
+            // Sync with idtechv2
+            try {
+                $v2Url = env('IDTECHV2_URL', 'http://localhost:8001');
+                \Illuminate\Support\Facades\Http::timeout(10)->post("{$v2Url}/api/applications/{$student->id_number}/reject", [
+                    'reason' => $request->reason
+                ]);
+            } catch (\Exception $e) {
+                Log::warning('Failed to sync rejection to idtechv2', ['error' => $e->getMessage()]);
+            }
+
+            // Log activity
+            ActivityLog::create([
+                'user' => auth()->user()?->name ?? 'System',
+                'action' => 'Applicant Rejected',
+                'type' => 'activity',
+                'details' => "Applicant {$student->full_name} has been rejected. Reason: {$request->reason}",
+                'status' => 'error',
+                'ip' => request()->ip(),
+            ]);
+
+            return response()->json([
+                'message' => 'Applicant rejected successfully'
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to reject applicant',
                 'error' => $e->getMessage()
             ], 500);
         }

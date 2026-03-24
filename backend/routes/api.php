@@ -51,6 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::put('/applicant/{student}/toggle', [ApplicantsController::class , 'toggleHasCard']);
     Route::post('/applicant/{id}/archive', [ApplicantsController::class , 'archive']);
+    Route::post('/applicant/{id}/reject', [ApplicantsController::class, 'reject']);
     Route::delete('/applicant/{student}', [ApplicantsController::class , 'destroy']);
     Route::post('/confirm-applicant/{studentId}', [ApplicantsController::class , 'updateApplicantsExcelFile']);
     Route::post('/confirm/{studentId}', [ApplicantsController::class , 'confirm']);

@@ -38,6 +38,8 @@ class Applicant extends Model
         'is_archived',
         'archived_at',
         'created_at',
+        'application_status',
+        'rejection_reason',
     ];
 
     /**
