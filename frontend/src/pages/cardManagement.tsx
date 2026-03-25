@@ -262,8 +262,13 @@ const Dashboard: React.FC = () => {
     // ── layout resolver ───────────────────────────────────────────────────────
     const getLayout = useCallback((student: Students | null) => {
         if (!student || allTemplates.length === 0) return null;
-        const matched = allTemplates.find((t: any) => t.name.trim().toUpperCase() === student.course.trim().toUpperCase());
+        const studentCourse = student.course.trim().toUpperCase();
+        console.log('[getLayout] Student course:', JSON.stringify(studentCourse));
+        console.log('[getLayout] Available templates:', allTemplates.map((t: any) => ({ id: t.id, name: t.name, nameUpper: t.name.trim().toUpperCase(), is_active: t.is_active })));
+        const matched = allTemplates.find((t: any) => t.name.trim().toUpperCase() === studentCourse);
+        console.log('[getLayout] Matched template:', matched ? { id: matched.id, name: matched.name } : 'NONE — using fallback');
         const tpl = matched || allTemplates.find((t: any) => t.is_active) || allTemplates[0];
+        console.log('[getLayout] Using template:', { id: tpl.id, name: tpl.name });
         return { front: tpl.front_config, back: tpl.back_config, previewImages: tpl.preview_images || { front: '', back: '' } };
     }, [allTemplates]);
 
@@ -320,12 +325,12 @@ const Dashboard: React.FC = () => {
             : previewStudent ? [previewStudent.id] : [];
 
         console.log('[CardManagement] IDs to confirm:', ids);
-        if (ids.length === 0) { 
-            toast.info('No applicants selected'); 
+        if (ids.length === 0) {
+            toast.info('No applicants selected');
             console.warn('[CardManagement] No IDs to confirm');
-            return; 
+            return;
         }
-        
+
         setIdsToConfirm(ids);
         setIsConfirmModalOpen(true);
     };
@@ -549,7 +554,7 @@ const Dashboard: React.FC = () => {
                                     <IDCardPreview data={previewCard} layout={previewLayout} side="BACK" scale={previewScale} />
                                 </div>
                             </div>
-                            
+
                             {/* Comparison Banner */}
                             <div className="flex items-center gap-6 bg-card/80 backdrop-blur-sm border border-border px-8 py-4 rounded-2xl shadow-xl">
                                 <div className="flex flex-col items-center">
