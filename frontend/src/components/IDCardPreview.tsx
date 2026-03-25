@@ -204,7 +204,7 @@ const IDCardPreview = React.forwardRef<any, Props>(
       const textMap: Record<string, any> = {
         fullName: data.fullName,
         idNumber: data.idNumber,
-        course: config.text || data.course,
+        course: data.course || config.text,
         guardian_name: data.guardian_name,
         guardian_contact: data.guardian_contact,
         address: data.address,
