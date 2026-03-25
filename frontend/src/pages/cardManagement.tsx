@@ -428,9 +428,9 @@ const Dashboard: React.FC = () => {
             <PanelGroup orientation="horizontal" className="w-full h-full">
 
                 {/* ══════════════════════════════════════════════════════
-        LEFT SIDEBAR — resizable
-    ══════════════════════════════════════════════════════ */}
-                <Panel defaultSize={20} minSize={15} maxSize={35} className="flex flex-col bg-card border-r border-border relative z-10">
+                    LEFT SIDEBAR — resizable
+                ══════════════════════════════════════════════════════ */}
+                <Panel defaultSize={400} minSize={250} maxSize={400} className="flex flex-col bg-card border-r border-border relative z-10">
 
                     {/* Search */}
                     <div className="px-3 py-2.5 border-b border-border shrink-0">
@@ -557,7 +557,7 @@ const Dashboard: React.FC = () => {
     ══════════════════════════════════════════════════════ */}
                 <Panel defaultSize={60} minSize={30} className="flex flex-col bg-background min-w-0 relative z-0">
                     <PanelGroup orientation="vertical">
-                        <Panel defaultSize={85} minSize={50} className="flex flex-col">
+                        <Panel defaultSize={155} minSize={40} className="flex flex-col">
                             {previewStudent && previewCard && previewLayout ? (
                                 <div className="flex-1 overflow-auto custom-scrollbar flex flex-col items-center justify-center p-8">
                                     <div className="flex items-center justify-center gap-8 mb-8">
@@ -590,7 +590,7 @@ const Dashboard: React.FC = () => {
                         <HResizeHandle />
 
                         {/* Bottom action bar */}
-                        <Panel defaultSize={15} minSize={10} maxSize={30} className="flex flex-col bg-card border-t border-border">
+                        <Panel defaultSize={75} minSize={50} maxSize={70} className="flex flex-col bg-card border-t border-border">
                             {previewStudent && previewCard && previewLayout && (
                                 <div className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar px-6 py-4 flex items-center justify-between gap-4 min-h-0">
                                     {/* Zoom */}
@@ -655,7 +655,7 @@ const Dashboard: React.FC = () => {
                 {/* ══════════════════════════════════════════════════════
                     RIGHT PANEL — APPLICATION INFO (overrides)
                 ══════════════════════════════════════════════════════ */}
-                <Panel defaultSize={20} minSize={15} maxSize={35} className="flex flex-col border-l border-border bg-card relative z-10">
+                <Panel defaultSize={150} minSize={150} maxSize={350} className="flex flex-col border-l border-border bg-card relative z-10">
 
                     {/* Header */}
                     <div className="px-3 py-3 border-b border-border flex flex-col items-center text-center shrink-0">
