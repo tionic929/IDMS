@@ -87,16 +87,10 @@ const PendingRow = React.memo(({
         <TableCell className="py-2 min-w-[200px]">
             <div className="flex items-center gap-3">
                 <div className="flex flex-col">
-                    <span className="text-[7px] text-primary/70 font-bold uppercase leading-tight mb-0.5 tracking-wider">Inputted Name</span>
-                    <p className={cn("text-[10px] font-black uppercase leading-tight", 
-                        student.manual_full_name ? "text-primary" : "text-muted-foreground/30 italic")}>
-                        {student.manual_full_name || 'No Input'}
+                    <span className="text-[7px] text-primary/70 font-bold uppercase leading-tight mb-0.5 tracking-wider">Full Name</span>
+                    <p className="text-[10px] font-black uppercase leading-tight text-primary">
+                        {student.manual_full_name || `${student.first_name} ${student.middle_initial ? `${student.middle_initial} ` : ''}${student.last_name}`}
                     </p>
-                </div>
-                <div className="w-px h-6 bg-border mx-1"></div>
-                <div className="flex flex-col">
-                    <span className="text-[7px] text-muted-foreground font-bold uppercase leading-tight mb-0.5 tracking-wider">Original Name</span>
-                    <p className="text-[9px] font-bold uppercase text-muted-foreground leading-tight">{student.first_name} {student.middle_initial ? `${student.middle_initial} ` : ''}{student.last_name}</p>
                 </div>
             </div>
         </TableCell>
@@ -133,16 +127,10 @@ const ConfirmedRow = React.memo(({
         <TableCell className="pl-4 py-2 min-w-[200px]">
             <div className="flex items-center gap-3">
                 <div className="flex flex-col">
-                    <span className="text-[7px] text-primary/70 font-bold uppercase leading-tight mb-0.5 tracking-wider">Inputted Name</span>
-                    <p className={cn("text-[10px] font-black uppercase leading-tight", 
-                        student.manual_full_name ? "text-primary" : "text-muted-foreground/30 italic")}>
-                        {student.manual_full_name || 'No Input'}
+                    <span className="text-[7px] text-primary/70 font-bold uppercase leading-tight mb-0.5 tracking-wider">Full Name</span>
+                    <p className="text-[10px] font-black uppercase leading-tight text-primary">
+                        {student.manual_full_name || `${student.first_name} ${student.middle_initial ? `${student.middle_initial} ` : ''}${student.last_name}`}
                     </p>
-                </div>
-                <div className="w-px h-6 bg-border mx-1"></div>
-                <div className="flex flex-col">
-                    <span className="text-[7px] text-muted-foreground font-bold uppercase leading-tight mb-0.5 tracking-wider">Original Name</span>
-                    <p className="text-[9px] font-bold uppercase text-muted-foreground leading-tight">{student.first_name} {student.middle_initial ? `${student.middle_initial} ` : ''}{student.last_name}</p>
                 </div>
             </div>
         </TableCell>
@@ -565,15 +553,9 @@ const Dashboard: React.FC = () => {
                             {/* Comparison Banner */}
                             <div className="flex items-center gap-6 bg-card/80 backdrop-blur-sm border border-border px-8 py-4 rounded-2xl shadow-xl">
                                 <div className="flex flex-col items-center">
-                                    <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-1 opacity-60">NAME (ORIGINAL)</span>
-                                    <p className="text-xl font-black uppercase text-foreground/40">{previewCard.originalFullName}</p>
-                                </div>
-                                <div className="w-px h-10 bg-border mx-2"></div>
-                                <div className="flex flex-col items-center">
-                                    <span className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">MANUAL NAME (FROM DB)</span>
-                                    <p className={cn("text-2xl font-black uppercase tracking-tight", 
-                                        previewCard.manual_full_name ? "text-primary" : "text-muted-foreground/30 italic")}>
-                                        {previewCard.manual_full_name || 'No Input'}
+                                    <span className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">FULL NAME</span>
+                                    <p className="text-2xl font-black uppercase tracking-tight text-primary">
+                                        {previewCard.manual_full_name || previewCard.originalFullName}
                                     </p>
                                 </div>
                             </div>
