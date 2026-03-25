@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, Suspense, lazy, useEffect } from 'react';
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import { useSearchParams } from 'react-router-dom';
 import {
     Search, Trash2, Printer, RefreshCw, CheckCircle2,
@@ -52,6 +53,19 @@ const toCard = (s: Students): ApplicantCard => ({
     address: s.address,
     email: s.email,
 });
+
+// ─── Resizers ──────────────────────────────────────────────────────────────────
+const VResizeHandle = () => (
+    <PanelResizeHandle className="w-1.5 bg-border/40 hover:bg-primary/50 active:bg-primary transition-colors cursor-col-resize flex items-center justify-center -mx-0.5 z-10">
+        <div className="w-0.5 h-8 bg-muted-foreground/30 rounded-full" />
+    </PanelResizeHandle>
+);
+
+const HResizeHandle = () => (
+    <PanelResizeHandle className="h-1.5 bg-border/40 hover:bg-primary/50 active:bg-primary transition-colors cursor-row-resize flex items-center justify-center -my-0.5 z-10">
+        <div className="h-0.5 w-8 bg-muted-foreground/30 rounded-full" />
+    </PanelResizeHandle>
+);
 
 // ─── Zoom strip ───────────────────────────────────────────────────────────────
 const ZoomStrip = ({ scale, onIn, onOut, onReset }: {
@@ -392,12 +406,10 @@ const Dashboard: React.FC = () => {
 
     // ═════════════════════════════════════════════════════════════════════════
     return (
-        <div className="h-full bg-background text-foreground flex overflow-hidden transition-colors duration-300">
-            <Suspense fallback={
-                <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-                    <RefreshCw className="animate-spin text-white" size={48} />
-                </div>
-            }>
+        <><div className="h-full bg-background text-foreground flex overflow-hidden transition-colors duration-300">
+            <Suspense fallback={<div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+                <RefreshCw className="animate-spin text-white" size={48} />
+            </div>}>
                 <AnimatePresence>
                     {printData && <PrintPreviewModal data={printData.student} layout={printData.layout} onClose={() => setPrintData(null)} />}
                 </AnimatePresence>
@@ -408,327 +420,332 @@ const Dashboard: React.FC = () => {
                     {viewingPaymentProof && (
                         <PaymentProofModal
                             url={viewingPaymentProof}
-                            onClose={() => setViewingPaymentProof(null)}
-                        />
+                            onClose={() => setViewingPaymentProof(null)} />
                     )}
                 </AnimatePresence>
             </Suspense>
 
-            {/* ══════════════════════════════════════════════════════
-                LEFT SIDEBAR — two fixed-height sections, each scrollable
-            ══════════════════════════════════════════════════════ */}
-            <div className="w-[260px] shrink-0 border-r border-border bg-card flex flex-col overflow-hidden">
+            <PanelGroup orientation="horizontal" className="w-full h-full">
 
-                {/* Search */}
-                <div className="px-3 py-2.5 border-b border-border shrink-0">
-                    <div className="flex items-center justify-between mb-2">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-foreground">Applications</span>
-                        <span className="text-[8px] font-bold text-muted-foreground">{effectiveStudents.length} total</span>
-                    </div>
-                    <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={11} />
-                        <input type="text" placeholder="Search by name, ID or course…"
-                            className="w-full pl-7 pr-3 py-1.5 bg-muted/50 border border-border rounded-lg outline-none text-[10px] font-bold focus:border-primary transition-colors"
-                        />
-                    </div>
-                </div>
+                {/* ══════════════════════════════════════════════════════
+        LEFT SIDEBAR — resizable
+    ══════════════════════════════════════════════════════ */}
+                <Panel defaultSize={20} minSize={15} maxSize={35} className="flex flex-col bg-card border-r border-border relative z-10">
 
-                {/* ── SECTION A: Pending Queue — fixed half height */}
-                <div className="h-1/2 flex flex-col border-b border-border overflow-hidden">
-                    {/* Section header */}
-                    <div className="px-3 py-2 flex items-center justify-between shrink-0 bg-muted/30 border-b border-border">
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Pending Queue</span>
+                    {/* Search */}
+                    <div className="px-3 py-2.5 border-b border-border shrink-0">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-foreground">Applications</span>
+                            <span className="text-[8px] font-bold text-muted-foreground">{effectiveStudents.length} total</span>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                            {someSelected && (
-                                <button
-                                    onClick={handleConfirmSelected}
-                                    className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[8px] uppercase transition-all shadow-sm shadow-primary/30"
-                                >
-                                    <CheckCircle2 size={9} /> Confirm {selectedIds.length > 0 ? `(${selectedIds.length})` : ''}
-                                </button>
-                            )}
-                            <span className="px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[8px] font-black tabular-nums">
-                                {pendingStudents.length}
-                            </span>
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={11} />
+                            <input type="text" placeholder="Search by name, ID or course…"
+                                className="w-full pl-7 pr-3 py-1.5 bg-muted/50 border border-border rounded-lg outline-none text-[10px] font-bold focus:border-primary transition-colors" />
                         </div>
                     </div>
 
-                    {/* Pending table — scrollable */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="hover:bg-transparent border-none">
-                                    <TableHead className="pl-3 w-8 h-7 cursor-pointer py-0" onClick={toggleSelectAll}>
-                                        {allSelected
-                                            ? <CheckSquare size={12} className="text-primary" />
-                                            : <Square size={12} className="opacity-30 hover:opacity-60 transition-opacity" />}
-                                    </TableHead>
-                                    <TableHead className="text-[8px] font-black uppercase h-7 py-0">Identity</TableHead>
-                                    <TableHead className="text-[8px] font-black uppercase h-7 py-0">ID No.</TableHead>
-                                    <TableHead className="text-[8px] font-black uppercase h-7 py-0">Course</TableHead>
-                                    <TableHead className="text-[8px] font-black uppercase h-7 py-0 text-right pr-2">Status</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {pendingStudents.length === 0
-                                    ? <EmptyState label="No pending applicants" colSpan={5} />
-                                    : pendingStudents.map(s => (
-                                        <PendingRow
-                                            key={s.id}
-                                            student={s}
-                                            isActive={previewStudent?.id === s.id && previewSection === 'queued'}
-                                            isSelected={selectedIds.includes(s.id)}
-                                            onSelect={handleSelect}
-                                            onView={id => { setPreviewingId(id); setPreviewSection('queued'); }}
-                                            courses={Courses}
-                                        />
-                                    ))
-                                }
-                            </TableBody>
-                        </Table>
-                    </div>
-                </div>
-
-                {/* ── SECTION B: Issued / Printed — fixed half height */}
-                <div className="h-1/2 flex flex-col overflow-hidden">
-                    {/* Section header */}
-                    <div className="px-3 py-2 flex items-center justify-between shrink-0 bg-muted/30 border-b border-border">
-                        <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Issued / Printed</span>
-                        </div>
-                        <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[8px] font-black tabular-nums">
-                            {confirmedStudents.length}
-                        </span>
-                    </div>
-
-                    {/* Confirmed table — scrollable */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="hover:bg-transparent border-none">
-                                    <TableHead className="pl-4 text-[8px] font-black uppercase h-7 py-0">Identity</TableHead>
-                                    <TableHead className="text-[8px] font-black uppercase h-7 py-0">ID No.</TableHead>
-                                    <TableHead className="text-[8px] font-black uppercase h-7 py-0">Course</TableHead>
-                                    <TableHead className="h-7 py-0 w-28" />
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {confirmedStudents.length === 0
-                                    ? <EmptyState label="No issued cards yet" icon={Printer} colSpan={4} />
-                                    : confirmedStudents.map(s => (
-                                        <ConfirmedRow
-                                            key={s.id}
-                                            student={s}
-                                            isActive={previewStudent?.id === s.id && previewSection === 'confirmed'}
-                                            onView={id => { setPreviewingId(id); setPreviewSection('confirmed'); }}
-                                            onPrint={handlePrint}
-                                            onArchive={handleArchive}
-                                            onDelete={handleDelete}
-                                            courses={Courses}
-                                        />
-                                    ))
-                                }
-                            </TableBody>
-                        </Table>
-                    </div>
-                </div>
-            </div>
-
-            {/* ══════════════════════════════════════════════════════
-                CENTER — ID CARD PREVIEW (large)
-            ══════════════════════════════════════════════════════ */}
-            <div className="flex-1 flex flex-col bg-background overflow-hidden min-w-0">
-                {previewStudent && previewCard && previewLayout ? (
-                    <>
-                        {/* Cards */}
-                        <div className="flex-1 overflow-auto custom-scrollbar flex flex-col items-center justify-center p-8">
-                            <div className="flex items-center justify-center gap-8 mb-8">
-                                <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-border shrink-0">
-                                    <IDCardPreview data={previewCard} layout={previewLayout} side="FRONT" scale={previewScale} />
-                                </div>
-                                <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-border shrink-0">
-                                    <IDCardPreview data={previewCard} layout={previewLayout} side="BACK" scale={previewScale} />
-                                </div>
-                            </div>
-
-                            {/* Comparison Banner */}
-                            <div className="flex items-center gap-6 bg-card/80 backdrop-blur-sm border border-border px-8 py-4 rounded-2xl shadow-xl">
-                                <div className="flex flex-col items-center">
-                                    <span className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">FULL NAME</span>
-                                    <p className="text-2xl font-black uppercase tracking-tight text-primary">
-                                        {previewCard.manual_full_name || previewCard.originalFullName}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Bottom action bar */}
-                        <div className="shrink-0 bg-card border-t border-border px-6 py-3 flex items-center justify-between gap-4">
-                            {/* Zoom */}
-                            <ZoomStrip
-                                scale={previewScale}
-                                onOut={() => setPreviewScale(p => Math.max(MIN_ZOOM, +(p - 0.1).toFixed(1)))}
-                                onIn={() => setPreviewScale(p => Math.min(MAX_ZOOM, +(p + 0.1).toFixed(1)))}
-                                onReset={() => setPreviewScale(0.7)}
-                            />
-
-                            {/* Actions */}
-                            <div className="flex items-center gap-2">
-                                {/* Reject (archive) */}
-                                <button
-                                    onClick={() => handleArchive(previewStudent.id)}
-                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-destructive hover:bg-destructive/90 active:bg-destructive text-destructive-foreground font-black text-[10px] uppercase transition-all shadow-lg shadow-destructive/20"
-                                >
-                                    <X size={13} /> Reject
-                                </button>
-
-                                {/* Confirm — only show for pending */}
-                                {previewSection === 'queued' && (
-                                    <button
-                                        onClick={handleConfirmSelected}
-                                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[10px] uppercase transition-all shadow-lg"
-                                    >
-                                        <CheckCircle2 size={13} />
-                                        {selectedIds.length > 1 ? `Confirm (${selectedIds.length})` : 'Confirm'}
-                                    </button>
-                                )}
-
-                                {/* Payment Proof */}
-                                {previewStudent.payment_proof && (
-                                    <button
-                                        onClick={() => setViewingPaymentProof(
-                                            previewStudent.payment_proof!.startsWith('http')
-                                                ? previewStudent.payment_proof!
-                                                : `${VITE_API_URL}/storage/${previewStudent.payment_proof}`
-                                        )}
-                                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-muted hover:bg-accent border border-border text-foreground font-black text-[10px] uppercase transition-all"
-                                    >
-                                        <Receipt size={13} /> Payment Proof
-                                    </button>
-                                )}
-
-                                {/* Print */}
-                                <button
-                                    onClick={handlePrintPreview}
-                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 active:bg-primary text-primary-foreground font-black text-[10px] uppercase transition-all shadow-lg shadow-primary/20"
-                                >
-                                    <Printer size={13} /> Print
-                                </button>
-                            </div>
-                        </div>
-                    </>
-                ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center gap-3 opacity-20">
-                        <CreditCard size={40} />
-                        <p className="text-[9px] font-black uppercase tracking-widest">Select an applicant to preview</p>
-                    </div>
-                )}
-            </div>
-
-            {/* ══════════════════════════════════════════════════════
-                RIGHT PANEL — APPLICATION INFO (overrides)
-            ══════════════════════════════════════════════════════ */}
-            <div className="w-[200px] shrink-0 border-l border-border bg-card flex flex-col overflow-hidden">
-
-                {/* Header */}
-                <div className="px-3 py-3 border-b border-border flex flex-col items-center text-center shrink-0">
-                    <div className="w-9 h-9 bg-primary text-primary-foreground rounded-xl flex items-center justify-center mb-1.5 shadow">
-                        <Database size={15} />
-                    </div>
-                    <p className="text-[9px] font-black uppercase tracking-tight text-foreground">Application Info</p>
-                    <p className="text-[7px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Live data editing</p>
-                </div>
-
-                {previewStudent && previewCard ? (
-                    <>
-                        {/* Dirty indicator */}
-                        <div className={cn(
-                            'flex items-center justify-between px-3 py-1.5 text-[8px] font-black uppercase tracking-widest transition-all border-b',
-                            hasOverrides
-                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
-                                : 'bg-muted/50 border-border text-muted-foreground'
-                        )}>
-                            <span>{hasOverrides ? '● Overrides' : '○ No changes'}</span>
-                            {hasOverrides && (
-                                <button onClick={resetOverrides} className="flex items-center gap-0.5 hover:text-red-500 transition-colors">
-                                    <RotateCcw size={9} /> Reset
-                                </button>
-                            )}
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4 scrollbar-hide">
-
-                            {/* Front side */}
-                            <div className="space-y-2.5">
+                    <PanelGroup orientation="vertical">
+                        {/* ── SECTION A: Pending Queue */}
+                        <Panel defaultSize={50} minSize={20} className="flex flex-col overflow-hidden">
+                            {/* Section header */}
+                            <div className="px-3 py-2 flex items-center justify-between shrink-0 bg-muted/30 border-b border-border">
                                 <div className="flex items-center gap-1.5">
-                                    <UserIcon size={9} className="text-muted-foreground" />
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Front Side</p>
+                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Pending Queue</span>
                                 </div>
-                                <div className="space-y-1 opacity-60">
-                                    <span className="text-[8px] font-black text-muted-foreground uppercase tracking-wider block">Original Name</span>
-                                    <div className="w-full bg-muted/30 border border-border/50 rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-muted-foreground cursor-not-allowed">
-                                        {previewCard.originalFullName}
+                                <div className="flex items-center gap-1.5">
+                                    {someSelected && (
+                                        <button
+                                            onClick={handleConfirmSelected}
+                                            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[8px] uppercase transition-all shadow-sm shadow-primary/30"
+                                        >
+                                            <CheckCircle2 size={9} /> Confirm {selectedIds.length > 0 ? `(${selectedIds.length})` : ''}
+                                        </button>
+                                    )}
+                                    <span className="px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[8px] font-black tabular-nums">
+                                        {pendingStudents.length}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Pending table — scrollable */}
+                            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent border-none">
+                                            <TableHead className="pl-3 w-8 h-7 cursor-pointer py-0" onClick={toggleSelectAll}>
+                                                {allSelected
+                                                    ? <CheckSquare size={12} className="text-primary" />
+                                                    : <Square size={12} className="opacity-30 hover:opacity-60 transition-opacity" />}
+                                            </TableHead>
+                                            <TableHead className="text-[8px] font-black uppercase h-7 py-0">Identity</TableHead>
+                                            <TableHead className="text-[8px] font-black uppercase h-7 py-0">ID No.</TableHead>
+                                            <TableHead className="text-[8px] font-black uppercase h-7 py-0">Course</TableHead>
+                                            <TableHead className="text-[8px] font-black uppercase h-7 py-0 text-right pr-2">Status</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {pendingStudents.length === 0
+                                            ? <EmptyState label="No pending applicants" colSpan={5} />
+                                            : pendingStudents.map(s => (
+                                                <PendingRow
+                                                    key={s.id}
+                                                    student={s}
+                                                    isActive={previewStudent?.id === s.id && previewSection === 'queued'}
+                                                    isSelected={selectedIds.includes(s.id)}
+                                                    onSelect={handleSelect}
+                                                    onView={id => { setPreviewingId(id); setPreviewSection('queued'); }}
+                                                    courses={Courses} />
+                                            ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </Panel>
+
+                        <HResizeHandle />
+
+                        {/* ── SECTION B: Issued / Printed */}
+                        <Panel defaultSize={50} minSize={20} className="flex flex-col overflow-hidden">
+                            {/* Section header */}
+                            <div className="px-3 py-2 flex items-center justify-between shrink-0 bg-muted/30 border-b border-border">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Issued / Printed</span>
+                                </div>
+                                <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[8px] font-black tabular-nums">
+                                    {confirmedStudents.length}
+                                </span>
+                            </div>
+
+                            {/* Confirmed table — scrollable */}
+                            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent border-none">
+                                            <TableHead className="pl-4 text-[8px] font-black uppercase h-7 py-0">Identity</TableHead>
+                                            <TableHead className="text-[8px] font-black uppercase h-7 py-0">ID No.</TableHead>
+                                            <TableHead className="text-[8px] font-black uppercase h-7 py-0">Course</TableHead>
+                                            <TableHead className="h-7 py-0 w-28" />
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {confirmedStudents.length === 0
+                                            ? <EmptyState label="No issued cards yet" icon={Printer} colSpan={4} />
+                                            : confirmedStudents.map(s => (
+                                                <ConfirmedRow
+                                                    key={s.id}
+                                                    student={s}
+                                                    isActive={previewStudent?.id === s.id && previewSection === 'confirmed'}
+                                                    onView={id => { setPreviewingId(id); setPreviewSection('confirmed'); }}
+                                                    onPrint={handlePrint}
+                                                    onArchive={handleArchive}
+                                                    onDelete={handleDelete}
+                                                    courses={Courses} />
+                                            ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </Panel>
+                    </PanelGroup>
+                </Panel>
+
+                <VResizeHandle />
+
+                {/* ══════════════════════════════════════════════════════
+        CENTER — ID CARD PREVIEW (large)
+    ══════════════════════════════════════════════════════ */}
+                <Panel defaultSize={60} minSize={30} className="flex flex-col bg-background min-w-0 relative z-0">
+                    <PanelGroup orientation="vertical">
+                        <Panel defaultSize={85} minSize={50} className="flex flex-col">
+                            {previewStudent && previewCard && previewLayout ? (
+                                <div className="flex-1 overflow-auto custom-scrollbar flex flex-col items-center justify-center p-8">
+                                    <div className="flex items-center justify-center gap-8 mb-8">
+                                        <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-border shrink-0">
+                                            <IDCardPreview data={previewCard} layout={previewLayout} side="FRONT" scale={previewScale} />
+                                        </div>
+                                        <div className="shadow-2xl rounded-sm overflow-hidden ring-1 ring-border shrink-0">
+                                            <IDCardPreview data={previewCard} layout={previewLayout} side="BACK" scale={previewScale} />
+                                        </div>
+                                    </div>
+
+                                    {/* Comparison Banner */}
+                                    <div className="flex items-center gap-6 bg-card/80 backdrop-blur-sm border border-border px-8 py-4 rounded-2xl shadow-xl">
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-[9px] font-black text-primary uppercase tracking-widest mb-1">FULL NAME</span>
+                                            <p className="text-2xl font-black uppercase tracking-tight text-primary">
+                                                {previewCard.manual_full_name || previewCard.originalFullName}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
-                                <OverrideField label="Manual Full Name" value={previewCard.fullName || ''} onChange={v => updateOverride('fullName', v)} />
-                                <OverrideField label="Course / Dept." value={previewCard.course || ''} onChange={v => updateOverride('course', v)} />
-                                <OverrideField label="Student ID" value={previewCard.idNumber || ''} onChange={v => updateOverride('idNumber', v)} />
-                                {/* Photo */}
-                                <div className="space-y-1">
-                                    <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider block">Photo</span>
-                                    <button onClick={() => document.getElementById('photo-input')?.click()}
-                                        className="w-full h-14 bg-muted/50 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:border-primary transition-all overflow-hidden">
-                                        {previewCard.photo
-                                            ? <img src={previewCard.photo} className="w-full h-full object-cover" alt="" />
-                                            : <><Camera size={14} className="text-muted-foreground" /><span className="text-[7px] font-black uppercase text-muted-foreground">Upload Photo</span></>
-                                        }
-                                    </button>
-                                    <input id="photo-input" type="file" hidden accept="image/*"
-                                        onChange={e => { const f = e.target.files?.[0]; if (f) updateOverride('photo', URL.createObjectURL(f)); }} />
+                            ) : (
+                                <div className="flex-1 flex flex-col items-center justify-center gap-3 opacity-20">
+                                    <CreditCard size={40} />
+                                    <p className="text-[9px] font-black uppercase tracking-widest">Select an applicant to preview</p>
                                 </div>
+                            )}
+                        </Panel>
+
+                        <HResizeHandle />
+
+                        {/* Bottom action bar */}
+                        <Panel defaultSize={15} minSize={10} maxSize={30} className="flex flex-col bg-card border-t border-border">
+                            {previewStudent && previewCard && previewLayout && (
+                                <div className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar px-6 py-4 flex items-center justify-between gap-4 min-h-0">
+                                    {/* Zoom */}
+                                    <ZoomStrip
+                                        scale={previewScale}
+                                        onOut={() => setPreviewScale(p => Math.max(MIN_ZOOM, +(p - 0.1).toFixed(1)))}
+                                        onIn={() => setPreviewScale(p => Math.min(MAX_ZOOM, +(p + 0.1).toFixed(1)))}
+                                        onReset={() => setPreviewScale(0.7)}
+                                    />
+
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-2">
+                                        {/* Reject (archive) */}
+                                        <button
+                                            onClick={() => handleArchive(previewStudent.id)}
+                                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-destructive hover:bg-destructive/90 active:bg-destructive text-destructive-foreground font-black text-[10px] uppercase transition-all shadow-lg shadow-destructive/20"
+                                        >
+                                            <X size={13} /> Reject
+                                        </button>
+
+                                        {/* Confirm — only show for pending */}
+                                        {previewSection === 'queued' && (
+                                            <button
+                                                onClick={handleConfirmSelected}
+                                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-black text-[10px] uppercase transition-all shadow-lg"
+                                            >
+                                                <CheckCircle2 size={13} />
+                                                {selectedIds.length > 1 ? `Confirm (${selectedIds.length})` : 'Confirm'}
+                                            </button>
+                                        )}
+
+                                        {/* Payment Proof */}
+                                        {previewStudent.payment_proof && (
+                                            <button
+                                                onClick={() => setViewingPaymentProof(
+                                                    previewStudent.payment_proof!.startsWith('http')
+                                                        ? previewStudent.payment_proof!
+                                                        : `${VITE_API_URL}/storage/${previewStudent.payment_proof}`
+                                                )}
+                                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-muted hover:bg-accent border border-border text-foreground font-black text-[10px] uppercase transition-all"
+                                            >
+                                                <Receipt size={13} /> Payment Proof
+                                            </button>
+                                        )}
+
+                                        {/* Print */}
+                                        <button
+                                            onClick={handlePrintPreview}
+                                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 active:bg-primary text-primary-foreground font-black text-[10px] uppercase transition-all shadow-lg shadow-primary/20"
+                                        >
+                                            <Printer size={13} /> Print
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </Panel>
+                    </PanelGroup>
+                </Panel>
+
+                <VResizeHandle />
+
+                {/* ══════════════════════════════════════════════════════
+                    RIGHT PANEL — APPLICATION INFO (overrides)
+                ══════════════════════════════════════════════════════ */}
+                <Panel defaultSize={20} minSize={15} maxSize={35} className="flex flex-col border-l border-border bg-card relative z-10">
+
+                    {/* Header */}
+                    <div className="px-3 py-3 border-b border-border flex flex-col items-center text-center shrink-0">
+                        <div className="w-9 h-9 bg-primary text-primary-foreground rounded-xl flex items-center justify-center mb-1.5 shadow">
+                            <Database size={15} />
+                        </div>
+                        <p className="text-[9px] font-black uppercase tracking-tight text-foreground">Edit Details</p>
+                    </div>
+
+                    {previewStudent && previewCard ? (
+                        <>
+                            {/* Dirty indicator */}
+                            <div className={cn(
+                                'flex items-center justify-between px-3 py-1.5 text-[8px] font-black uppercase tracking-widest transition-all border-b',
+                                hasOverrides
+                                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
+                                    : 'bg-muted/50 border-border text-muted-foreground'
+                            )}>
+                                <span>{hasOverrides ? '● Overrides' : '○ No changes'}</span>
+                                {hasOverrides && (
+                                    <button onClick={resetOverrides} className="flex items-center gap-0.5 hover:text-red-500 transition-colors">
+                                        <RotateCcw size={9} /> Reset
+                                    </button>
+                                )}
                             </div>
 
-                            {/* Back side */}
-                            <div className="space-y-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-900">
-                                <div className="flex items-center gap-1.5">
-                                    <MapPin size={9} className="text-muted-foreground" />
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Back Side</p>
+                            <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4 scrollbar-hide">
+
+                                {/* Front side */}
+                                <div className="space-y-2.5">
+                                    <div className="flex items-center gap-1.5">
+                                        <UserIcon size={9} className="text-muted-foreground" />
+                                        <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Front Side</p>
+                                    </div>
+                                    <OverrideField label="Full Name" value={previewCard.fullName || ''} onChange={v => updateOverride('fullName', v)} />
+                                    <OverrideField label="Department" value={previewCard.course || ''} onChange={v => updateOverride('course', v)} />
+                                    <OverrideField label="ID Number" value={previewCard.idNumber || ''} onChange={v => updateOverride('idNumber', v)} />
+                                    {/* Photo */}
+                                    <div className="space-y-1">
+                                        <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider block">Photo</span>
+                                        <button onClick={() => document.getElementById('photo-input')?.click()}
+                                            className="w-full h-14 bg-muted/50 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:border-primary transition-all overflow-hidden">
+                                            {previewCard.photo
+                                                ? <img src={previewCard.photo} className="w-full h-full object-cover" alt="" />
+                                                : <><Camera size={14} className="text-muted-foreground" /><span className="text-[7px] font-black uppercase text-muted-foreground">Upload Photo</span></>
+                                            }
+                                        </button>
+                                        <input id="photo-input" type="file" hidden accept="image/*"
+                                            onChange={e => { const f = e.target.files?.[0]; if (f) updateOverride('photo', URL.createObjectURL(f)); }} />
+                                    </div>
                                 </div>
-                                <OverrideField label="Guardian Name" value={previewCard.guardian_name || ''} onChange={v => updateOverride('guardian_name', v)} />
-                                <div className="space-y-1">
-                                    <span className="text-[8px] font-black text-muted-foreground uppercase tracking-wider block">Address</span>
-                                    <textarea value={previewCard.address || ''} onChange={e => updateOverride('address', e.target.value)}
-                                        className="w-full bg-muted/50 border border-border rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-foreground outline-none focus:border-primary transition-colors h-12 resize-none" />
-                                </div>
-                                <OverrideField label="Guardian Contact" value={previewCard.guardian_contact || ''} onChange={v => updateOverride('guardian_contact', v)} />
-                                <OverrideField label="Applicant Email" value={previewCard.email || ''} onChange={v => updateOverride('email', v)} />
-                                {/* Signature */}
-                                <div className="space-y-1">
-                                    <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider block">Signature</span>
-                                    <button onClick={() => document.getElementById('sig-input')?.click()}
-                                        className="w-full h-14 bg-muted/50 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:border-primary transition-all overflow-hidden">
-                                        {previewCard.signature
-                                            ? <img src={previewCard.signature} className="w-full h-full object-contain p-1.5" alt="" />
-                                            : <><RefreshCw size={14} className="text-muted-foreground" /><span className="text-[7px] font-black uppercase text-muted-foreground">Upload Sig.</span></>
-                                        }
-                                    </button>
-                                    <input id="sig-input" type="file" hidden accept="image/*"
-                                        onChange={e => { const f = e.target.files?.[0]; if (f) updateOverride('signature', URL.createObjectURL(f)); }} />
+
+                                {/* Back side */}
+                                <div className="space-y-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-900">
+                                    <div className="flex items-center gap-1.5">
+                                        <MapPin size={9} className="text-muted-foreground" />
+                                        <p className="text-[8px] font-black uppercase tracking-widest text-muted-foreground">Back Side</p>
+                                    </div>
+                                    <OverrideField label="Guardian Name" value={previewCard.guardian_name || ''} onChange={v => updateOverride('guardian_name', v)} />
+                                    <div className="space-y-1">
+                                        <span className="text-[8px] font-black text-muted-foreground uppercase tracking-wider block">Address</span>
+                                        <textarea value={previewCard.address || ''} onChange={e => updateOverride('address', e.target.value)}
+                                            className="w-full bg-muted/50 border border-border rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-foreground outline-none focus:border-primary transition-colors h-12 resize-none" />
+                                    </div>
+                                    <OverrideField label="Guardian Contact" value={previewCard.guardian_contact || ''} onChange={v => updateOverride('guardian_contact', v)} />
+                                    <OverrideField label="Applicant Email" value={previewCard.email || ''} onChange={v => updateOverride('email', v)} />
+                                    {/* Signature */}
+                                    <div className="space-y-1">
+                                        <span className="text-[8px] font-black text-zinc-400 uppercase tracking-wider block">Signature</span>
+                                        <button onClick={() => document.getElementById('sig-input')?.click()}
+                                            className="w-full h-14 bg-muted/50 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:border-primary transition-all overflow-hidden">
+                                            {previewCard.signature
+                                                ? <img src={previewCard.signature} className="w-full h-full object-contain p-1.5" alt="" />
+                                                : <><RefreshCw size={14} className="text-muted-foreground" /><span className="text-[7px] font-black uppercase text-muted-foreground">Upload Sig.</span></>
+                                            }
+                                        </button>
+                                        <input id="sig-input" type="file" hidden accept="image/*"
+                                            onChange={e => { const f = e.target.files?.[0]; if (f) updateOverride('signature', URL.createObjectURL(f)); }} />
+                                    </div>
                                 </div>
                             </div>
+                        </>
+                    ) : (
+                        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center opacity-30">
+                            <UserIcon size={20} className="mb-2" />
+                            <p className="text-[8px] uppercase font-black tracking-widest">No applicant selected</p>
                         </div>
-                    </>
-                ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center opacity-30">
-                        <UserIcon size={20} className="mb-2" />
-                        <p className="text-[8px] uppercase font-black tracking-widest">No applicant selected</p>
-                    </div>
-                )}
-            </div>
+                    )}
+                </Panel>
+            </PanelGroup>
 
             {/* Confirmation Modal */}
             <Dialog open={isConfirmModalOpen} onOpenChange={setIsConfirmModalOpen}>
@@ -771,6 +788,7 @@ const Dashboard: React.FC = () => {
                 </DialogContent>
             </Dialog>
         </div>
+        </>
     );
 };
 
