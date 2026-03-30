@@ -3,12 +3,19 @@ import React from 'react';
 import {
   Save, Minus, Plus, ChevronRight, Magnet, Download, RefreshCw, Maximize,
   Grid3X3, Focus, Ruler, Minimize, RotateCcw, RotateCw, Eye, Layout, Command,
-  UserCircle
+  UserCircle, Users
 } from 'lucide-react';
 import { useDesignerContext } from '../context/DesignerContext';
 import { useCanvasContext } from '../context/CanvasContext';
 import { useLayerContext } from '../context/LayerContext';
 import { MIN_ZOOM, MAX_ZOOM } from '../../../constants/dimensions';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../ui/select";
 
 const IconButton = ({ icon: Icon, label, active, onClick, disabled, badge }: any) => (
   <button
@@ -72,11 +79,46 @@ export const DesignerTopBar: React.FC<DesignerTopBarProps> = ({
   return (
     <div className="h-13 border-b border-border bg-card px-4 flex items-center justify-between z-30 shrink-0 gap-3">
 
-      {/* LEFT: Breadcrumb */}
-      <div className="flex items-center gap-2 text-muted-foreground min-w-0">
-        <span className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">Workspace</span>
-        <ChevronRight size={11} className="opacity-40 shrink-0" />
-        <span className="text-xs font-bold text-foreground truncate max-w-32">{templateName}</span>
+      {/* LEFT: Breadcrumb & Student Selector */}
+      <div className="flex items-center gap-3 text-muted-foreground min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">Workspace</span>
+          <ChevronRight size={11} className="opacity-40 shrink-0" />
+          <span className="text-xs font-bold text-foreground truncate max-w-32">{templateName}</span>
+        </div>
+
+        <div className="h-4 w-px bg-border/60 mx-1" />
+
+        <div className="flex items-center gap-2">
+          <Users size={14} className="text-primary" strokeWidth={2.5} />
+          <Select
+            value={activeStudentId?.toString() || ""}
+            onValueChange={(val) => setActiveStudentId(parseInt(val))}
+          >
+            <SelectTrigger className="h-8 w-[180px] bg-muted/30 border-transparent hover:bg-muted/50 transition-all font-bold text-[11px] rounded-xl shadow-none focus:ring-0">
+              <SelectValue placeholder="Select Applicant">
+                {previewData?.fullName || "Select Applicant"}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl border-border/50 shadow-2xl">
+              <div className="px-2 py-1.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">
+                Applicants in Queue
+              </div>
+              {allStudents.map((student) => (
+                <SelectItem
+                  key={student.id}
+                  value={student.id.toString()}
+                  className="rounded-xl focus:bg-primary focus:text-primary-foreground font-bold text-xs py-2 px-3"
+                >
+                  <div className="flex flex-col">
+                    <span>{student.first_name} {student.last_name}</span>
+                    <span className="text-[9px] opacity-70 font-mono tracking-tighter">ID: {student.id_number}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* CENTER: Canvas Controls */}

@@ -341,7 +341,7 @@ const DepartmentList: React.FC = () => {
                         <TableHead className="pl-8 w-[150px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">ID Number</TableHead>
                         <TableHead className="w-[280px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Identity</TableHead>
                         <TableHead className="text-center w-[120px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Status</TableHead>
-                        <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Location</TableHead>
+                        <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Address</TableHead>
                         <TableHead className="text-right pr-8 w-[120px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Actions</TableHead>
                       </TableRow>
                     </TableHeader>

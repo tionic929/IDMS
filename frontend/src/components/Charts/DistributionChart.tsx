@@ -1,16 +1,44 @@
-import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import React, { memo, useMemo } from 'react';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { ChartContainer } from './ChartContainer';
-import { ArrowUpRight } from 'lucide-react';
 
 const LIGHT_COLORS = ['#00928a', '#6366f1', '#f59e0b', '#3b82f6', '#10b981', '#64748b'];
 
-export const DistributionChart: React.FC<{
+// --- Sub-components ---
+
+const CustomTooltip = memo(({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const entry = payload[0];
+    return (
+      <div className="bg-card/95 backdrop-blur-md p-3 rounded-xl border border-border shadow-2xl pointer-events-none">
+        <div className="flex items-center gap-2 mb-1.5">
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.payload.fill || entry.color }} />
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{entry.name}</span>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-xs font-bold text-foreground">Total Count</span>
+          <span className="text-xs font-black text-primary">{entry.value.toLocaleString()} items</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+});
+
+// --- Main Component ---
+
+const DistributionChartComponent: React.FC<{
   title?: string;
   data: any[];
   onViewDetails?: () => void;
   onSliceClick?: (deptName: string) => void;
+  isTransitioning?: boolean; 
 }> = ({ title = "Share Overview", data, onViewDetails, onSliceClick }) => {
+
+  const totalCount = useMemo(() =>
+    data.reduce((sum, item) => sum + (item.total || 0), 0)
+    , [data]);
+
   if (!data || data.length === 0) {
     return (
       <ChartContainer title={title}>
@@ -21,46 +49,34 @@ export const DistributionChart: React.FC<{
     );
   }
 
-  const totalCount = data.reduce((sum, item) => sum + item.total, 0);
-
   return (
     <ChartContainer title={title}>
-      <div className="flex flex-col h-full justify-between gap-4">
-        <div className="h-[140px] w-full relative">
-          <ResponsiveContainer width="100%" height="100%">
+      <div className="flex flex-col h-full justify-between gap-4 px-2 py-1 overflow-hidden relative">
+        <div className="h-[180px] w-full relative overflow-hidden">
+          <ResponsiveContainer width="100%" height="100%" debounce={50}>
             <PieChart>
               <Pie
                 data={data}
-                innerRadius={50}
-                outerRadius={65}
+                innerRadius={55}
+                outerRadius={75}
                 paddingAngle={4}
                 dataKey="total"
                 stroke="transparent"
-                animationBegin={0}
-                animationDuration={1500}
+                isAnimationActive={false} // DISABLED: Fixes stuttering
+                labelLine={false}
               >
                 {data.map((_, i) => (
                   <Cell
                     key={`cell-${i}`}
                     fill={LIGHT_COLORS[i % LIGHT_COLORS.length]}
-                    className="hover:opacity-80 transition-all cursor-pointer"
+                    className="hover:opacity-80 transition-all cursor-pointer outline-none"
                     onClick={() => onSliceClick?.(data[i]?.name)}
                   />
                 ))}
               </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: 'var(--radius)',
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  color: 'hsl(var(--foreground))',
-                  padding: '8px 12px',
-                  boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'
-                }}
-                itemStyle={{ fontSize: '10px', padding: 0 }}
-                formatter={(value: any) => [`${value} units`, 'Count']}
+              <Tooltip 
+                content={<CustomTooltip />} 
+                isAnimationActive={false} // DISABLED: Fixes stuttering
               />
             </PieChart>
           </ResponsiveContainer>
@@ -71,13 +87,14 @@ export const DistributionChart: React.FC<{
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1.5 px-1 pb-1">
           {data.slice(0, 3).map((item, i) => (
             <div
               key={item.name}
               className="flex items-center justify-between group/legend cursor-pointer"
               onClick={() => onSliceClick?.(item.name)}
-            >              <div className="flex items-center gap-2 min-w-0">
+            >
+              <div className="flex items-center gap-2 min-w-0">
                 <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: LIGHT_COLORS[i % LIGHT_COLORS.length] }} />
                 <span className="text-[9px] font-bold text-muted-foreground uppercase truncate tracking-tight group-hover/legend:text-primary transition-colors">
                   {item.name}
@@ -90,16 +107,16 @@ export const DistributionChart: React.FC<{
           ))}
         </div>
 
-        <div className="pt-3 border-t border-border flex items-center justify-between">
-          <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">
-            {data.length > 3 ? `+${data.length - 3} More` : 'Complete'}
+        <div className="pt-2 border-t border-border flex items-center justify-between mt-auto">
+          <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest">
+            {data.length > 3 ? `+${data.length - 3} Sections` : 'All Sections'}
           </span>
           {onViewDetails && (
             <button
               onClick={onViewDetails}
-              className="text-[9px] font-bold text-primary hover:text-primary/70 transition-all uppercase tracking-widest"
+              className="text-[8px] font-bold text-primary hover:text-primary/70 transition-all uppercase tracking-widest"
             >
-              View all ↗
+              Details ↗
             </button>
           )}
         </div>
@@ -107,3 +124,5 @@ export const DistributionChart: React.FC<{
     </ChartContainer>
   );
 };
+
+export const DistributionChart = memo(DistributionChartComponent);

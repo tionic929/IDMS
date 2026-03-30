@@ -30,9 +30,7 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 ...(res.history || [])
             ];
             setAllStudents(combined);
-            console.log(`[StudentContext] Fetched ${combined.length} students`);
         } catch (error) {
-            console.error("[StudentContext] Failed to fetch students:", error);
             toast.error("Error updating student records");
         } finally {
             setLoading(false);
@@ -44,10 +42,8 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }, [fetchStudents]);
 
     useEffect(() => {
-        console.log('[Echo] Initializing listener on "dashboard" channel');
 
         const handleNewSubmission = (data: any) => {
-            console.log('[Echo] SUCCESS: Received event!', data);
             const student = data.student;
 
             toast.success(`New application received: ${student?.first_name} ${student?.last_name}`, {
@@ -66,15 +62,12 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         // Debug connection
         echo.connector.pusher.connection.bind('connected', () => {
-            console.log('[Echo] Pusher Connected successfully');
         });
 
         echo.connector.pusher.connection.bind('error', (err: any) => {
-            console.error('[Echo] Pusher Connection Error:', err);
         });
 
         return () => {
-            console.log('[Echo] Cleaning up listeners');
             channel.stopListening('.new-submission');
             channel.stopListening('new-submission');
         };

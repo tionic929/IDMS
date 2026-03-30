@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'idtechv2' => [
+        'url' => env('IDTECHV2_URL', 'http://localhost:8001'),
+    ],
+
 ];

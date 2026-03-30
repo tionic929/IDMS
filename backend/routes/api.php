@@ -5,7 +5,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\ApplicantsController;
-use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\DepartmentsController;
 use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\CardLayoutController;
@@ -20,6 +19,8 @@ Route::get('/user', function (Request $request) {
 
 Route::get('/proxy-image', function (Request $request) {
     $path = $request->query('path');
+    // Sanitize path to prevent directory traversal
+    $path = ltrim(str_replace(['..', '\\'], '', $path), '/');
     if (!Storage::disk('public')->exists($path))
         return response()->json(['error' => 'File not found'], 404);
 
@@ -29,11 +30,10 @@ Route::get('/proxy-image', function (Request $request) {
 Route::post('/login', [AuthController::class , 'login'])->name('login');
 Route::post('/register', [AuthController::class , 'register'])->name('register');
 Route::post('/students', [ApplicantsController::class , 'store'])->name('applicants.store');
-
-Route::resource('users', UsersController::class);
-Route::get('/get-departments', [DepartmentsController::class , 'getApplicantsByDepartments']);
-Route::post('/reports/verify', [ReportsController::class , 'verifyIdNumber']);
 Route::middleware('auth:sanctum')->group(function () {
+
+    Route::resource('users', UsersController::class);
+    Route::get('/get-departments', [DepartmentsController::class , 'getApplicantsByDepartments']);
 
     Route::get('/students', [ApplicantsController::class , 'index']);
 
@@ -47,7 +47,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/paginated-applicants', [ApplicantsController::class , 'paginatedApplicants']);
     Route::get('/archived-applicants', [ApplicantsController::class , 'getArchived']);
-    Route::get('/all-imported-reports', [ReportsController::class , 'getImportedReports']);
 
     Route::put('/applicant/{student}/toggle', [ApplicantsController::class , 'toggleHasCard']);
     Route::post('/applicant/{id}/archive', [ApplicantsController::class , 'archive']);
@@ -84,8 +83,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/history/export', [HistoryExportController::class, 'exportCsv']);
 
         Route::get('/applicants/{id}/card-preview', [ApplicantsController::class , 'getPreview']);
-
-        Route::post('/import', [ReportsController::class , 'import']);
 
         Route::middleware('role:admin')
             ->prefix('admin')

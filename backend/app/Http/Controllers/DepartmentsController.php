@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Applicant as Student;
+use App\Models\CardApplication as Student;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
@@ -22,10 +22,27 @@ class DepartmentsController extends Controller
             $cursor       = $request->query('cursor'); 
 
             $counts = Cache::remember('dept_counts', 3600, function () use ($courses) {
-                return Student::select('course', DB::raw('COUNT(*) as applicant_count'))
-                    ->whereIn('course', $courses)
-                    ->groupBy('course')
-                    ->pluck('applicant_count', 'course');
+                // Students counts by course - Use a clean query to avoid GROUP BY issues with joinDetails scope
+                $counts = DB::table('card_applications')
+                    ->join('students', 'card_applications.student_id', '=', 'students.id')
+                    ->join('courses', 'students.course_id', '=', 'courses.id')
+                    ->where('students.type', 'student')
+                    ->whereIn('courses.name', $courses)
+                    ->where('card_applications.is_archived', false)
+                    ->groupBy('courses.name')
+                    ->pluck(DB::raw('COUNT(*) as applicant_count'), 'courses.name');
+
+                // Total employee count (regardless of their department-based course name)
+                $employeeCount = DB::table('card_applications')
+                    ->join('students', 'card_applications.student_id', '=', 'students.id')
+                    ->where('students.type', 'employee')
+                    ->where('card_applications.is_archived', false)
+                    ->count();
+
+                $allCounts = $counts->toArray();
+                $allCounts['EMPLOYEE'] = $employeeCount;
+                
+                return $allCounts;
             });
 
             $cacheVersion = Cache::get('students_cache_v', 1);
@@ -38,30 +55,36 @@ class DepartmentsController extends Controller
             );
 
             $data = Cache::remember($cacheKey, 600, function () use ($selectedDept, $search, $cursor) {
-                $query = Student::select(
-                        'id',
-                        'id_number',
-                        'first_name',
-                        'last_name',
-                        'course',
-                        'created_at',
-                        'guardian_name',
-                        'address',
-                        'has_card'
-                    )
-                    ->where('course', $selectedDept);
+                $query = Student::joinDetails()->select(
+                        'card_applications.id',
+                        'students.id_number',
+                        'students.first_name',
+                        'students.last_name',
+                        'courses.name as course',
+                        'card_applications.created_at',
+                        'students.guardian_name',
+                        'students.address',
+                        'card_applications.has_card'
+                    );
+
+                if ($selectedDept === 'EMPLOYEE') {
+                    $query->where('students.type', 'employee');
+                } else {
+                    $query->where('courses.name', $selectedDept)
+                          ->where('students.type', 'student');
+                }
 
                 if ($search !== '') {
                     $query->where(function ($q) use ($search) {
-                        $q->where('first_name', 'like', "%{$search}%")
-                          ->orWhere('last_name', 'like', "%{$search}%")
-                          ->orWhere('id_number', 'like', "%{$search}%");
+                        $q->where('students.first_name', 'like', "%{$search}%")
+                          ->orWhere('students.last_name', 'like', "%{$search}%")
+                          ->orWhere('students.id_number', 'like', "%{$search}%");
                     });
                 }
 
                 // 🔒 Deterministic ordering for cursor pagination
                 $paginated = $query
-                    ->orderBy('id')
+                    ->orderBy('card_applications.id')
                     ->cursorPaginate(
                         10,
                         ['*'],

@@ -58,7 +58,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
       {/* Chart Section */}
       {chartData && chartData.length > 0 && (
         <div className="h-16 w-full mb-4 -mx-1 relative z-10">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" debounce={300}>
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id={`gradient-${title}`} x1="0" y1="0" x2="0" y2="1">

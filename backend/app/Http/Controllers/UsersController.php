@@ -16,10 +16,10 @@ class UsersController extends Controller
      * Display a listing of the resource (Read - All).
      * GET /users
      */
-    public function index()
+    public function index(Request $request)
     {
-        // Fetch all users and return them as a JSON response.
-        $users = User::all();
+        $users = User::select('id', 'name', 'email', 'role', 'avatar', 'created_at', 'updated_at')
+            ->paginate($request->query('per_page', 20));
 
         return response()->json($users, 200);
     }
@@ -46,6 +46,7 @@ class UsersController extends Controller
 
         // Log activity
         ActivityLog::create([
+            'user_id' => auth()->id(),
             'user' => auth()->user()?->name ?? 'System',
             'action' => 'User Added',
             'type' => 'system',
@@ -105,7 +106,7 @@ class UsersController extends Controller
         $user->delete();
 
         // 9. Return success response with no content
-        return response()->json(['message' => 'User deleted successfully.'], 204); // 204 No Content
+        return response()->json(['message' => 'User deleted successfully.'], 200);
     }
 
     public function updateProfile(Request $request)

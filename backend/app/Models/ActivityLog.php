@@ -10,6 +10,7 @@ class ActivityLog extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'user',
         'action',
         'type',
@@ -17,6 +18,14 @@ class ActivityLog extends Model
         'status',
         'ip',
     ];
+
+    /**
+     * Relationship to the User model.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     /**
      * Scope for system logs.

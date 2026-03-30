@@ -1,5 +1,5 @@
-import React from 'react';
-import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
+import React, { memo } from 'react';
+import { AreaChart, Area, YAxis } from 'recharts';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -16,8 +16,7 @@ interface MetricCardProps {
   onClick?: () => void;
 }
 
-
-const MetricCard: React.FC<MetricCardProps> = ({
+const MetricCardComponent: React.FC<MetricCardProps> = ({
   title,
   value,
   icon: Icon,
@@ -49,11 +48,21 @@ const MetricCard: React.FC<MetricCardProps> = ({
           </div>
         </div>
 
-        {/* Sparkline - Very minimal */}
+        {/* 
+           NEW METHOD: CSS VIEWBOX SCALING 
+           - No ResponsiveContainer (expensive JS measurement loops).
+           - Fixed reference size (300x40).
+           - GPU scaling via CSS width: 100%.
+        */}
         {chartData && chartData.length > 0 && (
-          <div className="h-10 w-full mt-2 opacity-40 group-hover:opacity-100 transition-opacity duration-700">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
+          <div className="h-10 w-full mt-2 opacity-40 group-hover:opacity-100 transition-opacity duration-700 overflow-hidden">
+             <AreaChart 
+               width={300} 
+               height={40} 
+               data={chartData}
+               margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+               style={{ width: '100%', height: '100%' }}
+             >
                 <YAxis hide domain={['dataMin', 'dataMax']} />
                 <Area
                   type="monotone"
@@ -62,11 +71,10 @@ const MetricCard: React.FC<MetricCardProps> = ({
                   strokeWidth={2}
                   fill="transparent"
                   dot={false}
-                  isAnimationActive
+                  isAnimationActive={false}
                   className="text-primary"
                 />
               </AreaChart>
-            </ResponsiveContainer>
           </div>
         )}
 
@@ -92,10 +100,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
         </div>
       </CardContent>
 
-      {/* Very subtle bottom line */}
       <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-border/40" />
     </Card>
   );
 };
 
-export default MetricCard;
+export default memo(MetricCardComponent);

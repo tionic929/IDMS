@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ interface ContainerProps {
   className?: string;
 }
 
-export const ChartContainer: React.FC<ContainerProps> = ({
+const ChartContainerComponent: React.FC<ContainerProps> = ({
   title,
   badge,
   children,
@@ -36,8 +36,8 @@ export const ChartContainer: React.FC<ContainerProps> = ({
       </div>
     </CardHeader>
 
-    <CardContent className="flex-1 w-full px-4 pt-4 pb-2 relative z-10">
-      {children}
+    <CardContent className="flex-1 w-full p-2 relative z-10 overflow-hidden">
+       {children}
     </CardContent>
 
     {footer && (
@@ -47,3 +47,5 @@ export const ChartContainer: React.FC<ContainerProps> = ({
     )}
   </Card>
 );
+
+export const ChartContainer = memo(ChartContainerComponent);

@@ -116,16 +116,25 @@ const IDCardPreview = React.forwardRef<any, Props>(
                   image={photoImage}
                   width={scaledWidth}
                   height={scaledHeight}
-                  // object-fit: cover — fills box without stretching
                   sceneFunc={(context) => {
                     const iw = photoImage.width;
                     const ih = photoImage.height;
+
+                    // Clip to bounding box so nothing bleeds outside
+                    context.save();
+                    context.beginPath();
+                    context.rect(0, 0, scaledWidth, scaledHeight);
+                    context.clip();
+
+                    // object-fit: cover — fill box, crop overflow, centered
                     const ratio = Math.max(scaledWidth / iw, scaledHeight / ih);
-                    const w = iw * ratio;
-                    const h = ih * ratio;
-                    const x = (scaledWidth - w) / 2;
-                    const y = (scaledHeight - h) / 2;
-                    context.drawImage(photoImage, x, y, w, h);
+                    const drawW = iw * ratio;
+                    const drawH = ih * ratio;
+                    const offsetX = (scaledWidth - drawW) / 2;
+                    const offsetY = (scaledHeight - drawH) / 2;
+                    context.drawImage(photoImage, offsetX, offsetY, drawW, drawH);
+
+                    context.restore();
                   }}
                 />
               ) : (

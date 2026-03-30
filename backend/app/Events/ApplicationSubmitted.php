@@ -14,7 +14,7 @@ class ApplicationSubmitted implements ShouldBroadcast
 
     public $student;
 
-    public function __construct(Student $student)
+    public function __construct($student)
     {
         $this->student = $student;
     }

@@ -121,6 +121,7 @@ def bridge_application():
             LARAVEL_API_URL,
             data=form_data,
             files=files_to_forward,
+            headers={'X-Bridge-Source': 'true'},
             timeout=30
         )
 
@@ -134,6 +135,49 @@ def bridge_application():
             (name, value) for (name, value) in response.headers.items()
             if name.lower() not in excluded_headers
         ]
+        return (response.content, response.status_code, headers)
+
+    except Exception as e:
+        print(f"[BRIDGE ERROR] {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/employee-application-submit', methods=['POST'])
+def bridge_employee_application():
+    if face_restorer is None:
+        return jsonify({"error": "AI models loading..."}), 503
+
+    try:
+        # 1. Extract form data
+        form_data = request.form.to_dict()
+        print(f"\n[BRIDGE EMPLOYEE] Received application for: {form_data.get('manual_full_name')}")
+
+        # 2. Process Pictures with AI (No signature or payment for employees)
+        files_to_forward = {}
+
+        if 'id_picture' in request.files:
+            print("[BRIDGE] Processing ID Picture...")
+            id_buf = process_id_picture(request.files['id_picture'].read())
+            files_to_forward['id_picture'] = ('id.png', id_buf, 'image/png')
+
+        # 3. Forward to local Laravel employee endpoint
+        laravel_employee_url = "http://localhost:8000/api/students/employee"
+        print(f"[BRIDGE] Forwarding to local Laravel Employee: {laravel_employee_url}")
+        
+        response = requests.post(
+            laravel_employee_url,
+            data=form_data,
+            files=files_to_forward,
+            headers={'X-Bridge-Source': 'true'},
+            timeout=30
+        )
+
+        # 4. Filter headers and return
+        excluded_headers = [
+            'content-encoding', 'content-length', 'transfer-encoding',
+            'connection', 'keep-alive', 'proxy-authenticate',
+            'proxy-authorization', 'te', 'trailers', 'upgrade'
+        ]
+        headers = [(n, v) for (n, v) in response.headers.items() if n.lower() not in excluded_headers]
         return (response.content, response.status_code, headers)
 
     except Exception as e:
@@ -160,4 +204,4 @@ def api_scan_signature():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    serve(app, host='0.0.0.0', port=5000, threads=4, channel_timeout=300)
+    serve(app, host='0.0.0.0', port=5000, threads=8, channel_timeout=300)

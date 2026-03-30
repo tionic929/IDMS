@@ -3,6 +3,8 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 interface SystemSettings {
   fontSize: number;
   themeHue: number;
+  themeSat: number;
+  themeLight: number;
   themeMode: "light" | "dark" | "system";
   componentScale: number;
 }
@@ -16,6 +18,8 @@ interface SystemSettingsContextType {
 const defaultSettings: SystemSettings = {
   fontSize: 16,
   themeHue: 240, // Indigo/Zinc default range
+  themeSat: 70,
+  themeLight: 50,
   themeMode: "light",
   componentScale: 1,
 };
@@ -58,6 +62,8 @@ export const SystemSettingsProvider: React.FC<{ children: React.ReactNode }> = (
     // Inject CSS Variables
     root.style.setProperty("--system-font-size", `${settings.fontSize}px`);
     root.style.setProperty("--system-hue", `${settings.themeHue}`);
+    root.style.setProperty("--system-sat", `${settings.themeSat ?? 70}%`);
+    root.style.setProperty("--system-light", `${settings.themeLight ?? 50}%`);
     root.style.setProperty("--system-scale", `${settings.componentScale}`);
     
     // Scale root font size

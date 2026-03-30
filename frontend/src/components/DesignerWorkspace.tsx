@@ -34,16 +34,6 @@ const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({
           isTemplatesCollapsed ? "w-[72px]" : "w-[280px]"
         )}
       >
-        {/* Toggle Button */}
-        <button
-          onClick={() => setIsTemplatesCollapsed(!isTemplatesCollapsed)}
-          className={cn(
-            "absolute -right-3 top-24 z-50 w-6 h-12 bg-card border border-border rounded-full flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 shadow-md transition-all active:scale-90",
-            isTemplatesCollapsed ? "opacity-100" : "opacity-0 group-hover/sidebar:opacity-100"
-          )}
-        >
-          {isTemplatesCollapsed ? <ChevronRight size={14} strokeWidth={3} /> : <ChevronLeft size={14} strokeWidth={3} />}
-        </button>
 
         <div className="h-full">
           <Templates
@@ -51,6 +41,7 @@ const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({
             onSelect={(t) => setSelectedTemplate(t)}
             refreshTrigger={saveCount}
             isCollapsed={isTemplatesCollapsed}
+            onToggleCollapse={() => setIsTemplatesCollapsed(!isTemplatesCollapsed)}
           />
         </div>
       </div>

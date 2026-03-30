@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo, memo } from 'react';
 import {
   Users, Award, Package, Inbox, CheckCircle2, Zap, Activity, ShieldCheck,
   Calendar, Download, RefreshCw, AlertCircle, TrendingUp, Clock, Eye,
@@ -33,7 +33,7 @@ import { useStudents } from '@/context/StudentContext';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
 import { useQuery } from '@tanstack/react-query';
 
-const ErrorBoundary = ({ error, retry }: { error: any; retry: () => void }) => (
+const ErrorBoundary = memo(({ error, retry }: { error: any; retry: () => void }) => (
   <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6 flex items-start gap-4">
     <AlertCircle className="text-destructive flex-shrink-0 mt-1" size={20} />
     <div className="flex-1">
@@ -49,9 +49,9 @@ const ErrorBoundary = ({ error, retry }: { error: any; retry: () => void }) => (
       </button>
     </div>
   </div>
-);
+));
 
-const DataFreshness = ({ timestamp, isLoading }: { timestamp: Date | null; isLoading: boolean }) => {
+const DataFreshness = memo(({ timestamp, isLoading }: { timestamp: Date | null; isLoading: boolean }) => {
   const [timeAgo, setTimeAgo] = useState('just now');
 
   useEffect(() => {
@@ -70,27 +70,26 @@ const DataFreshness = ({ timestamp, isLoading }: { timestamp: Date | null; isLoa
   }, [timestamp]);
 
   return (
-    <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+    <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground min-w-[80px] justify-end">
       <Clock size={12} />
       <span>{isLoading ? 'updating...' : timeAgo}</span>
     </div>
   );
-};
+});
 
-const DateRangePicker = ({ onRangeChange, currentRange }: { onRangeChange: (r: any) => void; currentRange: any }) => {
-  const presets = [
+const DateRangePicker = memo(({ onRangeChange, currentRange }: { onRangeChange: (r: any) => void; currentRange: any }) => {
+  const presets = useMemo(() => [
     { label: 'Last 7 days', days: 7 },
     { label: 'Last 30 days', days: 30 },
     { label: 'Last 90 days', days: 90 },
     { label: 'Last 6 months', days: 180 },
     { label: 'Last 1 year', days: 365 },
-  ];
+  ], []);
 
-  const [showCustom, setShowCustom] = useState(false);
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
 
-  const applyCustomRange = () => {
+  const applyCustomRange = useCallback(() => {
     if (customStart && customEnd) {
       onRangeChange({
         days: 0,
@@ -99,7 +98,7 @@ const DateRangePicker = ({ onRangeChange, currentRange }: { onRangeChange: (r: a
         endDate: customEnd,
       });
     }
-  };
+  }, [customStart, customEnd, onRangeChange]);
 
   return (
     <DropdownMenu>
@@ -117,7 +116,6 @@ const DateRangePicker = ({ onRangeChange, currentRange }: { onRangeChange: (r: a
           value={currentRange.days?.toString() || ''}
           onValueChange={(val) => {
             const days = parseInt(val);
-            setShowCustom(false);
             onRangeChange({ days, label: presets.find(p => p.days === days)?.label });
           }}
         >
@@ -161,9 +159,9 @@ const DateRangePicker = ({ onRangeChange, currentRange }: { onRangeChange: (r: a
       </DropdownMenuContent>
     </DropdownMenu>
   );
-};
+});
 
-const DepartmentFilter = ({ departments, selectedDept, onChange }: { departments: string[]; selectedDept: string | null; onChange: (d: string | null) => void }) => {
+const DepartmentFilter = memo(({ departments, selectedDept, onChange }: { departments: string[]; selectedDept: string | null; onChange: (d: string | null) => void }) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -192,13 +190,40 @@ const DepartmentFilter = ({ departments, selectedDept, onChange }: { departments
       </DropdownMenuContent>
     </DropdownMenu>
   );
-};
+});
 
 const Dashboard = () => {
   const { allStudents, loading: studentsLoading } = useStudents();
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<any>({ label: 'Last 30 days', days: 30 });
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
+  
+  // Transition State for High-Performance Rendering
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const transitionTimerRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    // Detect sidebar/window resizing
+    const resizeObserver = new ResizeObserver(() => {
+      // START FREEZE: Immediately lock charts
+      setIsTransitioning(true);
+      
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = setTimeout(() => {
+        // END FREEZE: Start the "Smooth Adjustment" phase
+        setIsTransitioning(false);
+      }, 400); 
+    });
+
+    resizeObserver.observe(containerRef.current);
+    return () => {
+      resizeObserver.disconnect();
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
+    };
+  }, []);
   const [visibleMetrics, setVisibleMetrics] = useState({
     totalApplications: true,
     pendingApplications: true,
@@ -230,31 +255,29 @@ const Dashboard = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  const lastUpdate = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
-  const availableDepts = data?.departments?.full_list?.map((d: any) => d.name) || [];
+  const lastUpdate = useMemo(() => (dataUpdatedAt ? new Date(dataUpdatedAt) : null), [dataUpdatedAt]);
+  const availableDepts = useMemo(() => data?.departments?.full_list?.map((d: any) => d.name) || [], [data]);
 
-  const handleRefresh = () => {
-    refetch();
-  };
+  // Callbacks for stable props
+  const handleRefresh = useCallback(() => refetch(), [refetch]);
+  const handleDateRangeChange = useCallback((range: { days: number; label: string }) => setDateRange(range), []);
+  const handleDepartmentChange = useCallback((dept: string | null) => setSelectedDept(dept), []);
+  const handleExport = useCallback(() => navigate('/reports/export'), [navigate]);
 
-  const handleDateRangeChange = (range: { days: number; label: string }) => {
-    setDateRange(range);
-  };
+  const toggleMetricVisibility = useCallback((metric: keyof typeof visibleMetrics) => {
+    setVisibleMetrics(prev => ({ ...prev, [metric]: !prev[metric] }));
+  }, []);
 
-  const handleDepartmentChange = (dept: string | null) => {
-    setSelectedDept(dept);
-  };
+  const handleVelocityDetails = useCallback(() => setVelocityModalOpen(true), []);
+  const handleTallyDetails = useCallback(() => { setTallyFocusDept(null); setTallyModalOpen(true); }, []);
+  const handleTallyBarClick = useCallback((dept: string | null) => { setTallyFocusDept(dept); setTallyModalOpen(true); }, []);
+  const handleDistDetails = useCallback(() => setDistModalOpen(true), []);
+  const handleDistSliceClick = useCallback((deptName: string) => navigate(`/departments?dept=${encodeURIComponent(deptName)}`), [navigate]);
 
-  const handleExport = () => {
-    navigate('/reports/export');
-  };
-
-  const toggleMetricVisibility = (metric: keyof typeof visibleMetrics) => {
-    setVisibleMetrics(prev => ({
-      ...prev,
-      [metric]: !prev[metric],
-    }));
-  };
+  const handleMetricModalClose = useCallback(() => setMetricModal(null), []);
+  const handleVelocityModalClose = useCallback(() => setVelocityModalOpen(false), []);
+  const handleTallyModalClose = useCallback(() => { setTallyModalOpen(false); setTallyFocusDept(null); }, []);
+  const handleDistModalClose = useCallback(() => setDistModalOpen(false), []);
 
   const recentStudents = useMemo(() => {
     if (!allStudents) return [];
@@ -272,7 +295,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="bg-background min-h-full text-foreground font-sans selection:bg-primary/10 transition-colors duration-300">
+    <div ref={containerRef} className="bg-background min-h-full text-foreground font-sans selection:bg-primary/10 transition-colors duration-300">
       <div className="px-2 py-2 lg:px-6 lg:py-6 mx-auto">
 
         {/* ── PAGE HEADER ────────────────────────────────────────── */}
@@ -370,7 +393,7 @@ const Dashboard = () => {
           <DashboardSkeleton />
         ) : data ? (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10 will-change-transform translate-z-0">
               {visibleMetrics.totalApplications && (
                 <MetricCard
                   title="Applications"
@@ -435,31 +458,33 @@ const Dashboard = () => {
               <div className="flex-1 h-px bg-border" />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-10">
-              <div className="lg:col-span-5 h-[340px]">
-                <VelocityChart
-                  title="Student Activity"
-                  data={data.trends}
-                  onViewDetails={() => setVelocityModalOpen(true)}
-                />
+              <div className="lg:col-span-12 h-[340px] grid grid-cols-1 lg:grid-cols-12 gap-5 mb-10 will-change-transform translate-z-0">
+                <div className="lg:col-span-5 h-full min-w-0 bg-card rounded-xl border border-border overflow-hidden">
+                  <VelocityChart
+                    title="Student Activity"
+                    data={data.trends}
+                    onViewDetails={handleVelocityDetails}
+                    isTransitioning={isTransitioning}
+                  />
+                </div>
+                <div className="lg:col-span-5 h-full min-w-0 bg-card rounded-xl border border-border overflow-hidden">
+                  <TallyChart
+                    title="Departments"
+                    data={data.departments.full_list}
+                    onViewDetails={handleTallyDetails}
+                    onBarClick={handleTallyBarClick}
+                  />
+                </div>
+                <div className="lg:col-span-2 h-full min-w-0 bg-card rounded-xl border border-border overflow-hidden">
+                  <DistributionChart
+                    title="Share"
+                    data={data.departments.full_list}
+                    onViewDetails={handleDistDetails}
+                    onSliceClick={handleDistSliceClick}
+                    isTransitioning={isTransitioning}
+                  />
+                </div>
               </div>
-              <div className="lg:col-span-5 h-[340px]">
-                <TallyChart
-                  title="Departments"
-                  data={data.departments.full_list}
-                  onViewDetails={() => { setTallyFocusDept(null); setTallyModalOpen(true); }}
-                  onBarClick={(dept) => { setTallyFocusDept(dept); setTallyModalOpen(true); }}
-                />
-              </div>
-              <div className="lg:col-span-2 h-[340px]">
-                <DistributionChart
-                  title="Share"
-                  data={data.departments.full_list}
-                  onViewDetails={() => setDistModalOpen(true)}
-                  onSliceClick={(deptName) => navigate(`/departments?dept=${encodeURIComponent(deptName)}`)}
-                />
-              </div>
-            </div>
 
             <div className="flex items-center gap-4 mb-5">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Recent Applicants</span>
@@ -557,24 +582,24 @@ const Dashboard = () => {
 
       <MetricDetailModal
         open={!!metricModal}
-        onClose={() => setMetricModal(null)}
+        onClose={handleMetricModalClose}
         meta={metricModal}
       />
       <VelocityDetailModal
         open={velocityModalOpen}
-        onClose={() => setVelocityModalOpen(false)}
+        onClose={handleVelocityModalClose}
         data={data?.trends ?? []}
         auditLog={allStudents || []}
       />
       <TallyDetailModal
         open={tallyModalOpen}
-        onClose={() => { setTallyModalOpen(false); setTallyFocusDept(null); }}
+        onClose={handleTallyModalClose}
         data={data?.departments.full_list ?? []}
         focusDept={tallyFocusDept}
       />
       <DistributionDetailModal
         open={distModalOpen}
-        onClose={() => setDistModalOpen(false)}
+        onClose={handleDistModalClose}
         data={data?.departments.full_list ?? []}
       />
 

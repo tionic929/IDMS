@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { getFullName, type Students } from "@/types/students";
-import { getPaginatedApplicants, deleteApplicant } from "@/api/students";
-import { ChevronLeft, ChevronRight, Loader2, MoreHorizontal, Eye, Trash2, AlertTriangle } from "lucide-react";
+import { getPaginatedApplicants, archiveApplicant } from "@/api/students";
+import { ChevronLeft, ChevronRight, Loader2, Eye, Trash2, Archive, AlertTriangle } from "lucide-react";
 import type { ApplicantCard } from "@/types/card";
 import {
   Table,
@@ -34,7 +34,7 @@ interface ApplicantsTableProps {
 
 const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter = '', sortBy = '', sortDir = 'asc', onViewDetails }) => {
   const [page, setPage] = useState(1);
-  const [applicantToDelete, setApplicantToDelete] = useState<Students | null>(null);
+  const [applicantToArchive, setApplicantToArchive] = useState<Students | null>(null);
   const queryClient = useQueryClient();
 
   // Debounce the query string
@@ -63,11 +63,11 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
   const currentPage = paginatedData?.current_page || 1;
   const lastPage = paginatedData?.last_page || 1;
 
-  const deleteMutation = useMutation({
-    mutationFn: (studentId: number) => deleteApplicant(studentId),
+  const archiveMutation = useMutation({
+    mutationFn: (studentId: number) => archiveApplicant(studentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paginatedApplicants'] });
-      setApplicantToDelete(null);
+      setApplicantToArchive(null);
     },
   });
 
@@ -88,9 +88,9 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
     onViewDetails(applicantData);
   };
 
-  const confirmDelete = async () => {
-    if (!applicantToDelete) return;
-    deleteMutation.mutate(applicantToDelete.id);
+  const confirmArchive = () => {
+    if (!applicantToArchive) return;
+    archiveMutation.mutate(applicantToArchive.id);
   };
 
   return (
@@ -171,10 +171,10 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => setApplicantToDelete(s)}
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all font-bold ml-1"
+                      onClick={() => setApplicantToArchive(s)}
+                      className="h-8 w-8 text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-all font-bold ml-1"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Archive className="h-4 w-4" />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -223,38 +223,40 @@ const ApplicantsTable: React.FC<ApplicantsTableProps> = ({ query, statusFilter =
         </div>
       </div>
 
-      <Dialog open={!!applicantToDelete} onOpenChange={(open) => !open && !deleteMutation.isPending && setApplicantToDelete(null)}>
+      {/* ARCHIVE CONFIRMATION DIALOG */}
+      <Dialog open={!!applicantToArchive} onOpenChange={(open) => !open && !archiveMutation.isPending && setApplicantToArchive(null)}>
         <DialogContent className="sm:max-w-md bg-card rounded-lg p-6 sm:p-8 border-border shadow-2xl">
           <DialogHeader className="mb-2">
-            <div className="mx-auto w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center mb-4 text-destructive">
-              <AlertTriangle size={24} />
+            <div className="mx-auto w-12 h-12 bg-amber-500/10 rounded-full flex items-center justify-center mb-4 text-amber-500">
+              <Archive size={24} />
             </div>
-            <DialogTitle className="text-xl font-black text-center text-foreground tracking-tight uppercase">Confirm Deletion</DialogTitle>
+            <DialogTitle className="text-xl font-black text-center text-foreground tracking-tight uppercase">Archive Applicant</DialogTitle>
             <DialogDescription className="text-center pt-2 text-muted-foreground font-medium">
-              Are you absolutely sure you want to delete <strong className="text-foreground">{applicantToDelete ? getFullName(applicantToDelete) : ''}</strong>?
+              Are you sure you want to archive <strong className="text-foreground">{applicantToArchive ? getFullName(applicantToArchive) : ''}</strong>?
               <br />
-              <span className="text-xs text-destructive font-bold block mt-3 uppercase tracking-wider">This action is destructive and will remove them from the active list.</span>
+              <span className="text-xs text-amber-500 font-bold block mt-3 uppercase tracking-wider">
+                They will be moved to the archived list and notified via email.
+              </span>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-6 flex flex-col-reverse sm:flex-row gap-3 sm:gap-2 w-full">
             <Button
               type="button"
               variant="outline"
-              disabled={deleteMutation.isPending}
-              onClick={() => setApplicantToDelete(null)}
+              disabled={archiveMutation.isPending}
+              onClick={() => setApplicantToArchive(null)}
               className="w-full sm:w-1/2 rounded-lg text-muted-foreground border-border hover:bg-accent mt-2 sm:mt-0"
             >
               Cancel
             </Button>
             <Button
               type="button"
-              variant="destructive"
-              disabled={deleteMutation.isPending}
-              onClick={confirmDelete}
-              className="w-full sm:w-1/2 rounded-lg bg-destructive hover:bg-destructive/90 font-bold text-destructive-foreground flex items-center justify-center gap-2"
+              disabled={archiveMutation.isPending}
+              onClick={confirmArchive}
+              className="w-full sm:w-1/2 rounded-lg bg-amber-500 hover:bg-amber-500/90 font-bold text-white flex items-center justify-center gap-2"
             >
-              {deleteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-              {deleteMutation.isPending ? 'Deleting...' : 'Yes, Delete'}
+              {archiveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
+              {archiveMutation.isPending ? 'Archiving...' : 'Yes, Archive'}
             </Button>
           </DialogFooter>
         </DialogContent>

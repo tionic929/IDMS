@@ -11,13 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('import_logs', function (Blueprint $table) {
-            $table->id();
-            $table->string('filename');
-            $table->enum('status', ['completed', 'failed'])->nullable();
-            $table->timestamps();
+        Schema::table('sessions', function (Blueprint $table) {
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
         });
-
     }
 
     /**
@@ -25,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('import_logs');
+        Schema::table('sessions', function (Blueprint $table) {
+            $table->dropForeign(['user_id']);
+        });
     }
 };

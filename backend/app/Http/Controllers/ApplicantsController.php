@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Events\ApplicationSubmitted;
 use App\Models\Applicant as Student;
+use App\Models\CardApplication;
+use App\Models\Course;
 use App\Models\User;
 use App\Models\ActivityLog;
 use App\Notifications\SubmissionNotification;
@@ -29,32 +31,34 @@ class ApplicantsController extends Controller
 {
     public function index()
     {
-        $totalQueue = Student::active()->where('has_card', false)->count();
+        $totalQueue = CardApplication::active()
+            ->join('students', 'card_applications.student_id', '=', 'students.id')
+            ->whereNull('students.deleted_at')
+            ->where('has_card', false)
+            ->count();
 
-        $queueList = Student::active()->where('has_card', false)
-            ->select([
-                'id', 'id_number', 'first_name', 'middle_initial', 'last_name', 'manual_full_name',
-                'course', 'email', 'address', 'guardian_name', 'guardian_contact',
-                'id_picture', 'signature_picture', 'payment_proof', 'has_card', 'created_at'
-            ])
-            ->orderBy('created_at', 'asc')
+        $queueList = CardApplication::with(['student.course'])->active()
+            ->join('students', 'card_applications.student_id', '=', 'students.id')
+            ->whereNull('students.deleted_at')
+            ->where('has_card', false)
+            ->select('card_applications.*')
+            ->orderBy('card_applications.created_at', 'asc')
             ->limit(10)
             ->get();
 
-        $history = Student::active()->where('has_card', true)
-            ->select([
-                'id', 'id_number', 'first_name', 'middle_initial', 'last_name', 'manual_full_name',
-                'course', 'email', 'address', 'guardian_name', 'guardian_contact', 
-                'id_picture', 'signature_picture', 'payment_proof', 'has_card', 'created_at'
-            ])
-            ->orderBy('updated_at', 'desc')
+        $history = CardApplication::with(['student.course'])->active()
+            ->join('students', 'card_applications.student_id', '=', 'students.id')
+            ->whereNull('students.deleted_at')
+            ->where('has_card', true)
+            ->select('card_applications.*')
+            ->orderBy('card_applications.updated_at', 'desc')
             ->limit(10)
             ->get();
 
         return response()->json([
             'totalQueue' => $totalQueue,
-            'queueList' => $this->formatStudents($queueList),
-            'history' => $this->formatStudents($history)
+            'queueList' => $this->formatApplications($queueList),
+            'history' => $this->formatApplications($history)
         ], 200);
     }
 
@@ -62,19 +66,24 @@ class ApplicantsController extends Controller
     {
         try {
             $student = Student::findOrFail($studentId);
+            $application = $student->latestApplication;
+
+            if (!$application) {
+                return response()->json(['message' => 'No active application found.'], 404);
+            }
 
             // 2. Perform the update
-            $student->update(['has_card' => true, 'application_status' => 'approved']);
+            $application->update(['has_card' => true, 'application_status' => 'approved']);
 
             // 3. Log the successful card issuance for audit purposes
             Log::info("ID Card issued successfully for Student ID: {$studentId}", [
                 'student_name' => $student->full_name,
                 'issued_at' => now()
             ]);
-            
+
             // 4. Notify idtechv2 webhook
             try {
-                $v2Url = env('IDTECHV2_URL', 'http://localhost:8001'); // fallback for local dev
+                $v2Url = config('services.idtechv2.url');
                 \Illuminate\Support\Facades\Http::timeout(10)->post("{$v2Url}/api/applications/{$student->id_number}/approve");
             } catch (\Exception $e) {
                 Log::warning('Failed to sync approval to idtechv2', ['error' => $e->getMessage()]);
@@ -82,6 +91,7 @@ class ApplicantsController extends Controller
 
             // Log activity
             ActivityLog::create([
+                'user_id' => auth()->id(),
                 'user' => auth()->user()?->name ?? 'System',
                 'action' => 'ID Card Issued',
                 'type' => 'card_issuance',
@@ -90,13 +100,14 @@ class ApplicantsController extends Controller
                 'ip' => request()->ip(),
             ]);
 
+            $formatted = $this->formatApplications(collect([$application]))->first();
+
             return response()->json([
                 'message' => 'Student card status updated successfully',
-                'student' => $student
+                'student' => $formatted
             ], 200);
 
-        }
-        catch (ModelNotFoundException $e) {
+        } catch (ModelNotFoundException $e) {
             // Log that someone tried to update a non-existent ID
             Log::warning("Attempted to issue card for non-existent Student ID: {$studentId}");
 
@@ -104,8 +115,7 @@ class ApplicantsController extends Controller
                 'message' => 'Student not found.'
             ], 404);
 
-        }
-        catch (Exception $e) {
+        } catch (Exception $e) {
             // Log any other unexpected errors (database down, etc.)
             Log::error("Failed to update card status for Student ID: {$studentId}", [
                 'error' => $e->getMessage()
@@ -125,14 +135,38 @@ class ApplicantsController extends Controller
         ]);
     }
 
-    private function formatStudents($paginator)
+    private function formatApplications($paginator)
     {
-        return $paginator->map(function ($student) {
-            $student->formatted_date = $student->created_at ? $student->created_at->format('M d, Y') : null;
-            $student->formatted_time = $student->created_at ? $student->created_at->format('g:i A') : null;
-            return $student;
+        return $paginator->map(function ($app) {
+            $student = $app->student;
+
+            return [
+                'id' => $student->id ?? $app->student_id,
+                'application_id' => $app->id,
+                'id_number' => $student->id_number ?? 'N/A',
+                'full_name' => ($student->first_name ?? '') . ' ' . ($student->last_name ?? ''),
+                'first_name' => $student->first_name ?? 'Unknown',
+                'middle_initial' => $student->middle_initial ?? '',
+                'last_name' => $student->last_name ?? '',
+                'manual_full_name' => $student->manual_full_name ?? '',
+                'email' => $student->email ?? '',
+                'course' => ($student && $student->course) ? $student->course->name : '',
+                'type' => $student->type ?? Student::TYPE_STUDENT,
+                'department' => $student->department ?? '',
+                'address' => $student->address ?? '',
+                'guardian_name' => $student->guardian_name ?? '',
+                'guardian_contact' => $student->guardian_contact ?? '',
+                'id_picture' => $app->id_picture,
+                'signature_picture' => $app->signature_picture,
+                'payment_proof' => $app->payment_proof,
+                'has_card' => $app->has_card,
+                'created_at' => $app->created_at,
+                'formatted_date' => $app->created_at ? $app->created_at->format('M d, Y') : null,
+                'formatted_time' => $app->created_at ? $app->created_at->format('g:i A') : null,
+            ];
         });
     }
+
     public function store(Request $request)
     {
         try {
@@ -155,9 +189,8 @@ class ApplicantsController extends Controller
                 'guardianContact' => 'nullable|string|max:20',
                 'guardian_name' => 'nullable|string|max:255',
                 'guardian_contact' => 'nullable|string|max:20',
-                'manual_full_name' => 'nullable|string|max:255',
-                'manual_fullname' => 'nullable|string|max:255', // Fallback for bridge data compatibility
                 'email' => 'nullable|email|max:255',
+                'department' => 'nullable|string|max:255',
                 'payment_type' => 'nullable|string|max:255',
                 'id_picture' => 'nullable|file|mimes:jpeg,png,jpg,webp',
                 'signature_picture' => 'nullable|image|mimes:jpeg,png,jpg,webp',
@@ -173,8 +206,7 @@ class ApplicantsController extends Controller
                     'original_name' => $file->getClientOriginalName(),
                     'stored_path' => $idPath
                 ]);
-            }
-            else {
+            } else {
                 Log::warning('ID Application received without id_picture');
             }
 
@@ -187,8 +219,7 @@ class ApplicantsController extends Controller
                     'original_name' => $file->getClientOriginalName(),
                     'stored_path' => $sigPath
                 ]);
-            }
-            else {
+            } else {
                 Log::warning('ID Application received without signature_picture');
             }
 
@@ -201,22 +232,61 @@ class ApplicantsController extends Controller
                     'original_name' => $file->getClientOriginalName(),
                     'stored_path' => $paymentPath
                 ]);
-            }
-            else {
+            } else {
                 Log::warning('ID Application received without payment_proof');
             }
 
-            $student = Student::create([
-                'id_number' => strtoupper($validated['id_number'] ?? $validated['idNumber']),
-                'first_name' => strtoupper($validated['firstName']),
-                'middle_initial' => strtoupper($validated['middleInitial'] ?? ''),
-                'last_name' => strtoupper($validated['lastName']),
-                'manual_full_name' => strtoupper($validated['manual_full_name'] ?? $validated['manual_fullname'] ?? $request->input('manual_full_name') ?? $request->input('manual_fullname') ?? ''),
-                'email' => strtolower($validated['email'] ?? ''),
-                'course' => strtoupper($validated['course']),
-                'address' => strtoupper($validated['address']),
-                'guardian_name' => strtoupper($validated['guardianName'] ?? $validated['guardian_name'] ?? ''),
-                'guardian_contact' => $validated['guardianContact'] ?? $validated['guardian_contact'] ?? '',
+            $courseName = strtoupper($validated['course']);
+            $type = Student::TYPE_STUDENT;
+
+            if ($courseName === 'EMPLOYEE') {
+                $type = Student::TYPE_EMPLOYEE;
+                if (!empty($validated['department'])) {
+                    $courseName = strtoupper($validated['department']);
+                }
+            }
+
+            $courseModel = Course::firstOrCreate([
+                'name' => $courseName
+            ]);
+
+            $id_number = strtoupper($validated['id_number'] ?? $validated['idNumber']);
+
+            $student = Student::updateOrCreate(
+                ['id_number' => $id_number],
+                [
+                    'first_name' => strtoupper($validated['firstName']),
+                    'middle_initial' => strtoupper($validated['middleInitial'] ?? ''),
+                    'last_name' => strtoupper($validated['lastName']),
+                    'manual_full_name' => strtoupper($validated['manual_full_name'] ?? $validated['manual_fullname'] ?? $request->input('manual_full_name') ?? $request->input('manual_fullname') ?? ''),
+                    'email' => strtolower($validated['email'] ?? ''),
+                    'course_id' => $courseModel->id,
+                    'type' => $type,
+                    'department' => strtoupper($validated['department'] ?? ''),
+                    'address' => strtoupper($validated['address']),
+                    'guardian_name' => strtoupper($validated['guardianName'] ?? $validated['guardian_name'] ?? ''),
+                    'guardian_contact' => $validated['guardianContact'] ?? $validated['guardian_contact'] ?? '',
+                ]
+            );
+
+            // -----------------------------------------------------------------------
+            // Remove any existing PENDING (unissued, non-archived) applications for
+            // this student before inserting the new one. This prevents duplicate
+            // entries in the queue when a student does a department shift or a
+            // re-issuance. Already-issued (has_card = true) and archived applications
+            // are intentionally left untouched so history is preserved.
+            // -----------------------------------------------------------------------
+            $replacedCount = CardApplication::where('student_id', $student->id)
+                ->where('has_card', false)
+                ->where('is_archived', false)
+                ->delete();
+
+            if ($replacedCount > 0) {
+                Log::info("Replaced {$replacedCount} pending application(s) for Student ID: {$id_number} (re-issuance / department shift)");
+            }
+
+            $application = CardApplication::create([
+                'student_id' => $student->id,
                 'payment_type' => strtoupper($validated['payment_type'] ?? ''),
                 'id_picture' => $idPath,
                 'signature_picture' => $sigPath,
@@ -231,19 +301,21 @@ class ApplicantsController extends Controller
 
             Log::info('Attempting to broadcast ApplicationSubmitted for Student ID: ' . $student->id);
 
-            broadcast(new ApplicationSubmitted($student));
+            // Re-map for events or emails if they expect a flat object
+            $formattedApp = $this->formatApplications(collect([$application]))->first();
+
+            broadcast(new ApplicationSubmitted((object) $formattedApp));
 
             // Notify Admins about new submission (Real-time)
             $admins = User::where('role', 'admin')->get();
-            Notification::send($admins, new SubmissionNotification($student));
+            Notification::send($admins, new SubmissionNotification((object) $formattedApp));
 
             return response()->json([
                 'message' => 'Student saved successfully',
-                'data' => $student
+                'data' => $formattedApp
             ], 201);
 
-        }
-        catch (\Exception $e) {
+        } catch (\Exception $e) {
             Log::error('Student upload failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -259,13 +331,16 @@ class ApplicantsController extends Controller
     public function toggleHasCard(Request $request, Student $student)
     {
         $request->validate([
-            'field' => ['required', 'string', Rule::in(['has_card']),
+            'field' => [
+                'required',
+                'string',
+                Rule::in(['has_card']),
             ],
         ]);
 
         $field = $request->input('field');
 
-        $student->{ $field} = !$student->{ $field};
+        $student->{$field} = !$student->{$field};
         $student->save();
 
         return response()->json($student);
@@ -274,8 +349,9 @@ class ApplicantsController extends Controller
     public function updateApplicantsExcelFile($studentId)
     {
         $student = Student::findOrFail($studentId);
+        $application = $student->latestApplication;
 
-        $courseName = strtoupper($student->course);
+        $courseName = strtoupper($student->course ? $student->course->name : 'UNKNOWN');
         $directory = storage_path('app/applicants_records');
 
         if (!file_exists($directory)) {
@@ -287,8 +363,7 @@ class ApplicantsController extends Controller
         if (file_exists($path)) {
             $spreadsheet = IOFactory::load($path);
             $sheet = $spreadsheet->getActiveSheet();
-        }
-        else {
+        } else {
             $spreadsheet = new Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
 
@@ -313,21 +388,15 @@ class ApplicantsController extends Controller
             }
         }
 
-        $spreadsheet = IOFactory::load($path);
-        $sheet = $spreadsheet->getActiveSheet();
 
         $nextRow = $sheet->getHighestRow() + 1;
 
-        $firstName = $student->first_name;
-        $middleInitial = $student->middle_initial; // could be null or empty
-        $lastName = $student->last_name;
-
-        $name = trim($firstName . ' ' . ($middleInitial ? $middleInitial . ' ' : '') . $lastName);
+        $name = $student->full_name;
 
         // Add the student data
         $sheet->setCellValue("A{$nextRow}", $student->id_number);
         $sheet->setCellValue("B{$nextRow}", $name);
-        $sheet->setCellValue("C{$nextRow}", $student->course);
+        $sheet->setCellValue("C{$nextRow}", $courseName);
         $sheet->setCellValue("D{$nextRow}", $student->address);
         $sheet->setCellValue("E{$nextRow}", $student->guardian_name);
         $sheet->setCellValue("F{$nextRow}", $student->guardian_contact);
@@ -339,14 +408,15 @@ class ApplicantsController extends Controller
         if (flock($fp, LOCK_EX)) {
             $writer->save($fp);
             flock($fp, LOCK_UN);
-        }
-        else {
+        } else {
             throw new \Exception("Cannot lock file for writing");
         }
         fclose($fp);
 
         // Optional: mark as confirmed in DB
-        $student->update(['has_card' => true]);
+        if ($application) {
+            $application->update(['has_card' => true]);
+        }
 
         return response()->json(['message' => 'Applicant added to Excel and confirmed']);
     }
@@ -354,79 +424,63 @@ class ApplicantsController extends Controller
     public function paginatedApplicants(Request $request)
     {
         $search = $request->query('search');
-        $query = Student::active()->select(
-            'id',
-            'has_card',
-            'id_number',
-            'first_name',
-            'middle_initial',
-            'last_name',
-            'manual_full_name',
-            'course',
-            'email',
-            'created_at',
-            'address',
-            'guardian_name',
-            'guardian_contact',
-            'id_picture',
-            'signature_picture',
-            'payment_proof',
-            'reissuance_reason'
-        )
-            ->orderBy('id', 'asc');
+        $query = CardApplication::with(['student.course'])->active()
+            ->join('students', 'card_applications.student_id', '=', 'students.id')
+            ->leftJoin('courses', 'students.course_id', '=', 'courses.id')
+            ->whereNull('students.deleted_at')
+            ->select('card_applications.*');
 
         // Dynamic sort
         $sortBy = $request->query('sort_by', '');
         $sortDir = in_array($request->query('sort_dir'), ['asc', 'desc']) ? $request->query('sort_dir') : 'asc';
         $sortMap = [
-            'name' => 'last_name',
-            'date' => 'created_at',
-            'course' => 'course',
-            'status' => 'has_card',
+            'name' => 'students.last_name',
+            'date' => 'card_applications.created_at',
+            'course' => 'courses.name',
+            'status' => 'card_applications.has_card',
         ];
+
         if (isset($sortMap[$sortBy])) {
-            $query->reorder($sortMap[$sortBy], $sortDir);
+            $query->orderBy($sortMap[$sortBy], $sortDir);
+        } else {
+            $query->orderBy('card_applications.id', 'asc');
         }
 
         if ($search) {
             $query->where(function ($q) use ($search) {
                 if (is_numeric($search)) {
-                    $q->where('id', $search);
+                    $q->where('card_applications.id', $search);
                 }
-                $q->orWhere('first_name', 'LIKE', "%{$search}%")
-                    ->orWhere('last_name', 'LIKE', "%{$search}%")
-                    ->orWhere('id_number', 'LIKE', "%{$search}%")
-                    ->orWhere('guardian_contact', 'LIKE', "%{$search}%");
+                $q->orWhere('students.first_name', 'LIKE', "%{$search}%")
+                    ->orWhere('students.last_name', 'LIKE', "%{$search}%")
+                    ->orWhere('students.id_number', 'LIKE', "%{$search}%")
+                    ->orWhere('students.guardian_contact', 'LIKE', "%{$search}%");
             });
         }
 
         // Status filter support
         $status = $request->query('status');
         if ($status === 'recently-issued') {
-            $query->where('has_card', true)
-                ->where('updated_at', '>=', Carbon::now()->subDays(7));
-        }
-        elseif ($status === 'issued') {
-            $query->where('has_card', true);
-        }
-        elseif ($status === 'pending') {
-            $query->where('has_card', false);
+            $query->where('card_applications.has_card', true)
+                ->where('card_applications.updated_at', '>=', Carbon::now()->subDays(7));
+        } elseif ($status === 'issued') {
+            $query->where('card_applications.has_card', true);
+        } elseif ($status === 'pending') {
+            $query->where('card_applications.has_card', false);
         }
 
         $paginated = $query->paginate(20);
 
-        $paginated->getCollection()->transform(function ($student) {
-            $student->formatted_date = $student->created_at ? $student->created_at->format('M d, Y') : 'N/A';
-            $student->formatted_time = $student->created_at ? $student->created_at->format('g:i A') : 'N/A';
-            return $student;
-        });
+        $paginated->setCollection($this->formatApplications($paginated->getCollection()));
 
         return response()->json($paginated);
     }
 
     public function applicantsReport()
     {
-        $stats = DB::table('students')
+        $stats = DB::table('card_applications')
+            ->join('students', 'card_applications.student_id', '=', 'students.id')
+            ->whereNull('students.deleted_at')
             ->select(DB::raw("
             COUNT(*) as total,
             SUM(CASE WHEN has_card = 0 THEN 1 ELSE 0 END) as pending,
@@ -435,9 +489,9 @@ class ApplicantsController extends Controller
             ->first();
 
         return response()->json([
-            'applicantsReport' => (int)($stats->total ?? 0),
-            'pendingCount' => (int)($stats->pending ?? 0),
-            'issuedCount' => (int)($stats->issued ?? 0),
+            'applicantsReport' => (int) ($stats->total ?? 0),
+            'pendingCount' => (int) ($stats->pending ?? 0),
+            'issuedCount' => (int) ($stats->issued ?? 0),
         ]);
     }
 
@@ -461,10 +515,12 @@ class ApplicantsController extends Controller
     {
         try {
             $student = Student::findOrFail($id);
-            $student->update([
-                'is_archived' => true,
-                'archived_at' => now()
-            ]);
+            if ($application = $student->latestApplication) {
+                $application->update([
+                    'is_archived' => true,
+                    'archived_at' => now()
+                ]);
+            }
 
             // Notify applicant via email about the rejection
             if (!empty($student->email)) {
@@ -481,6 +537,7 @@ class ApplicantsController extends Controller
 
             // Log activity
             ActivityLog::create([
+                'user_id' => auth()->id(),
                 'user' => auth()->user()?->name ?? 'System',
                 'action' => 'Applicant Archived',
                 'type' => 'activity',
@@ -508,12 +565,14 @@ class ApplicantsController extends Controller
 
         try {
             $student = Student::findOrFail($id);
-            $student->update([
-                'application_status' => 'rejected',
-                'rejection_reason' => $request->reason,
-                'is_archived' => true,
-                'archived_at' => now()
-            ]);
+            if ($application = $student->latestApplication) {
+                $application->update([
+                    'application_status' => 'rejected',
+                    'rejection_reason' => $request->reason,
+                    'is_archived' => true,
+                    'archived_at' => now()
+                ]);
+            }
 
             // Notify applicant via email about the rejection
             if (!empty($student->email)) {
@@ -530,7 +589,7 @@ class ApplicantsController extends Controller
 
             // Sync with idtechv2
             try {
-                $v2Url = env('IDTECHV2_URL', 'http://localhost:8001');
+                $v2Url = config('services.idtechv2.url');
                 \Illuminate\Support\Facades\Http::timeout(10)->post("{$v2Url}/api/applications/{$student->id_number}/reject", [
                     'reason' => $request->reason
                 ]);
@@ -540,6 +599,7 @@ class ApplicantsController extends Controller
 
             // Log activity
             ActivityLog::create([
+                'user_id' => auth()->id(),
                 'user' => auth()->user()?->name ?? 'System',
                 'action' => 'Applicant Rejected',
                 'type' => 'activity',
@@ -561,23 +621,33 @@ class ApplicantsController extends Controller
 
     public function getArchived()
     {
-        $archived = Student::archived()->orderBy('archived_at', 'desc')->paginate(20);
+        $archived = CardApplication::with(['student.course'])->archived()
+            ->join('students', 'card_applications.student_id', '=', 'students.id')
+            ->whereNull('students.deleted_at')
+            ->select('card_applications.*')
+            ->orderBy('archived_at', 'desc')
+            ->paginate(20);
+
+        $archived->setCollection($this->formatApplications($archived->getCollection()));
+
         return response()->json($archived);
     }
 
     public function destroy($id)
     {
         try {
-            $student = Student::findOrFail($id);
-            $fullName = $student->full_name;
-            $student->delete();
+            $application = CardApplication::with('student')->findOrFail($id);
+            $fullName = $application->student ? $application->student->full_name : 'Unknown';
+
+            $application->delete();
 
             // Log activity
             ActivityLog::create([
+                'user_id' => auth()->id(),
                 'user' => auth()->user()?->name ?? 'System',
                 'action' => 'Applicant Deleted',
                 'type' => 'activity',
-                'details' => "Applicant {$fullName} was permanently deleted.",
+                'details' => "Application for {$fullName} was permanently deleted.",
                 'status' => 'error',
                 'ip' => request()->ip(),
             ]);
@@ -585,10 +655,9 @@ class ApplicantsController extends Controller
             return response()->json([
                 'message' => 'Applicant permanently deleted'
             ], 200);
-        }
-        catch (\Exception $e) {
-            Log::error('Error deleting applicant', [
-                'student_id' => $id,
+        } catch (\Exception $e) {
+            Log::error('Error deleting application', [
+                'application_id' => $id,
                 'error' => $e->getMessage()
             ]);
 

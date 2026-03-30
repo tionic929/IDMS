@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Plus, Loader2, Layers, Sparkles, Copy, Trash2, Edit3, AlertCircle, Image as ImageIcon } from 'lucide-react';
+import { Layout, Plus, Loader2, Layers, Sparkles, Copy, Trash2, Edit3, AlertCircle, Image as ImageIcon, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react';
 import { motion } from 'framer-motion';
 import type { Template, TemplatesProps } from '../types/templates';
 import { useTemplates } from '../context/TemplateContext';
@@ -19,17 +19,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-const CURATED_THEMES = [
-  { id: 'default', name: 'Default', value: '' },
-  { id: 'ocean', name: 'Ocean', value: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)' },
-  { id: 'peach', name: 'Peach', value: 'linear-gradient(135deg, #f43f5e 0%, #fb923c 100%)' },
-  { id: 'emerald', name: 'Emerald', value: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
-  { id: 'amethyst', name: 'Amethyst', value: 'linear-gradient(135deg, #8b5cf6 0%, #d946ef 100%)' },
-  { id: 'midnight', name: 'Midnight', value: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)' },
-  { id: 'cherry', name: 'Cherry', value: 'linear-gradient(135deg, #be123c 0%, #e11d48 100%)' },
-  { id: 'amber', name: 'Amber', value: 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)' },
-];
 
 const TemplateSkeleton = () => (
   <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 animate-pulse space-y-3">
@@ -44,7 +40,7 @@ const TemplateSkeleton = () => (
   </div>
 );
 
-const Templates: React.FC<TemplatesProps & { isCollapsed?: boolean }> = ({ onSelect, activeId, refreshTrigger, isCollapsed }) => {
+const Templates: React.FC<TemplatesProps & { isCollapsed?: boolean; onToggleCollapse?: () => void }> = ({ onSelect, activeId, refreshTrigger, isCollapsed, onToggleCollapse }) => {
   const { templates, loading, createTemplate, refreshTemplates, deleteTemplate, duplicateTemplate, renameTemplate } = useTemplates();
   const { settings } = useSystemSettings();
   const [newTemplateName, setNewTemplateName] = useState("");
@@ -139,7 +135,7 @@ const Templates: React.FC<TemplatesProps & { isCollapsed?: boolean }> = ({ onSel
         setActionLoading(null);
       }
     } else {
-        setRenamingTemplate(null);
+      setRenamingTemplate(null);
     }
   };
 
@@ -170,102 +166,91 @@ const Templates: React.FC<TemplatesProps & { isCollapsed?: boolean }> = ({ onSel
           </div>
         )}
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all rounded-lg"
+                >
+                  <Plus size={16} strokeWidth={3} />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-white border-zinc-200 rounded-[2rem] p-8 max-w-sm shadow-2xl shadow-black/10">
+                <DialogHeader className="space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                    <Sparkles size={24} />
+                  </div>
+                  <DialogTitle className="text-2xl font-black text-zinc-900 italic uppercase">New Template</DialogTitle>
+                  <DialogDescription className="text-zinc-500 font-medium">
+                    Define a new layout identifier for your ID card designs.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                  <Input
+                    placeholder="e.g. Science Dept 2026"
+                    className="bg-zinc-50 border-zinc-200 h-12 rounded-xl text-zinc-900 font-bold placeholder:text-zinc-400"
+                    value={newTemplateName}
+                    onChange={(e) => setNewTemplateName(e.target.value)}
+                  />
+
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 block">Logo</label>
+                      <button
+                        onClick={() => document.getElementById('new-template-logo-input')?.click()}
+                        className="w-full h-12 bg-zinc-50 rounded-xl border border-zinc-200 flex items-center justify-center gap-2 hover:bg-zinc-100 transition-all overflow-hidden relative group text-zinc-500"
+                      >
+                        {newLogo ? (
+                          <div className="flex items-center gap-2">
+                            <img src={newLogo} className="w-6 h-6 object-contain" />
+                            <span className="text-[10px] text-primary font-bold">Logo Set</span>
+                          </div>
+                        ) : (
+                          <>
+                            <ImageIcon size={14} />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Upload</span>
+                          </>
+                        )}
+                      </button>
+                      <input
+                        id="new-template-logo-input"
+                        type="file"
+                        hidden
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setNewLogoFile(file);
+                            setNewLogo(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={handleCreateNew}
+                    disabled={isCreating}
+                    className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px]"
+                  >
+                    {isCreating ? <Loader2 className="animate-spin" /> : "Initialize Template"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             <Button
               size="icon"
               variant="ghost"
-              className={cn(
-                "h-8 w-8 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all rounded-lg shrink-0",
-                isCollapsed ? "" : ""
-              )}
+              onClick={onToggleCollapse}
+              className="h-8 w-8 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900 transition-all rounded-lg border border-zinc-200"
             >
-              <Plus size={16} strokeWidth={3} />
+              {isCollapsed ? <ChevronRight size={16} strokeWidth={3} /> : <ChevronLeft size={16} strokeWidth={3} />}
             </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-zinc-900 border-border/40 rounded-[2rem] p-8 max-w-sm">
-            <DialogHeader className="space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                <Sparkles size={24} />
-              </div>
-              <DialogTitle className="text-2xl font-black text-white italic uppercase">New Template</DialogTitle>
-              <DialogDescription className="text-zinc-400 font-medium">
-                Define a new layout identifier for your ID card designs.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4 space-y-4">
-              <Input
-                placeholder="e.g. Science Dept 2026"
-                className="bg-zinc-950/50 border-border/40 h-12 rounded-xl text-white font-bold"
-                value={newTemplateName}
-                onChange={(e) => setNewTemplateName(e.target.value)}
-              />
-
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 block">Theme</label>
-                  <div className="flex flex-wrap gap-1.5 p-1.5 bg-zinc-950/50 border border-border/40 rounded-xl">
-                    {CURATED_THEMES.map(theme => (
-                      <button
-                        key={theme.id}
-                        onClick={() => setNewBgColor(theme.value)}
-                        title={theme.name}
-                        className={cn(
-                          "w-6 h-6 rounded-lg transition-all border-2",
-                          newBgColor === theme.value ? "border-white scale-110 shadow-lg" : "border-transparent hover:scale-105",
-                          !theme.value && "bg-zinc-800"
-                        )}
-                        style={theme.value ? { background: theme.value } : undefined}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex-1">
-                  <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 block">Logo</label>
-                  <button
-                    onClick={() => document.getElementById('new-template-logo-input')?.click()}
-                    className="w-full h-12 bg-zinc-950/50 rounded-xl border border-border/40 flex items-center justify-center gap-2 hover:bg-zinc-900 transition-all overflow-hidden relative group text-zinc-400"
-                  >
-                    {newLogo ? (
-                      <div className="flex items-center gap-2">
-                          <img src={newLogo} className="w-6 h-6 object-contain" />
-                          <span className="text-[10px] text-primary font-bold">Logo Set</span>
-                      </div>
-                    ) : (
-                      <>
-                        <ImageIcon size={14} />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Upload</span>
-                      </>
-                    )}
-                  </button>
-                  <input
-                    id="new-template-logo-input"
-                    type="file"
-                    hidden
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setNewLogoFile(file);
-                        setNewLogo(URL.createObjectURL(file));
-                      }
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={handleCreateNew}
-                disabled={isCreating}
-                className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px]"
-              >
-                {isCreating ? <Loader2 className="animate-spin" /> : "Initialize Template"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </div>
       </div>
 
       {/* List */}
@@ -345,27 +330,19 @@ const Templates: React.FC<TemplatesProps & { isCollapsed?: boolean }> = ({ onSel
                       "group flex items-center rounded-3xl border-2 transition-all duration-300 w-full cursor-pointer overflow-hidden relative",
                       isCollapsed ? "p-2 justify-center" : "p-4",
                       isActive
-                        ? "border-primary shadow-lg"
-                        : "border-border/50 bg-card/40 hover:border-border hover:bg-card/60",
-                      meta.bg_color ? "text-white border-white/20" : "text-muted-foreground hover:text-foreground"
+                        ? "border-primary bg-white shadow-lg ring-2 ring-primary/20 scale-[1.02]"
+                        : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50 shadow-sm",
+                      "text-zinc-600 hover:text-zinc-900"
                     )}
-                    style={meta.bg_color ? { background: meta.bg_color } : undefined}
                   >
-                    {/* Contrast Overlay for themed backgrounds */}
-                    {meta.bg_color && (
-                      <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors pointer-events-none" />
-                    )}
-
                     <div className={cn(
-                      "w-10 h-10 shrink-0 p-2 rounded-xl transition-all duration-300 flex items-center justify-center overflow-hidden relative z-10",
-                      isActive 
-                        ? (meta.bg_color ? "bg-white/20 text-white" : "bg-primary text-primary-foreground") 
-                        : (meta.bg_color ? "bg-white/10 text-white/80" : "bg-muted text-muted-foreground group-hover:bg-accent group-hover:text-primary")
+                      "w-14 h-14 shrink-0 p-1.5 rounded-2xl transition-all duration-300 flex items-center justify-center overflow-hidden relative z-10",
+                      isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground group-hover:bg-accent group-hover:text-primary"
                     )}>
                       {logo ? (
-                        <img src={logo} className="w-full h-full object-contain" alt="" />
+                        <img src={logo} className="w-full h-full object-contain scale-125" alt="" />
                       ) : (
-                        <Layers size={20} strokeWidth={2.5} />
+                        <Layers size={28} strokeWidth={2.5} />
                       )}
                     </div>
 
@@ -378,46 +355,55 @@ const Templates: React.FC<TemplatesProps & { isCollapsed?: boolean }> = ({ onSel
                           <span
                             className={cn(
                               "whitespace-nowrap truncate font-black uppercase tracking-tight leading-none",
-                              isActive ? (meta.bg_color ? "text-white" : "text-primary") : (meta.bg_color ? "text-white" : "text-foreground")
+                              isActive ? "text-primary" : "text-zinc-900"
                             )}
                             style={{ fontSize: `${13 * settings.componentScale}px` }}
                           >
                             {template.name}
                           </span>
-                          <span className={cn(
-                            "text-[9px] font-mono uppercase mt-1",
-                            meta.bg_color ? "text-white/60" : "text-muted-foreground"
-                          )}>ID: {template.id}</span>
+                          <span className="text-[9px] font-mono uppercase mt-1 text-zinc-400">ID: {template.id}</span>
                         </div>
 
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setRenameInput(template.name);
-                              setRenameBgColor(meta.bg_color || "");
-                              setRenameLogo(template.logo || meta.logo || "");
-                              setRenameLogoFile(null);
-                              setRenamingTemplate(template);
-                            }}
-                            className="h-7 w-7 rounded-lg flex items-center justify-center transition-all bg-background border border-border/50 text-foreground hover:bg-primary hover:text-white hover:border-primary shadow-sm"
-                          >
-                            <Edit3 size={12} strokeWidth={3} />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setDuplicatingTemplate(template); }}
-                            className="h-7 w-7 rounded-lg flex items-center justify-center transition-all bg-background border border-border/50 text-foreground hover:bg-primary hover:text-white hover:border-primary shadow-sm"
-                            disabled={actionLoading === "duplicate-" + template.id}
-                          >
-                            <Copy size={12} strokeWidth={3} />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setDeletingTemplate(template); }}
-                            className="h-7 w-7 rounded-lg flex items-center justify-center transition-all bg-background border border-border/50 text-foreground hover:bg-red-500 hover:text-white hover:border-red-500 shadow-sm"
-                            disabled={actionLoading === "delete-" + template.id}
-                          >
-                            <Trash2 size={12} strokeWidth={3} />
-                          </button>
+                        <div className="flex items-center ml-2 relative z-20">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-8 w-8 rounded-xl hover:bg-black/5 text-muted-foreground hover:text-foreground transition-all"
+                              >
+                                <MoreVertical size={16} strokeWidth={2.5} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40 rounded-xl p-1 border-zinc-200 bg-white shadow-xl">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRenameInput(template.name);
+                                  setRenameBgColor(meta.bg_color || "");
+                                  setRenameLogo(template.logo || meta.logo || "");
+                                  setRenameLogoFile(null);
+                                  setRenamingTemplate(template);
+                                }}
+                                className="rounded-lg font-bold text-xs gap-2 cursor-pointer text-zinc-900 focus:bg-zinc-100"
+                              >
+                                <Edit3 size={14} className="text-blue-500" /> Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => { e.stopPropagation(); setDuplicatingTemplate(template); }}
+                                className="rounded-lg font-bold text-xs gap-2 cursor-pointer text-zinc-900 focus:bg-zinc-100"
+                              >
+                                <Copy size={14} className="text-primary" /> Duplicate
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => { e.stopPropagation(); setDeletingTemplate(template); }}
+                                className="rounded-lg font-bold text-xs gap-2 cursor-pointer text-rose-500 focus:text-rose-600 focus:bg-rose-500/10"
+                              >
+                                <Trash2 size={14} /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     )}
@@ -438,21 +424,21 @@ const Templates: React.FC<TemplatesProps & { isCollapsed?: boolean }> = ({ onSel
 
       {/* Action Modals */}
       <Dialog open={!!switchingTemplate} onOpenChange={(open) => !open && setSwitchingTemplate(null)}>
-        <DialogContent className="bg-zinc-900 border-border/40 rounded-[2rem] p-8 max-w-sm">
+              <DialogContent className="bg-white border-zinc-200 rounded-[2rem] p-8 max-w-sm shadow-2xl shadow-black/10">
           <DialogHeader className="space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
               <AlertCircle size={24} />
             </div>
-            <DialogTitle className="text-2xl font-black text-white italic uppercase">Switch Template</DialogTitle>
-            <DialogDescription className="text-zinc-400 font-medium">
-              Are you sure you want to open <span className="text-white font-bold">"{switchingTemplate?.name}"</span>? Unsaved changes in your current session might be lost.
+            <DialogTitle className="text-2xl font-black text-zinc-900 italic uppercase">Switch Template</DialogTitle>
+            <DialogDescription className="text-zinc-500 font-medium">
+              Are you sure you want to open <span className="text-zinc-900 font-bold">"{switchingTemplate?.name}"</span>? Unsaved changes in your current session might be lost.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
             <Button
               variant="ghost"
               onClick={() => setSwitchingTemplate(null)}
-              className="text-zinc-400 hover:text-white hover:bg-white/5 font-black uppercase text-[10px] tracking-widest h-12 rounded-xl"
+              className="text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 font-black uppercase text-[10px] tracking-widest h-12 rounded-xl"
             >
               Cancel
             </Button>
@@ -467,88 +453,69 @@ const Templates: React.FC<TemplatesProps & { isCollapsed?: boolean }> = ({ onSel
       </Dialog>
 
       <Dialog open={!!renamingTemplate} onOpenChange={(open) => !open && setRenamingTemplate(null)}>
-        <DialogContent className="bg-zinc-900 border-border/40 rounded-[2rem] p-8 max-w-sm">
+              <DialogContent className="bg-white border-zinc-200 rounded-[2rem] p-8 max-w-sm shadow-2xl shadow-black/10">
           <DialogHeader className="space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
               <Edit3 size={24} />
             </div>
-            <DialogTitle className="text-2xl font-black text-white italic uppercase">Rename Template</DialogTitle>
-            <DialogDescription className="text-zinc-400 font-medium">
+            <DialogTitle className="text-2xl font-black text-zinc-900 italic uppercase">Rename Template</DialogTitle>
+            <DialogDescription className="text-zinc-500 font-medium">
               Update the name identifier for this layout.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-4">
-            <Input
-              placeholder="Template name"
-              className="bg-zinc-950/50 border-border/40 h-12 rounded-xl text-white font-bold"
-              value={renameInput}
-              onChange={(e) => setRenameInput(e.target.value)}
-            />
-            
-            <div className="flex items-center gap-4">
-              <div className="flex-1">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 block">Theme</label>
-                <div className="flex flex-wrap gap-1.5 p-1.5 bg-zinc-950/50 border border-border/40 rounded-xl">
-                  {CURATED_THEMES.map(theme => (
-                    <button
-                      key={theme.id}
-                      onClick={() => setRenameBgColor(theme.value)}
-                      title={theme.name}
-                      className={cn(
-                        "w-6 h-6 rounded-lg transition-all border-2",
-                        renameBgColor === theme.value ? "border-white scale-110 shadow-lg" : "border-transparent hover:scale-105",
-                        !theme.value && "bg-zinc-800"
-                      )}
-                      style={theme.value ? { background: theme.value } : undefined}
-                    />
-                  ))}
-                </div>
-              </div>
-              
-              <div className="flex-1">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 block">Logo</label>
-                <button 
-                  onClick={() => {
-                    if (renameLogoInputRef.current) {
-                      renameLogoInputRef.current.value = '';
-                      renameLogoInputRef.current.click();
-                    }
-                  }}
-                  className="w-full h-12 bg-zinc-950/50 rounded-xl border border-border/40 flex items-center justify-center gap-2 hover:bg-zinc-900 transition-all overflow-hidden relative group text-zinc-400"
-                >
-                  {renameLogo ? (
-                    <div className="flex items-center gap-2">
+            <div className="py-4 space-y-4">
+              <Input
+                placeholder="Template name"
+                className="bg-zinc-50 border-zinc-200 h-12 rounded-xl text-zinc-900 font-bold"
+                value={renameInput}
+                onChange={(e) => setRenameInput(e.target.value)}
+              />
+
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5 block">Logo</label>
+                  <button
+                    onClick={() => {
+                      if (renameLogoInputRef.current) {
+                        renameLogoInputRef.current.value = '';
+                        renameLogoInputRef.current.click();
+                      }
+                    }}
+                    className="w-full h-12 bg-zinc-50 rounded-xl border border-zinc-200 flex items-center justify-center gap-2 hover:bg-zinc-100 transition-all overflow-hidden relative group text-zinc-500"
+                  >
+                    {renameLogo ? (
+                      <div className="flex items-center gap-2">
                         <img src={renameLogo} className="w-6 h-6 object-contain" />
                         <span className="text-[10px] text-primary font-bold">Logo Set</span>
-                    </div>
-                  ) : (
-                    <>
-                      <ImageIcon size={14} />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">Upload</span>
-                    </>
-                  )}
-                </button>
-                <input 
-                  ref={renameLogoInputRef}
-                  type="file" 
-                  hidden 
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setRenameLogoFile(file);
-                      setRenameLogo(URL.createObjectURL(file));
-                    }
-                  }}
-                />
+                      </div>
+                    ) : (
+                      <>
+                        <ImageIcon size={14} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Upload</span>
+                      </>
+                    )}
+                  </button>
+                  <input
+                    ref={renameLogoInputRef}
+                    type="file"
+                    hidden
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setRenameLogoFile(file);
+                        setRenameLogo(URL.createObjectURL(file));
+                      }
+                    }}
+                  />
+                </div>
               </div>
             </div>
-          </div>
           <DialogFooter className="mt-4">
             <Button
               variant="ghost"
               onClick={() => setRenamingTemplate(null)}
-              className="text-zinc-400 hover:text-white hover:bg-white/5 font-black uppercase text-[10px] tracking-widest h-12 rounded-xl"
+              className="text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 font-black uppercase text-[10px] tracking-widest h-12 rounded-xl"
             >
               Cancel
             </Button>
@@ -564,21 +531,21 @@ const Templates: React.FC<TemplatesProps & { isCollapsed?: boolean }> = ({ onSel
       </Dialog>
 
       <Dialog open={!!duplicatingTemplate} onOpenChange={(open) => !open && setDuplicatingTemplate(null)}>
-        <DialogContent className="bg-zinc-900 border-border/40 rounded-[2rem] p-8 max-w-sm">
+              <DialogContent className="bg-white border-zinc-200 rounded-[2rem] p-8 max-w-sm shadow-2xl shadow-black/10">
           <DialogHeader className="space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
               <Copy size={24} />
             </div>
-            <DialogTitle className="text-2xl font-black text-white italic uppercase">Duplicate Template</DialogTitle>
-            <DialogDescription className="text-zinc-400 font-medium">
-              Are you sure you want to create a copy of <span className="text-white font-bold">"{duplicatingTemplate?.name}"</span>?
+            <DialogTitle className="text-2xl font-black text-zinc-900 italic uppercase">Duplicate Template</DialogTitle>
+            <DialogDescription className="text-zinc-500 font-medium leading-relaxed">
+              Are you sure you want to create a copy of <span className="text-indigo-600 font-black">"{duplicatingTemplate?.name || 'this template'}"</span>? It will appear in your library immediately.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
             <Button
               variant="ghost"
               onClick={() => setDuplicatingTemplate(null)}
-              className="text-zinc-400 hover:text-white hover:bg-white/5 font-black uppercase text-[10px] tracking-widest h-12 rounded-xl"
+              className="text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 font-black uppercase text-[10px] tracking-widest h-12 rounded-xl"
             >
               Cancel
             </Button>
@@ -594,22 +561,22 @@ const Templates: React.FC<TemplatesProps & { isCollapsed?: boolean }> = ({ onSel
       </Dialog>
 
       <Dialog open={!!deletingTemplate} onOpenChange={(open) => !open && setDeletingTemplate(null)}>
-        <DialogContent className="bg-zinc-900 border-border/40 rounded-[2rem] p-8 max-w-sm">
+        <DialogContent className="bg-white border-zinc-200 rounded-[2rem] p-8 max-w-sm shadow-2xl shadow-black/10">
           <DialogHeader className="space-y-4">
             <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500">
               <AlertCircle size={24} />
             </div>
             <DialogTitle className="text-2xl font-black text-red-500 italic uppercase">Delete Template</DialogTitle>
-            <DialogDescription className="text-zinc-400 font-medium">
-              Are you sure you want to permanently delete <span className="text-white font-bold">"{deletingTemplate?.name}"</span>? This action cannot be undone.
-              {deletingTemplate?.is_active && <div className="mt-2 text-red-400/80 font-bold">Warning: This is the active template.</div>}
+            <DialogDescription className="text-zinc-500 font-medium">
+              Are you sure you want to permanently delete <span className="text-zinc-900 font-bold">"{deletingTemplate?.name}"</span>? This action cannot be undone.
+              {deletingTemplate?.is_active && <div className="mt-2 text-red-500/80 font-bold">Warning: This is the active template.</div>}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
             <Button
               variant="ghost"
               onClick={() => setDeletingTemplate(null)}
-              className="text-zinc-400 hover:text-white hover:bg-white/5 font-black uppercase text-[10px] tracking-widest h-12 rounded-xl"
+              className="text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 font-black uppercase text-[10px] tracking-widest h-12 rounded-xl"
             >
               Cancel
             </Button>

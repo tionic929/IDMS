@@ -30,7 +30,7 @@ export const usePreviewData = (
       const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
       return dateB - dateA;
     })[0];
-  }, [allStudents, templateId]);
+  }, [allStudents, templateId, activeStudentId]);
 
   const previewData = useMemo(() => {
     if (!activeStudent) return null;

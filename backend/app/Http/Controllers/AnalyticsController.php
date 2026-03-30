@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Applicant as Student;
+use App\Models\CardApplication as Student;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -58,7 +58,7 @@ class AnalyticsController extends Controller
             }
 
             // ===== 1. SUMMARY CARDS WITH FILTERS =====
-            $applicantsQuery = Student::active()->whereBetween('created_at', [$dateFrom, $dateTo]);
+            $applicantsQuery = Student::joinDetails()->active()->whereBetween('card_applications.created_at', [$dateFrom, $dateTo]);
 
             // Apply department filter if specified
             if ($department) {
@@ -68,7 +68,7 @@ class AnalyticsController extends Controller
             $totalApplicants = $applicantsQuery->count();
 
             // New this week (still use fixed week calculation)
-            $newApplicantsThisWeek = Student::active()->where('created_at', '>=', Carbon::now()->startOfWeek())
+            $newApplicantsThisWeek = Student::joinDetails()->active()->where('card_applications.created_at', '>=', Carbon::now()->startOfWeek())
                 ->when($department, function ($q) use ($department) {
                 return $q->where('course', $department);
             })
@@ -79,12 +79,12 @@ class AnalyticsController extends Controller
             $newUsers = User::where('created_at', '>=', Carbon::now()->startOfWeek())->count();
 
             // Pending trend: compare pending count this week vs last week
-            $pendingThisWeek = Student::where('has_card', false)
-                ->where('created_at', '>=', Carbon::now()->startOfWeek())
+            $pendingThisWeek = Student::joinDetails()->where('has_card', false)
+                ->where('card_applications.created_at', '>=', Carbon::now()->startOfWeek())
                 ->when($department, fn($q) => $q->where('course', $department))
                 ->count();
-            $pendingLastWeek = Student::where('has_card', false)
-                ->whereBetween('created_at', [
+            $pendingLastWeek = Student::joinDetails()->where('has_card', false)
+                ->whereBetween('card_applications.created_at', [
                 Carbon::now()->subWeek()->startOfWeek(),
                 Carbon::now()->subWeek()->endOfWeek()
             ])
@@ -95,16 +95,16 @@ class AnalyticsController extends Controller
 
             // ===== 2. TRENDS OVER TIME (DYNAMIC BASED ON DAYS) =====
             // Fixed: Don't group by calculated columns, only by the date format
-            $trends = Student::select(
-                DB::raw("DATE_FORMAT(created_at, '%b %Y') as month"),
-                DB::raw('COUNT(id) as count')
+            $trends = Student::joinDetails()->select(
+                DB::raw("DATE_FORMAT(card_applications.created_at, '%b %Y') as month"),
+                DB::raw('COUNT(card_applications.id) as count')
             )
-                ->whereBetween('created_at', [$dateFrom, $dateTo])
+                ->whereBetween('card_applications.created_at', [$dateFrom, $dateTo])
                 ->when($department, function ($q) use ($department) {
-                return $q->where('course', $department);
+                return $q->where('courses.name', $department);
             })
-                ->groupBy(DB::raw("DATE_FORMAT(created_at, '%Y-%m')"), DB::raw("DATE_FORMAT(created_at, '%b %Y')"))
-                ->orderBy(DB::raw("DATE_FORMAT(created_at, '%Y-%m')"), 'asc')
+                ->groupBy(DB::raw("DATE_FORMAT(card_applications.created_at, '%Y-%m')"), DB::raw("DATE_FORMAT(card_applications.created_at, '%b %Y')"))
+                ->orderBy(DB::raw("DATE_FORMAT(card_applications.created_at, '%Y-%m')"), 'asc')
                 ->get()
                 ->map(function ($trend) {
                 return [
@@ -114,14 +114,14 @@ class AnalyticsController extends Controller
             });
 
             // ===== 3. DEPARTMENT ANALYSIS WITH FILTERS =====
-            $deptQuery = Student::select('course as department', DB::raw('count(*) as total'))
-                ->whereBetween('created_at', [$dateFrom, $dateTo])
-                ->groupBy('course')
+            $deptQuery = Student::joinDetails()->select('courses.name as department', DB::raw('count(*) as total'))
+                ->whereBetween('card_applications.created_at', [$dateFrom, $dateTo])
+                ->groupBy('courses.name')
                 ->orderBy('total', 'desc');
 
             // If department filter applied, only show that department
             if ($department) {
-                $deptQuery->where('course', $department);
+                $deptQuery->where('courses.name', $department);
             }
 
             $deptStats = $deptQuery->get();
@@ -182,8 +182,8 @@ class AnalyticsController extends Controller
     public function getDepartments()
     {
         try {
-            $departments = Student::distinct()
-                ->pluck('course')
+            $departments = \App\Models\Course::distinct()
+                ->pluck('name')
                 ->filter() // Remove nulls
                 ->sort()
                 ->values();
@@ -206,12 +206,12 @@ class AnalyticsController extends Controller
             $days = min(max((int)$request->query('days', 30), 1), 365);
             $dateFrom = Carbon::now()->subDays($days);
 
-            $stats = Student::where('course', $department)
-                ->whereBetween('created_at', [$dateFrom, Carbon::now()])
+            $stats = Student::joinDetails()->where('courses.name', $department)
+                ->whereBetween('card_applications.created_at', [$dateFrom, Carbon::now()])
                 ->select(
-                DB::raw('COUNT(id) as total'),
+                DB::raw('COUNT(card_applications.id) as total'),
                 DB::raw('SUM(CASE WHEN has_card = true THEN 1 ELSE 0 END) as card_issued'),
-                DB::raw('SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) as new_this_week')
+                DB::raw('SUM(CASE WHEN card_applications.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) as new_this_week')
             )
                 ->first();
 
@@ -239,16 +239,16 @@ class AnalyticsController extends Controller
             $department = $request->query('department');
             $format = $request->query('format', 'json'); // json or csv
 
-            $trends = Student::select(
-                DB::raw("DATE(created_at) as date"),
-                DB::raw('COUNT(id) as count'),
+            $trends = Student::joinDetails()->select(
+                DB::raw("DATE(card_applications.created_at) as date"),
+                DB::raw('COUNT(card_applications.id) as count'),
                 DB::raw('SUM(CASE WHEN has_card = true THEN 1 ELSE 0 END) as cards_issued')
             )
-                ->where('created_at', '>=', Carbon::now()->subDays($days))
+                ->where('card_applications.created_at', '>=', Carbon::now()->subDays($days))
                 ->when($department, function ($q) use ($department) {
-                return $q->where('course', $department);
+                return $q->where('courses.name', $department);
             })
-                ->groupBy(DB::raw("DATE(created_at)"))
+                ->groupBy(DB::raw("DATE(card_applications.created_at)"))
                 ->orderBy('date', 'asc')
                 ->get();
 
@@ -323,17 +323,17 @@ class AnalyticsController extends Controller
 
             // --- Sort mapping ---
             $orderColumn = match ($sortBy) {
-                    'date' => 'created_at',
-                    'course' => 'course',
+                    'date' => 'card_applications.created_at',
+                    'course' => 'courses.name',
                     'status' => 'has_card',
-                    default => 'last_name',
+                    default => 'students.last_name',
                 };
 
             // --- Query students ---
-            $students = Student::whereBetween('created_at', [$dateFrom, $dateTo])
-                ->when($department, fn($q) => $q->where('course', $department))
+            $students = Student::joinDetails()->whereBetween('card_applications.created_at', [$dateFrom, $dateTo])
+                ->when($department, fn($q) => $q->where('courses.name', $department))
                 ->orderBy($orderColumn, $sortDir)
-                ->when($sortBy === 'name', fn($q) => $q->orderBy('first_name', $sortDir))
+                ->when($sortBy === 'name', fn($q) => $q->orderBy('students.first_name', $sortDir))
                 ->get();
 
             // --- Aggregates ---

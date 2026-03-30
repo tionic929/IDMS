@@ -5,10 +5,10 @@
  * This avoids the cramped X-axis label problem entirely.
  * Bar click still fires onBarClick for the modal.
  */
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { ChartContainer } from './ChartContainer';
 import type { Department } from '../../types/analytics';
-import { ArrowUpRight, BarChart3, Medal } from 'lucide-react';
+import { BarChart3 } from 'lucide-react';
 
 // Static logo imports (Vite-safe)
 import abLogo from '../../assets/dept_logo/ab.webp';
@@ -30,20 +30,23 @@ const LOGO_MAP: Record<string, string> = {
   BSN: bsnLogo, COLA: colaLogo, MASTERAL: masteralLogo, MIDWIFERY: midwiferyLogo,
 };
 
-// Color pool for bar fills
-const BAR_COLORS = [
-  '#6366f1', '#3b82f6', '#10b981', '#f59e0b',
-  '#8b5cf6', '#ec4899', '#14b8a6', '#f97316',
-];
-
-const MEDAL_ICONS = ['🥇', '🥈', '🥉'];
-
-export const TallyChart: React.FC<{
+const TallyChartComponent: React.FC<{
   title?: string;
   data: Department[];
   onViewDetails?: () => void;
   onBarClick?: (deptName: string) => void;
 }> = ({ title = "Section Ranks", data, onViewDetails, onBarClick }) => {
+
+  // 1. Memoize sorting and max calculation
+  const { sorted, maxVal, visible } = useMemo(() => {
+    if (!data || data.length === 0) return { sorted: [], maxVal: 1, visible: [] };
+    const s = [...data].sort((a, b) => b.total - a.total);
+    return {
+      sorted: s,
+      maxVal: s[0]?.total || 1,
+      visible: s.slice(0, 8)
+    };
+  }, [data]);
 
   if (!data || data.length === 0) {
     return (
@@ -55,10 +58,6 @@ export const TallyChart: React.FC<{
       </ChartContainer>
     );
   }
-
-  const sorted = [...data].sort((a, b) => b.total - a.total);
-  const maxVal = sorted[0]?.total || 1;
-  const visible = sorted.slice(0, 8);
 
   return (
     <ChartContainer
@@ -90,17 +89,17 @@ export const TallyChart: React.FC<{
             <button
               key={dept.name}
               onClick={() => onBarClick?.(dept.name)}
-              className="w-full flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-accent transition-all group text-left relative overflow-hidden"
+              className="w-full flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-accent transition-all group text-left relative overflow-hidden outline-none"
             >
               <span className={`w-4 text-center flex-shrink-0 text-[10px] font-bold tabular-nums ${i < 3 ? 'text-primary' : 'text-muted-foreground'}`}>
                 {i + 1}
               </span>
 
-              <div className="w-6 h-6 rounded bg-slate-50 border border-slate-100 flex items-center justify-center flex-shrink-0 overflow-hidden transition-transform group-hover:scale-110">
+              <div className="w-6 h-6 rounded bg-muted/30 border border-border flex items-center justify-center flex-shrink-0 overflow-hidden transition-transform group-hover:scale-110">
                 {logo ? (
                   <img src={logo} alt={dept.name} className="w-full h-full object-contain opacity-80 group-hover:opacity-100" />
                 ) : (
-                  <span className="text-[8px] font-bold text-slate-400">
+                  <span className="text-[8px] font-bold text-muted-foreground uppercase">
                     {dept.name.slice(0, 2)}
                   </span>
                 )}
@@ -117,8 +116,8 @@ export const TallyChart: React.FC<{
                 </div>
                 <div className="h-[2px] w-full bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full rounded-full transition-all duration-1000"
-                    style={{ width: `${fillPct}%`, backgroundColor: '#00928a' }}
+                    className="h-full rounded-full transition-all duration-1000 ease-out"
+                    style={{ width: `${fillPct}%`, backgroundColor: 'hsl(var(--primary))' }}
                   />
                 </div>
               </div>
@@ -128,7 +127,7 @@ export const TallyChart: React.FC<{
 
         {sorted.length > 8 && (
           <div className="text-center py-2">
-            <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">
+            <span className="text-[9px] font-bold text-muted-foreground/30 uppercase tracking-widest italic">
               +{sorted.length - 8} Additional Entries
             </span>
           </div>
@@ -137,3 +136,6 @@ export const TallyChart: React.FC<{
     </ChartContainer>
   );
 };
+
+export const TallyChart = memo(TallyChartComponent);
+

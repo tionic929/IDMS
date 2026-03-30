@@ -89,13 +89,38 @@ const CanvasElement: React.FC<CanvasElementProps> = ({
             sceneFunc={(context, shape) => {
               const nodeW = shape.width();
               const nodeH = shape.height();
-              // Always stretch image to node dimensions so the bounding box never disconnects
-              context.drawImage(activeImage, 0, 0, nodeW, nodeH);
+              const iw = activeImage.width;
+              const ih = activeImage.height;
+
+              // Clip to bounding box so nothing bleeds outside
+              context.save();
+              context.beginPath();
+              context.rect(0, 0, nodeW, nodeH);
+              context.clip();
+
+              if (isPhoto) {
+                // object-fit: cover — fill box, crop overflow, centered
+                const ratio = Math.max(nodeW / iw, nodeH / ih);
+                const drawW = iw * ratio;
+                const drawH = ih * ratio;
+                const offsetX = (nodeW - drawW) / 2;
+                const offsetY = (nodeH - drawH) / 2;
+                context.drawImage(activeImage, offsetX, offsetY, drawW, drawH);
+              } else {
+                // object-fit: contain — fit inside box, centered
+                const ratio = Math.min(nodeW / iw, nodeH / ih);
+                const drawW = iw * ratio;
+                const drawH = ih * ratio;
+                const offsetX = (nodeW - drawW) / 2;
+                const offsetY = (nodeH - drawH) / 2;
+                context.drawImage(activeImage, offsetX, offsetY, drawW, drawH);
+              }
+
+              context.restore();
             }}
             hitFunc={(context, shape) => {
               const nodeW = shape.width();
               const nodeH = shape.height();
-
               context.beginPath();
               context.rect(0, 0, nodeW, nodeH);
               context.closePath();

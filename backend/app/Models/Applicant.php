@@ -11,51 +11,38 @@ class Applicant extends Model
 {
     use HasFactory, SoftDeletes;
 
+    const TYPE_STUDENT = 'student';
+    const TYPE_EMPLOYEE = 'employee';
+
     protected $table = 'students';
 
-    protected $casts = [
-        'has_card' => 'boolean',
-    ];
-
     protected $fillable = [
-        'id',
-        'has_card',
         'id_number',
+        'type',
         'first_name',
         'middle_initial',
         'last_name',
-        'manual_full_name',
-        'course',
+        'course_id',
+        'department',
         'address',
         'email',
         'guardian_name',
         'guardian_contact',
-        'id_picture',
-        'signature_picture',
-        'payment_type',
-        'payment_proof',
-        'reissuance_reason',
-        'is_archived',
-        'archived_at',
-        'created_at',
-        'application_status',
-        'rejection_reason',
     ];
 
-    /**
-     * Scope a query to only include active (non-archived) applicants.
-     */
-    public function scopeActive($query)
+    public function course()
     {
-        return $query->where('is_archived', false);
+        return $this->belongsTo(Course::class);
     }
 
-    /**
-     * Scope a query to only include archived applicants.
-     */
-    public function scopeArchived($query)
+    public function cardApplications()
     {
-        return $query->where('is_archived', true);
+        return $this->hasMany(CardApplication::class , 'student_id');
+    }
+
+    public function latestApplication()
+    {
+        return $this->hasOne(CardApplication::class , 'student_id')->latestOfMany();
     }
 
     /**
@@ -84,26 +71,5 @@ class Applicant extends Model
     public function getFullNameAttribute(): string
     {
         return trim("{$this->first_name} {$this->middle_initial} {$this->last_name}");
-    }
-
-    public function getIdPhotoUrlAttribute(): ?string
-    {
-        return $this->id_picture
-            ? asset('storage/' . $this->id_picture)
-            : null;
-    }
-
-    public function getSignatureUrlAttribute(): ?string
-    {
-        return $this->signature_picture
-            ? asset('storage/' . $this->signature_picture)
-            : null;
-    }
-
-    public function getPaymentProofUrlAttribute(): ?string
-    {
-        return $this->payment_proof
-            ? asset('storage/' . $this->payment_proof)
-            : null;
     }
 }

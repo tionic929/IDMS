@@ -6,11 +6,13 @@
   :root {
     /* Dynamic Theme Variables */
     --system-hue: 240;
+    --system-sat: 70%;
+    --system-light: 50%;
     
     /* We use HSL for primary so we can adjust it dynamically */
     --primary-h: var(--system-hue);
-    --primary-s: 70%;
-    --primary-l: 50%;
+    --primary-s: var(--system-sat);
+    --primary-l: var(--system-light);
     
     --background: 0 0% 100%;
     --foreground: var(--system-hue) 10% 10%;
@@ -39,8 +41,8 @@
   }
 
   .dark {
-    --primary-s: 80%;
-    --primary-l: 60%;
+    --primary-s: var(--system-sat);
+    --primary-l: max(var(--system-light), 60%);
     --background: var(--system-hue) 20% 4%;
     --foreground: var(--system-hue) 10% 98%;
     --card: var(--system-hue) 20% 6%;

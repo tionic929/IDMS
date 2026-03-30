@@ -36,6 +36,7 @@ class CardLayoutController extends Controller
 
         // Log activity
         ActivityLog::create([
+            'user_id' => auth()->id(),
             'user' => auth()->user()?->name ?? 'System',
             'action' => 'Template Created',
             'type' => 'activity',
@@ -65,6 +66,7 @@ class CardLayoutController extends Controller
 
         // Log activity
         ActivityLog::create([
+            'user_id' => auth()->id(),
             'user' => auth()->user()?->name ?? 'System',
             'action' => 'Template Updated',
             'type' => 'activity',

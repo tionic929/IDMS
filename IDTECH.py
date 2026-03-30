@@ -1,4 +1,6 @@
 import subprocess
+import shlex
+import sys
 import tkinter as tk
 import customtkinter as cctk
 from PIL import Image
@@ -160,7 +162,7 @@ class ProjectLauncher:
         self.stop_all()
         self.tray_icon.stop()
         self.root.destroy()
-        os._exit(0)
+        sys.exit(0)
 
     def check_port(self, port):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -204,15 +206,19 @@ class ProjectLauncher:
         try:
             # We use creationflags to hide the console window on Windows if desired, 
             # but ensure stdout is piped so we can see logs in our UI.
+            # FIX: On Windows, 'npm' is a .cmd/.ps1 script, so shell=True is REQUIRED for resolution.
+            use_shell = os.name == 'nt'
+            cmd_payload = service["cmd"] if use_shell else shlex.split(service["cmd"])
+
             proc = subprocess.Popen(
-                service["cmd"],
+                cmd_payload,
                 cwd=service["cwd"],
-                shell=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-                universal_newlines=True
+                universal_newlines=True,
+                shell=use_shell
             )
             self.processes[service_id] = proc
             threading.Thread(target=self.monitor_output, args=(service_id, proc), daemon=True).start()
@@ -250,7 +256,7 @@ class ProjectLauncher:
                     subprocess.call(['taskkill', '/F', '/T', '/PID', str(p.pid)])
                 else:
                     p.terminate()
-            except:
+            except Exception:
                 pass
             del self.processes[service_id]
             self.update_status_ui(service_id, "OFFLINE", "#666666")
