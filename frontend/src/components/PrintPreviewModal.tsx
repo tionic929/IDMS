@@ -11,7 +11,7 @@ import { Suspense, lazy } from 'react';
 
 const PaymentProofModal = lazy(() => import('./PaymentProofModal'));
 import { toast } from 'react-toastify';
-import { confirmApplicant } from '../api/students';
+import { markIssued } from '../api/students';
 import {
   PRINT_WIDTH,
   PRINT_HEIGHT,
@@ -173,7 +173,7 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
 
     if (hasRequire || isElectron) {
       try {
-        await confirmApplicant(data.id);
+        await markIssued(data.id);
         const { ipcRenderer } = (window as any).require('electron');
 
         toast.info('Sending to local printer service...');
@@ -200,11 +200,11 @@ const PrintPreviewModal: React.FC<PrintModalProps> = ({ data, layout, onClose })
     } else {
       if (window.confirm('Mark as ISSUED and open print dialog?')) {
         try {
-          await confirmApplicant(data.id);
+          await markIssued(data.id);
           toast.warn('Silent printing requires the Desktop App. Opening browser print...');
           window.print();
         } catch {
-          toast.error('Failed to confirm issuance.');
+          toast.error('Failed to mark as issued.');
         }
       }
     }

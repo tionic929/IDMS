@@ -32,8 +32,7 @@ export const ChartSkeleton = () => (
 export const DashboardSkeleton = () => {
     return (
         <div className="space-y-10">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                <MetricSkeleton />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                 <MetricSkeleton />
                 <MetricSkeleton />
                 <MetricSkeleton />

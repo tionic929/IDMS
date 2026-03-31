@@ -143,8 +143,6 @@ export default function Header({ isCollapsed, setIsCollapsed }: HeaderProps) {
         <div className="h-4 w-px bg-border" />
 
         <nav className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-muted-foreground">Platform</span>
-          <ChevronRight size={13} className="text-border" />
           <span className="text-xs font-semibold text-foreground">{ctx.title}</span>
           {ctx.subtitle && (
             <>

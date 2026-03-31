@@ -52,8 +52,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/applicant/{id}/archive', [ApplicantsController::class , 'archive']);
     Route::post('/applicant/{id}/reject', [ApplicantsController::class, 'reject']);
     Route::delete('/applicant/{student}', [ApplicantsController::class , 'destroy']);
+    Route::post('/applicant/{id}/restore', [ApplicantsController::class , 'restore']);
+    Route::post('/applicant/{id}/update-details', [ApplicantsController::class , 'updateDetails']);
     Route::post('/confirm-applicant/{studentId}', [ApplicantsController::class , 'updateApplicantsExcelFile']);
     Route::post('/confirm/{studentId}', [ApplicantsController::class , 'confirm']);
+    Route::post('/issue/{studentId}', [ApplicantsController::class , 'issue']);
     Route::post('/send-softcopy-email', [ApplicantsController::class , 'sendSoftcopyEmail']);
 
     Route::get('/analytics/dashboard', [AnalyticsController::class , 'getDashboardStats']);

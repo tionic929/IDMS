@@ -89,8 +89,7 @@ const ApplicantsIndex: React.FC = () => {
 
         {/* ── PAGE HEADER ────────────────────────────────────────── */}
         <div className="mb-8">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Reports / All Students</span>
-          <div className="flex items-center justify-between mt-1">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-5">
               <h1 className="text-3xl font-black tracking-tight text-foreground">All Students</h1>
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[9px] font-bold uppercase tracking-[0.1em]">

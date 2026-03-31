@@ -137,7 +137,6 @@ function ReportsExport() {
             {/* HEADER */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Reports / Export</span>
                     <h1 className="text-4xl font-black text-foreground tracking-tight">Export Reports</h1>
                     <p className="text-muted-foreground font-medium text-sm">Generate and download formatted spreadsheet reports.</p>
                 </div>

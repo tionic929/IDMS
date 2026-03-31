@@ -64,10 +64,17 @@ export const ConfirmedRow = React.memo(({
         <TableCell className="pl-4 py-3 px-3">
             <div className="flex items-center gap-3 min-w-0">
                 <div className="flex flex-col min-w-0">
-                    <span className="text-[8px] text-primary/70 font-bold uppercase leading-tight tracking-wider truncate">Full Name</span>
-                    <p className="text-[11px] font-black uppercase leading-tight text-primary truncate">
-                        {student.manual_full_name || `${student.first_name} ${student.middle_initial ? `${student.middle_initial} ` : ''}${student.last_name}`}
-                    </p>
+                    <span className="text-[8px] text-primary/70 font-bold uppercase leading-tight tracking-wider truncate pb-0.5">Full Name</span>
+                    <div className="flex items-center gap-2">
+                        <p className="text-[11px] font-black uppercase leading-tight text-primary truncate max-w-[120px]">
+                            {student.manual_full_name || `${student.first_name} ${student.middle_initial ? `${student.middle_initial} ` : ''}${student.last_name}`}
+                        </p>
+                        <span className={cn("text-[8px] font-black uppercase px-1.5 py-0.5 rounded",
+                            student.application_status === 'issued' ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
+                        )}>
+                            {student.application_status === 'issued' ? 'Issued' : 'Confirmed'}
+                        </span>
+                    </div>
                 </div>
             </div>
         </TableCell>

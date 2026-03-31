@@ -8,6 +8,9 @@ import {
   ChevronLeft, ChevronRight, Eye, RefreshCw, ShieldCheck, Download
 } from 'lucide-react';
 import type { DepartmentSidebarItem } from '@/types/departments';
+import { type Students } from '@/types/students';
+import ApplicantDetailsModal from '@/components/Modals/ApplicantDetailsModal';
+import { toCard } from '@/pages/CardManagement/utils';
 
 // shadcn UI
 import { Button } from "@/components/ui/button";
@@ -90,6 +93,7 @@ const DepartmentList: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedApplicantForModal, setSelectedApplicantForModal] = useState<Students | null>(null);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -176,11 +180,6 @@ const DepartmentList: React.FC = () => {
       {/* SIDEBAR */}
       <aside className="w-[320px] bg-card border-r border-border flex flex-col h-full z-10 shadow-sm relative">
         <div className="p-8 border-b border-border/50">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] opacity-80">Registry</span>
-            <span className="w-1 h-1 rounded-full bg-border" />
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] opacity-80">Units</span>
-          </div>
           <h2 className="text-xl font-black uppercase tracking-tight text-foreground">Directory</h2>
         </div>
 
@@ -241,7 +240,6 @@ const DepartmentList: React.FC = () => {
           {/* HEADER */}
           <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-10">
             <div className="relative">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Reports / Departments</span>
               <div className="flex items-baseline gap-4">
                 <h1 className="text-5xl font-black tracking-tighter text-foreground uppercase leading-none">{selectedDeptName}</h1>
                 <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary/5 text-primary text-[9px] font-bold uppercase tracking-[0.1em]">
@@ -307,9 +305,9 @@ const DepartmentList: React.FC = () => {
                 <Card className="bg-primary overflow-hidden border-none text-primary-foreground shadow-lg shadow-primary/10 rounded-lg relative group cursor-default">
                   <CardContent className="p-8 flex flex-col justify-center h-full">
                     <div className="relative z-10">
-                      <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">UNIT PARITY</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest opacity-60">DEPT SHARE</span>
                       <p className="text-xl font-black mt-1 tracking-tight uppercase">
-                        {parityPercent}% OF GLOBAL
+                        {parityPercent}% OF TOTAL
                       </p>
                     </div>
                     <GraduationCap className="absolute -right-6 -bottom-6 text-primary-foreground/10 group-hover:scale-110 transition-transform duration-700" size={160} />
@@ -322,7 +320,7 @@ const DepartmentList: React.FC = () => {
           {/* DATA TABLE */}
           <div className="space-y-5">
             <div className="flex items-center gap-4">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Listing Log</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Student List</span>
               <div className="flex-1 h-px bg-border" />
             </div>
 
@@ -339,10 +337,10 @@ const DepartmentList: React.FC = () => {
                     <TableHeader className="bg-muted/50 border-b border-border">
                       <TableRow className="hover:bg-transparent">
                         <TableHead className="pl-8 w-[150px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">ID Number</TableHead>
-                        <TableHead className="w-[280px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Identity</TableHead>
+                        <TableHead className="w-[280px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Student</TableHead>
                         <TableHead className="text-center w-[120px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Status</TableHead>
                         <TableHead className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Address</TableHead>
-                        <TableHead className="text-right pr-8 w-[120px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Actions</TableHead>
+                        {/* <TableHead className="text-right pr-8 w-[120px] text-[10px] font-bold text-muted-foreground uppercase tracking-widest py-4">Actions</TableHead> */}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -368,10 +366,10 @@ const DepartmentList: React.FC = () => {
                                 "inline-flex items-center gap-1.5 rounded-md px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border",
                                 s.has_card
                                   ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400"
-                                  : "bg-destructive/10 text-destructive border-destructive/20 dark:text-red-400"
+                                  : "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
                               )}>
-                                <div className={cn("h-1.5 w-1.5 rounded-full", s.has_card ? "bg-emerald-500" : "bg-destructive")} />
-                                {s.has_card ? "Issued" : "No ID"}
+                                <div className={cn("h-1.5 w-1.5 rounded-full", s.has_card ? "bg-emerald-500" : "bg-amber-500")} />
+                                {s.has_card ? "Issued" : "Pending"}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -382,11 +380,16 @@ const DepartmentList: React.FC = () => {
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell className="text-right pr-8">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all active:scale-90">
+                            {/* <TableCell className="text-right pr-8">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={() => setSelectedApplicantForModal(s)}
+                                className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all active:scale-90"
+                              >
                                 <Eye className="h-4 w-4" />
                               </Button>
-                            </TableCell>
+                            </TableCell> */}
                           </TableRow>
                         ))
                       ) : (
@@ -459,6 +462,13 @@ const DepartmentList: React.FC = () => {
           background: hsl(var(--muted-foreground) / 0.3);
         }
       `}</style>
+
+      {selectedApplicantForModal && (
+        <ApplicantDetailsModal
+          data={toCard(selectedApplicantForModal)}
+          onClose={() => setSelectedApplicantForModal(null)}
+        />
+      )}
     </div>
   );
 };

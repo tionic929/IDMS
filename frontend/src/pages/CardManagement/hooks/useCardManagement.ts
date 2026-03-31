@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useStudents } from '@/context/StudentContext';
 import { useTemplates } from '@/context/TemplateContext';
-import { archiveApplicant, deleteApplicant, confirmApplicant } from '@/api/students';
+import { archiveApplicant, deleteApplicant, confirmApplicant, updateApplicantDetails } from '@/api/students';
 import type { Students } from '@/types/students';
 import { type ApplicantCard } from '@/types/card';
 import { toCard } from '../utils';
@@ -25,9 +25,11 @@ export const useCardManagement = () => {
     const [printData, setPrintData] = useState<{ student: ApplicantCard; layout: any } | null>(null);
     const [viewingPaymentProof, setViewingPaymentProof] = useState<string | null>(null);
 
-    // Confirmation Modal State
+    // Confirmation Modal States
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [idsToConfirm, setIdsToConfirm] = useState<number[]>([]);
+    const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+    const [idsToArchive, setIdsToArchive] = useState<number[]>([]);
 
     // Right panel overrides
     const [overrides, setOverrides] = useState<any>({});
@@ -72,14 +74,39 @@ export const useCardManagement = () => {
         [allStudents, localArchivedIds, localDeletedIds]
     );
 
-    const pendingStudents = useMemo(() => effectiveStudents.filter(s => !s.has_card), [effectiveStudents]);
-    const confirmedStudents = useMemo(() => effectiveStudents.filter(s => s.has_card), [effectiveStudents]);
+    const pendingStudents = useMemo(() => effectiveStudents.filter(s => s.application_status === 'pending' || !s.application_status), [effectiveStudents]);
+    const confirmedStudents = useMemo(() => effectiveStudents.filter(s => s.application_status && s.application_status !== 'pending'), [effectiveStudents]);
 
     // ── layout resolver
-    const getLayout = useCallback((student: Students | null) => {
+    const getLayout = useCallback((student: any) => {
         if (!student || allTemplates.length === 0) return null;
-        const studentCourse = student.course.trim().toUpperCase();
-        const matched = allTemplates.find((t: any) => t.name.trim().toUpperCase() === studentCourse);
+        
+        const studentCourse = (student.course || '').trim().toUpperCase();
+        const studentDept = (student.department || '').trim().toUpperCase();
+        const studentType = (student.type || '').trim().toLowerCase();
+        
+        let targetTemplateName = studentCourse;
+        
+        if (studentType === 'employee' || studentCourse === 'EMPLOYEE' || studentDept === 'EMPLOYEE') {
+            targetTemplateName = 'EMPLOYEE';
+        } else {
+            // Comprehensive check for Masteral/Doctoral courses
+            const isMasteralCourse = [
+                'MASTERAL', 'DOCTORAL', 'MASTER', 'DOCTOR', 
+                'MAED', 'MBA', 'MPA', 'MAN', 'MIT', 'MSIT', 
+                'PHD', 'EDD', 'DBA', 'DPA'
+            ].some(prefix => studentCourse.startsWith(prefix) || studentCourse.includes(` ${prefix} `) || studentCourse === prefix);
+            
+            if (
+                isMasteralCourse ||
+                studentDept.includes('MASTERAL') || 
+                studentDept.includes('DOCTORAL')
+            ) {
+                targetTemplateName = 'MASTERAL';
+            }
+        }
+
+        const matched = allTemplates.find((t: any) => t.name.trim().toUpperCase() === targetTemplateName);
         const tpl = matched || allTemplates.find((t: any) => t.is_active) || allTemplates[0];
         return { front: tpl.front_config, back: tpl.back_config, previewImages: tpl.preview_images || { front: '', back: '' } };
     }, [allTemplates]);
@@ -169,18 +196,25 @@ export const useCardManagement = () => {
         }
     }, [idsToConfirm, updateStudentLocal, refetch]);
 
-    const handleArchive = useCallback(async (id: number) => {
-        if (!window.confirm('Archive this applicant?')) return;
-        setLocalArchivedIds(prev => new Set([...prev, id]));
-        if (previewingId === id) setPreviewingId(null);
-        try { await archiveApplicant(id); toast.success('Archived'); }
-        catch { setLocalArchivedIds(prev => { const n = new Set(prev); n.delete(id); return n; }); toast.error('Failed to archive'); }
-    }, [previewingId]);
+    const handleArchive = useCallback((id: number) => {
+        setIdsToArchive([id]);
+        setIsArchiveModalOpen(true);
+    }, []);
 
-    const handleArchiveSelected = useCallback(async () => {
+    const handleArchiveSelected = useCallback(() => {
         const ids = selectedIds.filter(id => pendingStudents.some(s => s.id === id));
+        if (ids.length === 0) {
+            toast.info('No pending applicants selected to reject');
+            return;
+        }
+        setIdsToArchive(ids);
+        setIsArchiveModalOpen(true);
+    }, [selectedIds, pendingStudents]);
+
+    const executeArchive = useCallback(async () => {
+        setIsArchiveModalOpen(false);
+        const ids = idsToArchive;
         if (ids.length === 0) return;
-        if (!window.confirm(`Archive ${ids.length} selected applicant(s)?`)) return;
 
         ids.forEach(id => setLocalArchivedIds(prev => new Set([...prev, id])));
         setSelectedIds([]);
@@ -192,9 +226,9 @@ export const useCardManagement = () => {
             toast.error(`${failed} archive(s) failed — refreshing`);
             refetch();
         } else {
-            toast.success(`${ids.length} applicant(s) archived`);
+            toast.success(`${ids.length} applicant(s) ${ids.length > 1 ? 'archived' : 'archived'}`);
         }
-    }, [selectedIds, pendingStudents, previewingId, refetch]);
+    }, [idsToArchive, previewingId, refetch]);
 
     const handleDelete = useCallback(async (id: number) => {
         if (!window.confirm('Permanently delete this applicant?')) return;
@@ -214,6 +248,30 @@ export const useCardManagement = () => {
             setPrintData({ student: previewCard, layout: previewLayout });
     }, [previewStudent, previewCard, previewLayout]);
 
+    const handleSaveDetails = useCallback(async () => {
+        if (!previewStudent || !hasOverrides) return;
+        
+        const id = previewStudent.id;
+        const data = { ...overrides };
+        
+        // Remove object URLs if any to prevent bloat/errors
+        if (typeof data.photo === 'string' && data.photo.startsWith('blob:')) delete data.photo;
+        if (typeof data.signature === 'string' && data.signature.startsWith('blob:')) delete data.signature;
+
+        // If we have actual File objects from an input, we should use them
+        // For simplicity in this iteration, we assume text overrides. 
+        // If the user uploaded a file, we should have stored it in the override state as a File.
+
+        try {
+            await updateApplicantDetails(id, data);
+            toast.success('Details updated and persisted');
+            resetOverrides();
+            refetch();
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || 'Failed to save details');
+        }
+    }, [previewStudent, overrides, hasOverrides, resetOverrides, refetch]);
+
     return {
         state: {
             studentsLoading,
@@ -229,6 +287,8 @@ export const useCardManagement = () => {
             viewingPaymentProof,
             isConfirmModalOpen,
             idsToConfirm,
+            isArchiveModalOpen,
+            idsToArchive,
             overrides,
             hasOverrides,
             selectedIds,
@@ -242,6 +302,7 @@ export const useCardManagement = () => {
             setPrintData,
             setViewingPaymentProof,
             setIsConfirmModalOpen,
+            setIsArchiveModalOpen,
             setPreviewingId,
             setPreviewSection,
             updateOverride,
@@ -252,9 +313,11 @@ export const useCardManagement = () => {
             executeConfirmation,
             handleArchive,
             handleArchiveSelected,
+            executeArchive,
             handleDelete,
             handlePrint,
-            handlePrintPreview
+            handlePrintPreview,
+            handleSaveDetails
         }
     };
 };

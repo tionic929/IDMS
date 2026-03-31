@@ -55,7 +55,7 @@ class DepartmentsController extends Controller
             );
 
             $data = Cache::remember($cacheKey, 600, function () use ($selectedDept, $search, $cursor) {
-                $query = Student::joinDetails()->select(
+                $query = Student::active()->joinDetails()->select(
                         'card_applications.id',
                         'students.id_number',
                         'students.first_name',

@@ -3,7 +3,7 @@ import { Panel, Group as PanelGroup } from 'react-resizable-panels';
 import {
     Search, RefreshCw, CheckCircle2,
     Database, CreditCard, X, Camera, MapPin, User as UserIcon, Receipt,
-    Printer, RotateCcw
+    Printer, RotateCcw, AlertCircle
 } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 
@@ -86,7 +86,7 @@ const CardManagementPage: React.FC = () => {
                             <div className="px-3 py-2 flex items-center justify-between shrink-0 bg-muted/30 border-b border-border">
                                 <div className="flex items-center gap-1.5">
                                     <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Pending Queue</span>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Pending List</span>
                                 </div>
                                 <div className="flex items-center gap-1.5">
                                     {state.someSelected && (
@@ -121,7 +121,7 @@ const CardManagementPage: React.FC = () => {
                                                     ? <CheckCircle2 size={12} className="text-primary" />
                                                     : <div className="w-3 h-3 border rounded opacity-30 hover:opacity-60 transition-opacity" />}
                                             </TableHead>
-                                            <TableHead className="text-[10px] font-black uppercase h-8 py-0 w-auto text-muted-foreground/70">Identity</TableHead>
+                                            <TableHead className="text-[10px] font-black uppercase h-8 py-0 w-auto text-muted-foreground/70">Student</TableHead>
                                             <TableHead className="text-[10px] font-black uppercase h-8 py-0 w-[70px] text-center text-muted-foreground/70">ID No.</TableHead>
                                             <TableHead className="text-[10px] font-black uppercase h-8 py-0 w-[70px] text-center text-muted-foreground/70">Course</TableHead>
                                             <TableHead className="text-[10px] font-black uppercase h-8 py-0 w-[70px] text-right pr-4 text-muted-foreground/70">Status</TableHead>
@@ -163,7 +163,7 @@ const CardManagementPage: React.FC = () => {
                                 <Table className="table-fixed w-full">
                                     <TableHeader>
                                         <TableRow className="hover:bg-transparent border-none">
-                                            <TableHead className="pl-4 text-[10px] font-black uppercase h-8 py-0 w-auto text-muted-foreground/70">Identity</TableHead>
+                                            <TableHead className="pl-4 text-[10px] font-black uppercase h-8 py-0 w-auto text-muted-foreground/70">Student</TableHead>
                                             <TableHead className="text-[10px] font-black uppercase h-8 py-0 w-[70px] text-center text-muted-foreground/70">ID No.</TableHead>
                                             <TableHead className="text-[10px] font-black uppercase h-8 py-0 w-[70px] text-center text-muted-foreground/70">Course</TableHead>
                                             <TableHead className="h-8 py-0 w-[80px]" />
@@ -367,6 +367,24 @@ const CardManagementPage: React.FC = () => {
                                         <input id="sig-input" type="file" hidden accept="image/*"
                                             onChange={e => { const f = e.target.files?.[0]; if (f) actions.updateOverride('signature', URL.createObjectURL(f)); }} />
                                     </div>
+
+                                    {state.hasOverrides && (
+                                        <div className="pt-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                            <Button 
+                                                onClick={actions.handleSaveDetails}
+                                                className="w-full h-10 bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 border-none rounded-xl flex items-center justify-center gap-2"
+                                            >
+                                                <RefreshCw size={14} className="animate-spin-slow" />
+                                                Save Overrides
+                                            </Button>
+                                            <button 
+                                                onClick={actions.resetOverrides}
+                                                className="w-full mt-2 py-2 text-[9px] font-black text-muted-foreground hover:text-foreground uppercase tracking-widest transition-colors"
+                                            >
+                                                Discard Changes
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </>
@@ -388,7 +406,7 @@ const CardManagementPage: React.FC = () => {
                                 <CheckCircle2 className="text-primary" size={24} />
                             </div>
                             <div>
-                                <h3 className="text-lg font-black text-foreground uppercase tracking-tight">Confirm Applicants</h3>
+                                <h3 className="text-lg font-black text-foreground uppercase tracking-tight">Approve Applicants</h3>
                                 <p className="text-xs font-medium text-muted-foreground mt-1">
                                     You are about to move <span className="text-foreground font-bold">{state.idsToConfirm.length}</span> applicant(s) to the issued list.
                                 </p>
@@ -414,6 +432,47 @@ const CardManagementPage: React.FC = () => {
                                 className="flex-1 h-11 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/25 border-none"
                             >
                                 Confirm & Move
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Reject / Archive Modal */}
+            <Dialog open={state.isArchiveModalOpen} onOpenChange={actions.setIsArchiveModalOpen}>
+                <DialogContent className="sm:max-w-[400px] bg-card border-border p-0 overflow-hidden rounded-2xl shadow-2xl">
+                    <div className="p-6">
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="w-12 h-12 rounded-2xl bg-destructive/10 flex items-center justify-center shrink-0 border border-destructive/20">
+                                <AlertCircle className="text-destructive" size={24} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-foreground uppercase tracking-tight">Archive Applicants</h3>
+                                <p className="text-xs font-medium text-muted-foreground mt-1">
+                                    You are about to archive <span className="text-foreground font-bold">{state.idsToArchive.length}</span> applicant(s).
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="bg-muted/50 rounded-xl p-4 border border-border mb-6">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-relaxed">
+                                Archiving these applicants will remove them from the active queue and move them to the Archive directory. They can be restored from the Archive page if needed.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <Button
+                                variant="ghost"
+                                onClick={() => actions.setIsArchiveModalOpen(false)}
+                                className="flex-1 h-11 rounded-xl text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:bg-muted transition-all border border-border"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={actions.executeArchive}
+                                className="flex-1 h-11 rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-destructive/25 border-none"
+                            >
+                                Confirm & Archive
                             </Button>
                         </div>
                     </div>

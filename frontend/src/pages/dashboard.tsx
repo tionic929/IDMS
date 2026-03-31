@@ -197,7 +197,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<any>({ label: 'Last 30 days', days: 30 });
   const [selectedDept, setSelectedDept] = useState<string | null>(null);
-  
+
   // Transition State for High-Performance Rendering
   const [isTransitioning, setIsTransitioning] = useState(false);
   const transitionTimerRef = useRef<any>(null);
@@ -205,17 +205,17 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    
+
     // Detect sidebar/window resizing
     const resizeObserver = new ResizeObserver(() => {
       // START FREEZE: Immediately lock charts
       setIsTransitioning(true);
-      
+
       if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current);
       transitionTimerRef.current = setTimeout(() => {
         // END FREEZE: Start the "Smooth Adjustment" phase
         setIsTransitioning(false);
-      }, 400); 
+      }, 400);
     });
 
     resizeObserver.observe(containerRef.current);
@@ -393,7 +393,7 @@ const Dashboard = () => {
           <DashboardSkeleton />
         ) : data ? (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10 will-change-transform translate-z-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-10 will-change-transform translate-z-0">
               {visibleMetrics.totalApplications && (
                 <MetricCard
                   title="Applications"
@@ -458,36 +458,36 @@ const Dashboard = () => {
               <div className="flex-1 h-px bg-border" />
             </div>
 
-              <div className="lg:col-span-12 h-[340px] grid grid-cols-1 lg:grid-cols-12 gap-5 mb-10 will-change-transform translate-z-0">
-                <div className="lg:col-span-5 h-full min-w-0 bg-card rounded-xl border border-border overflow-hidden">
-                  <VelocityChart
-                    title="Student Activity"
-                    data={data.trends}
-                    onViewDetails={handleVelocityDetails}
-                    isTransitioning={isTransitioning}
-                  />
-                </div>
-                <div className="lg:col-span-5 h-full min-w-0 bg-card rounded-xl border border-border overflow-hidden">
-                  <TallyChart
-                    title="Departments"
-                    data={data.departments.full_list}
-                    onViewDetails={handleTallyDetails}
-                    onBarClick={handleTallyBarClick}
-                  />
-                </div>
-                <div className="lg:col-span-2 h-full min-w-0 bg-card rounded-xl border border-border overflow-hidden">
-                  <DistributionChart
-                    title="Share"
-                    data={data.departments.full_list}
-                    onViewDetails={handleDistDetails}
-                    onSliceClick={handleDistSliceClick}
-                    isTransitioning={isTransitioning}
-                  />
-                </div>
+            <div className="lg:col-span-12 h-[340px] grid grid-cols-1 lg:grid-cols-12 gap-5 mb-10 will-change-transform translate-z-0">
+              <div className="lg:col-span-5 h-full min-w-0 bg-card rounded-xl border border-border overflow-hidden">
+                <VelocityChart
+                  title="Registration Activity"
+                  data={data.trends}
+                  onViewDetails={handleVelocityDetails}
+                  isTransitioning={isTransitioning}
+                />
               </div>
+              <div className="lg:col-span-5 h-full min-w-0 bg-card rounded-xl border border-border overflow-hidden">
+                <TallyChart
+                  title="Departments"
+                  data={data.departments.full_list}
+                  onViewDetails={handleTallyDetails}
+                  onBarClick={handleTallyBarClick}
+                />
+              </div>
+              <div className="lg:col-span-2 h-full min-w-0 bg-card rounded-xl border border-border overflow-hidden">
+                <DistributionChart
+                  title="Share"
+                  data={data.departments.full_list}
+                  onViewDetails={handleDistDetails}
+                  onSliceClick={handleDistSliceClick}
+                  isTransitioning={isTransitioning}
+                />
+              </div>
+            </div>
 
             <div className="flex items-center gap-4 mb-5">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Recent Applicants</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Recent Students</span>
               <div className="flex-1 h-px bg-border" />
             </div>
 

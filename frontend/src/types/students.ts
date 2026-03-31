@@ -1,6 +1,7 @@
 export interface Students {
   id: number;
   has_card: boolean;
+  application_status?: string;
   id_number: string;
   first_name: string;
   middle_initial: string;

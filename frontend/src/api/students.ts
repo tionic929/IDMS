@@ -25,9 +25,18 @@ export const getPaginatedApplicants = async (
     return request.data;
 }
 
-export const getArchivedApplicants = async (page: number = 1): Promise<PaginatedResponse> => {
+export const getArchivedApplicants = async (
+    search: string = '',
+    page: number = 1,
+    sortBy: string = '',
+    sortDir: string = 'desc'
+): Promise<PaginatedResponse> => {
     const request = await api.get('/archived-applicants', {
-        params: { page }
+        params: {
+            search,
+            page,
+            ...(sortBy && { sort_by: sortBy, sort_dir: sortDir }),
+        }
     });
     return request.data;
 }
@@ -47,6 +56,11 @@ export const confirmApplicant = async (studentId: number): Promise<{ message: st
     return data;
 }
 
+export const markIssued = async (studentId: number): Promise<{ message: string }> => {
+    const { data } = await api.post(`/issue/${studentId}`);
+    return data;
+}
+
 export const togglehasCard = async (studentId: number, field: keyof Students) => {
     const request = await api.put(`/applicant/${studentId}/toggle`, {
         field: field
@@ -61,5 +75,27 @@ export const deleteApplicant = async (studentId: number): Promise<{ message: str
 
 export const archiveApplicant = async (studentId: number): Promise<{ message: string }> => {
     const request = await api.post(`/applicant/${studentId}/archive`);
+    return request.data;
+}
+
+export const restoreApplicant = async (id: number): Promise<{ message: string }> => {
+    const request = await api.post(`/applicant/${id}/restore`);
+    return request.data;
+}
+
+export const updateApplicantDetails = async (id: number, data: any): Promise<{ message: string }> => {
+    // We send as FormData if files are present, but for now objects work too if we handle on backend
+    // Let's use FormData to be safe for photo/signature updates
+    const formData = new FormData();
+    Object.keys(data).forEach(key => {
+        if (data[key] !== null && data[key] !== undefined) {
+            formData.append(key, data[key]);
+        }
+    });
+    const request = await api.post(`/applicant/${id}/update-details`, formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
     return request.data;
 }

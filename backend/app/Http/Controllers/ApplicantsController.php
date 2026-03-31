@@ -72,13 +72,13 @@ class ApplicantsController extends Controller
                 return response()->json(['message' => 'No active application found.'], 404);
             }
 
-            // 2. Perform the update
-            $application->update(['has_card' => true, 'application_status' => 'approved']);
+            // 2. Perform the update: Set to approved but keep has_card false
+            $application->update(['application_status' => 'approved']);
 
-            // 3. Log the successful card issuance for audit purposes
-            Log::info("ID Card issued successfully for Student ID: {$studentId}", [
+            // 3. Log the successful card confirmation for audit purposes
+            Log::info("ID Card confirmed for Student ID: {$studentId}", [
                 'student_name' => $student->full_name,
-                'issued_at' => now()
+                'confirmed_at' => now()
             ]);
 
             // 4. Notify idtechv2 webhook
@@ -93,10 +93,10 @@ class ApplicantsController extends Controller
             ActivityLog::create([
                 'user_id' => auth()->id(),
                 'user' => auth()->user()?->name ?? 'System',
-                'action' => 'ID Card Issued',
+                'action' => 'Applicant Confirmed',
                 'type' => 'card_issuance',
-                'details' => "ID Card for {$student->full_name} ({$student->id_number}) has been marked as ISSUED.",
-                'status' => 'success',
+                'details' => "Application for {$student->full_name} ({$student->id_number}) has been marked as CONFIRMED.",
+                'status' => 'info',
                 'ip' => request()->ip(),
             ]);
 
@@ -109,7 +109,7 @@ class ApplicantsController extends Controller
 
         } catch (ModelNotFoundException $e) {
             // Log that someone tried to update a non-existent ID
-            Log::warning("Attempted to issue card for non-existent Student ID: {$studentId}");
+            Log::warning("Attempted to confirm card for non-existent Student ID: {$studentId}");
 
             return response()->json([
                 'message' => 'Student not found.'
@@ -124,6 +124,50 @@ class ApplicantsController extends Controller
             return response()->json([
                 'message' => 'An internal error occurred while updating the card status.'
             ], 500);
+        }
+    }
+
+    public function issue($studentId)
+    {
+        try {
+            $student = Student::findOrFail($studentId);
+            $application = $student->latestApplication;
+
+            if (!$application) {
+                return response()->json(['message' => 'No active application found.'], 404);
+            }
+
+            // Set to issued and has_card to true
+            $application->update(['has_card' => true, 'application_status' => 'issued']);
+
+            // Log the successful card issuance
+            Log::info("ID Card issued physically for Student ID: {$studentId}", [
+                'student_name' => $student->full_name,
+                'issued_at' => now()
+            ]);
+
+            // Log activity
+            ActivityLog::create([
+                'user_id' => auth()->id(),
+                'user' => auth()->user()?->name ?? 'System',
+                'action' => 'ID Card Issued',
+                'type' => 'card_issuance',
+                'details' => "ID Card for {$student->full_name} ({$student->id_number}) has been PRINTED and marked as ISSUED.",
+                'status' => 'success',
+                'ip' => request()->ip(),
+            ]);
+
+            $formatted = $this->formatApplications(collect([$application]))->first();
+
+            return response()->json([
+                'message' => 'Student card marked as issued',
+                'student' => $formatted
+            ], 200);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json(['message' => 'Student not found.'], 404);
+        } catch (Exception $e) {
+            return response()->json(['message' => 'An internal error occurred while updating the card status.'], 500);
         }
     }
 
@@ -160,6 +204,8 @@ class ApplicantsController extends Controller
                 'signature_picture' => $app->signature_picture,
                 'payment_proof' => $app->payment_proof,
                 'has_card' => $app->has_card,
+                'application_status' => $app->application_status ?? 'pending',
+
                 'created_at' => $app->created_at,
                 'formatted_date' => $app->created_at ? $app->created_at->format('M d, Y') : null,
                 'formatted_time' => $app->created_at ? $app->created_at->format('g:i A') : null,
@@ -619,18 +665,46 @@ class ApplicantsController extends Controller
         }
     }
 
-    public function getArchived()
+    public function getArchived(Request $request)
     {
-        $archived = CardApplication::with(['student.course'])->archived()
+        $search = $request->query('search');
+        $query = CardApplication::with(['student.course'])->archived()
             ->join('students', 'card_applications.student_id', '=', 'students.id')
+            ->leftJoin('courses', 'students.course_id', '=', 'courses.id')
             ->whereNull('students.deleted_at')
-            ->select('card_applications.*')
-            ->orderBy('archived_at', 'desc')
-            ->paginate(20);
+            ->select('card_applications.*');
 
-        $archived->setCollection($this->formatApplications($archived->getCollection()));
+        // Dynamic sort
+        $sortBy = $request->query('sort_by', '');
+        $sortDir = in_array($request->query('sort_dir'), ['asc', 'desc']) ? $request->query('sort_dir') : 'desc';
+        $sortMap = [
+            'name' => 'students.last_name',
+            'date' => 'card_applications.archived_at',
+            'course' => 'courses.name',
+        ];
 
-        return response()->json($archived);
+        if (isset($sortMap[$sortBy])) {
+            $query->orderBy($sortMap[$sortBy], $sortDir);
+        } else {
+            $query->orderBy('card_applications.archived_at', 'desc');
+        }
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                if (is_numeric($search)) {
+                    $q->where('card_applications.id', $search);
+                }
+                $q->orWhere('students.first_name', 'LIKE', "%{$search}%")
+                    ->orWhere('students.last_name', 'LIKE', "%{$search}%")
+                    ->orWhere('students.id_number', 'LIKE', "%{$search}%")
+                    ->orWhere('students.guardian_contact', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $paginated = $query->paginate(20);
+        $paginated->setCollection($this->formatApplications($paginated->getCollection()));
+
+        return response()->json($paginated);
     }
 
     public function destroy($id)
@@ -692,6 +766,103 @@ class ApplicantsController extends Controller
 
             return response()->json([
                 'message' => 'Failed to send email: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function restore($id)
+    {
+        try {
+            $application = CardApplication::findOrFail($id);
+            $application->update([
+                'is_archived' => false,
+                'archived_at' => null,
+            ]);
+
+            ActivityLog::create([
+                'user_id' => auth()->id(),
+                'user' => auth()->user()?->name ?? 'System',
+                'action' => 'Applicant Restored',
+                'type' => 'activity',
+                'details' => "Application #{$id} has been restored from archive.",
+                'status' => 'success',
+                'ip' => request()->ip(),
+            ]);
+
+            return response()->json(['message' => 'Applicant restored successfully'], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Failed to restore applicant',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function updateDetails(Request $request, $id)
+    {
+        try {
+            $application = CardApplication::with('student')->findOrFail($id);
+            $student = $application->student;
+
+            if (!$student) {
+                return response()->json(['message' => 'Student not found'], 404);
+            }
+
+            $fields = $request->only([
+                'first_name', 'last_name', 'id_number',
+                'guardian_name', 'guardian_contact', 'address', 'email'
+            ]);
+
+            // Handle full_name split into first/last
+            if ($request->has('fullName') && !$request->has('first_name')) {
+                $parts = explode(' ', trim($request->fullName), 2);
+                $fields['first_name'] = $parts[0] ?? '';
+                $fields['last_name'] = $parts[1] ?? '';
+            }
+
+            // Update course via the card application's linked course
+            if ($request->has('course')) {
+                $course = Course::where('name', $request->course)->first();
+                if ($course) {
+                    $student->course_id = $course->id;
+                }
+            }
+
+            $student->fill(array_filter($fields, fn($v) => $v !== null));
+            $student->save();
+
+            // Handle photo upload
+            if ($request->hasFile('photo_file')) {
+                $path = $request->file('photo_file')->store('id_pictures', 'public');
+                $student->update(['id_picture' => $path]);
+            }
+
+            // Handle signature upload
+            if ($request->hasFile('signature_file')) {
+                $path = $request->file('signature_file')->store('signatures', 'public');
+                $student->update(['signature_picture' => $path]);
+            }
+
+            ActivityLog::create([
+                'user_id' => auth()->id(),
+                'user' => auth()->user()?->name ?? 'System',
+                'action' => 'Details Updated',
+                'type' => 'activity',
+                'details' => "Details updated for {$student->full_name}.",
+                'status' => 'info',
+                'ip' => request()->ip(),
+            ]);
+
+            return response()->json(['message' => 'Details updated successfully'], 200);
+        } catch (\Exception $e) {
+            Log::error('Error updating details', [
+                'application_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to update details',
+                'error' => $e->getMessage()
             ], 500);
         }
     }

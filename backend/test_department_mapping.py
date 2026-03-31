@@ -25,7 +25,6 @@ try:
         print(f"  Course (mapped): {student_data.get('course')}")
         print(f"  Department: {student_data.get('department')}")
         
-        # Verify the mapping
         if student_data.get('course') == 'IT SUPPORT':
             print("\nVERIFICATION SUCCESS: 'Employee' course correctly mapped to 'IT SUPPORT' department.")
         else:

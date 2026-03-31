@@ -10,7 +10,7 @@ import {
   ArrowUpToLine, ArrowDownToLine, Unlock, Lock,
   Type, Image as ImageIcon, Layers, Move,
   Maximize2, Copy, Search, User, CreditCard, Building, Camera,
-  RefreshCw, Layout
+  RefreshCw, Layout, Square
 } from 'lucide-react';
 
 // ─── Shared sub-components ──────────────────────────────────────────
@@ -273,6 +273,8 @@ export const DesignerPropertyPanel: React.FC = () => {
   const config = currentSideData[selectedId];
   const isText = config.type === 'text' || (!config.type && !['photo', 'signature'].includes(selectedId));
   const isImage = config.type === 'image' || ['photo', 'signature'].includes(selectedId);
+  const isShape = config.type === 'rect' || config.type === 'circle';
+  const isRect = config.type === 'rect';
 
   const onDelete = () => {
     if (!deleteArmed) {
@@ -524,6 +526,41 @@ export const DesignerPropertyPanel: React.FC = () => {
                 value={config.maxLines || 1}
                 min={1} max={20}
                 onChange={v => updateItem(selectedId, { maxLines: Math.round(v) })}
+              />
+            )}
+          </PropertyGroup>
+        )}
+
+        {/* SHAPE PROPERTIES GROUP */}
+        {isShape && (
+          <PropertyGroup title="Shape Properties" icon={Square}>
+            {/* Fill Color */}
+            <div>
+              <Label>Fill Color</Label>
+              <div className="flex items-center gap-2.5 p-1.5 bg-muted/50 border border-border rounded-lg">
+                <input
+                  type="color"
+                  value={config.fill || '#6366f1'}
+                  onChange={e => updateItem(selectedId, { fill: e.target.value })}
+                  className="w-8 h-8 rounded-md cursor-pointer border-none bg-transparent"
+                />
+                <input
+                  type="text"
+                  value={(config.fill || '#6366f1').toUpperCase()}
+                  onChange={e => updateItem(selectedId, { fill: e.target.value })}
+                  className="flex-1 bg-transparent text-[10px] font-black font-mono tracking-widest text-muted-foreground outline-none uppercase"
+                />
+              </div>
+            </div>
+
+            {/* Corner Radius — Rect only */}
+            {isRect && (
+              <SliderInput
+                label="Corner Radius"
+                value={config.radius || 0}
+                min={0} max={100}
+                onChange={v => updateItem(selectedId, { radius: v })}
+                suffix="px"
               />
             )}
           </PropertyGroup>

@@ -75,7 +75,7 @@ const navItems: NavItem[] = [
     icon: FileText,
     children: [
       { label: "Applicants", to: "/applicants" },
-      { label: "Archived", to: "/reports/archived" },
+      { label: "Archive", to: "/reports/archived" },
       { label: "Departments", to: "/departments" },
       { label: "Export", to: "/reports/export" },
     ],
